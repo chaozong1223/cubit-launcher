@@ -1,0 +1,39 @@
+name: 💡 功能建议
+description: 想要的功能、体验改进、对标 PCL / HMCL 的能力
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎提建议。如果是对标 PCL2 或 HMCL 的某个具体做法，直接写清楚是哪一项，最有帮助。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你遇到的不方便
+      description: 先说痛点，再说方案 —— 这样更容易判断值不值得做
+      placeholder: 例：每次换 Java 都要手动找路径，很烦
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你希望怎么做
+      placeholder: 例：像 HMCL 那样自动匹配并下载对应 Java
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 对你来说有多重要
+      options:
+        - 影响日常使用（经常碰到）
+        - 偶尔用得到
+        - 只是锦上添花
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: 参考（可选）
+      description: 其它启动器的做法、截图、链接都可以

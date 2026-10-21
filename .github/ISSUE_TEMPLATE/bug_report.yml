@@ -1,0 +1,58 @@
+name: 🐛 Bug 报告
+description: 启动器崩溃、启动失败、下载异常、联机连不上等问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量填完整，**没有日志的 bug 很难定位**。
+        隐私提醒：贴日志前请删掉 accessToken、refresh_token、账号邮箱等敏感信息。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 你期望的结果 vs 实际结果
+      placeholder: 例：点「启动游戏」后窗口闪一下就没了，日志里出现 xxx
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开启动器
+        2. 选择实例 1.20.1
+        3. 点击启动
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 启动器版本 / 提交号
+      placeholder: 例：v0.1.0 (9e5e62c)
+    validations:
+      required: true
+  - type: input
+    id: mc
+    attributes:
+      label: Minecraft 版本与加载器
+      placeholder: 例：1.20.1 + Forge 47.2.0 / Fabric 0.16.0 / 原版
+  - type: input
+    id: env
+    attributes:
+      label: 系统环境
+      placeholder: 例：Windows 11 26100 / Java 17.0.15 / 16G 内存
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: 启动器「日志」页可导出诊断包；也可以直接贴 launcher.log 尾部
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 自查
+      options:
+        - label: 我已尝试最新提交，问题仍存在
+        - label: 我已删除日志中的敏感信息
