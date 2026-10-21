@@ -1,0 +1,30 @@
+{
+  "instances": [
+    {
+      "id": "bad-parent",
+      "state": "unsupported",
+      "reason": "VERSION_PARENT_NOT_FOUND: parent version not found: no-such-parent"
+    },
+    {
+      "id": "forge-like",
+      "state": "ready",
+      "reason": null
+    }
+  ],
+  "merged": {
+    "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+    "classpathCount": 44,
+    "hasParentLibrary": true,
+    "placeholders": [],
+    "argvCount": 48,
+    "dryRunFile": true
+  },
+  "badParent": {
+    "ok": false,
+    "error": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "parent version not found: no-such-parent",
+      "retryable": false
+    }
+  }
+}

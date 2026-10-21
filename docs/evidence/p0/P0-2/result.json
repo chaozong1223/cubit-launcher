@@ -1,0 +1,221 @@
+{
+  "pages": {
+    "#/settings/account": {
+      "screenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-2\\settings-account.png",
+      "lines": [
+        "Cubit",
+        "LAUNCHER",
+        "设置",
+        "本地运行",
+        "T",
+        "TestUser",
+        "版本 0.1.0",
+        "游玩",
+        "主页",
+        "实例",
+        "存档",
+        "截图",
+        "获取",
+        "安装与下载",
+        "资源库",
+        "模组更新",
+        "一起玩",
+        "联机",
+        "系统",
+        "日志",
+        "回收站",
+        "设置",
+        "关于",
+        "T",
+        "TestUser",
+        "offline 账户"
+      ]
+    },
+    "#/settings/java": {
+      "screenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-2\\settings-java.png",
+      "lines": [
+        "Cubit",
+        "LAUNCHER",
+        "设置",
+        "本地运行",
+        "T",
+        "TestUser",
+        "版本 0.1.0",
+        "游玩",
+        "主页",
+        "实例",
+        "存档",
+        "截图",
+        "获取",
+        "安装与下载",
+        "资源库",
+        "模组更新",
+        "一起玩",
+        "联机",
+        "系统",
+        "日志",
+        "回收站",
+        "设置",
+        "关于",
+        "T",
+        "TestUser",
+        "offline 账户"
+      ]
+    },
+    "#/settings/launch": {
+      "screenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-2\\settings-launch.png",
+      "lines": [
+        "Cubit",
+        "LAUNCHER",
+        "设置",
+        "本地运行",
+        "T",
+        "TestUser",
+        "版本 0.1.0",
+        "游玩",
+        "主页",
+        "实例",
+        "存档",
+        "截图",
+        "获取",
+        "安装与下载",
+        "资源库",
+        "模组更新",
+        "一起玩",
+        "联机",
+        "系统",
+        "日志",
+        "回收站",
+        "设置",
+        "关于",
+        "T",
+        "TestUser",
+        "offline 账户"
+      ]
+    },
+    "#/logs": {
+      "screenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-2\\logs-page.png",
+      "lines": [
+        "Cubit",
+        "LAUNCHER",
+        "日志",
+        "本地运行",
+        "T",
+        "TestUser",
+        "版本 0.1.0",
+        "游玩",
+        "主页",
+        "实例",
+        "存档",
+        "截图",
+        "获取",
+        "安装与下载",
+        "资源库",
+        "模组更新",
+        "一起玩",
+        "联机",
+        "系统",
+        "日志",
+        "回收站",
+        "设置",
+        "关于",
+        "T",
+        "TestUser",
+        "offline 账户"
+      ]
+    },
+    "#/download": {
+      "screenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-2\\download-page.png",
+      "lines": [
+        "Cubit",
+        "LAUNCHER",
+        "安装与下载",
+        "本地运行",
+        "T",
+        "TestUser",
+        "版本 0.1.0",
+        "游玩",
+        "主页",
+        "实例",
+        "存档",
+        "截图",
+        "获取",
+        "安装与下载",
+        "资源库",
+        "模组更新",
+        "一起玩",
+        "联机",
+        "系统",
+        "日志",
+        "回收站",
+        "设置",
+        "关于",
+        "T",
+        "TestUser",
+        "offline 账户"
+      ]
+    },
+    "#/instances": {
+      "screenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-2\\instances-page.png",
+      "lines": [
+        "Cubit",
+        "LAUNCHER",
+        "实例",
+        "本地运行",
+        "T",
+        "TestUser",
+        "版本 0.1.0",
+        "游玩",
+        "主页",
+        "实例",
+        "存档",
+        "截图",
+        "获取",
+        "安装与下载",
+        "资源库",
+        "模组更新",
+        "一起玩",
+        "联机",
+        "系统",
+        "日志",
+        "回收站",
+        "设置",
+        "关于",
+        "T",
+        "TestUser",
+        "offline 账户"
+      ]
+    }
+  },
+  "accounts": [
+    {
+      "name": "TestUser",
+      "kind": "offline"
+    },
+    {
+      "name": "SecondUser",
+      "kind": "offline"
+    },
+    {
+      "name": "AuthUser",
+      "kind": "authlib"
+    }
+  ],
+  "selectedBeforeRestart": "948b2d4b-4bfd-4d15-beca-b3f794103286",
+  "selectedAfterRestart": "948b2d4b-4bfd-4d15-beca-b3f794103286",
+  "selectedNameAfterRestart": "TestUser",
+  "after": [
+    {
+      "name": "TestUser",
+      "kind": "offline"
+    },
+    {
+      "name": "SecondUser",
+      "kind": "offline"
+    },
+    {
+      "name": "AuthUser",
+      "kind": "authlib"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "workspace": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy",
+  "steps": {
+    "room": {
+      "code": "7B7WJ9",
+      "invite": "MCL-7B7WJ9",
+      "state": "waiting"
+    },
+    "goodJoin": {
+      "state": "connected",
+      "code": null,
+      "message": null
+    },
+    "membersA": [
+      {
+        "id": "9794b683e34c",
+        "name": "玩家",
+        "role": "member",
+        "mcVersion": "1.20.1",
+        "loader": "vanilla",
+        "pingMs": null,
+        "path": "direct"
+      }
+    ],
+    "membersB": [
+      {
+        "id": "9794b683e34c",
+        "name": "玩家",
+        "role": "member",
+        "mcVersion": "1.20.1",
+        "loader": "vanilla",
+        "pingMs": null,
+        "path": "direct"
+      }
+    ],
+    "hostA": {
+      "name": "房主",
+      "mcVersion": "1.20.1",
+      "loader": "vanilla"
+    },
+    "hostScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-6\\link-host-room.png",
+    "memberScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-6\\link-member-room.png",
+    "shortCode": {
+      "state": "error",
+      "code": "INVITE_INCOMPLETE",
+      "message": "6 位房间号只用于同一局域网发现；请复制完整邀请码"
+    },
+    "tampered": {
+      "state": "error",
+      "code": "TICKET_SIGNATURE_INVALID",
+      "message": "signature verification failed"
+    },
+    "incomplete": {
+      "state": "error",
+      "code": "TICKET_MALFORMED",
+      "message": "ticket prefix/parts"
+    },
+    "qaInstance": {
+      "id": "1.20.1",
+      "dirName": "qa-1.20.4",
+      "name": "1.20.1",
+      "mcVersion": "1.20.1",
+      "loader": {
+        "type": "vanilla",
+        "version": null
+      },
+      "state": "ready",
+      "reason": null,
+      "isolation": "isolated",
+      "lastPlayedAt": null,
+      "icon": null,
+      "javaMajor": 17
+    },
+    "real1204": {
+      "id": "1.20.4",
+      "dirName": "1.20.4",
+      "name": "1.20.4",
+      "mcVersion": "1.20.4",
+      "loader": {
+        "type": "vanilla",
+        "version": null
+      },
+      "state": "ready",
+      "reason": null,
+      "isolation": "isolated",
+      "lastPlayedAt": null,
+      "icon": null,
+      "javaMajor": 17
+    },
+    "versionMismatch": {
+      "state": "error",
+      "code": "VERSION_MISMATCH",
+      "message": "host 1.20.1, local 1.20.4"
+    },
+    "close": {
+      "elapsedMs": 1,
+      "state": null,
+      "code": null
+    },
+    "rejoinClosed": {
+      "state": "error",
+      "code": "PORT_MAPPING_REQUIRED",
+      "message": "当前网络无法自动建立连接，请按手动端口映射指引操作，或配置一个可达的中继节点。"
+    },
+    "statusAfter": null
+  }
+}

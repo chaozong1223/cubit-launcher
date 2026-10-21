@@ -1,0 +1,28 @@
+node_modules/
+out/
+release/
+data/
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+.vite/
+.DS_Store
+Thumbs.db
+
+# test / e2e artifacts (can be multi-GB)
+.e2e/
+tmp-smoke-data/
+*.tmp
+*.part
+
+# local env / secrets — never commit tokens
+.env
+.env.*
+!.env.example
+
+# PoC binaries (EasyTier / MC server) - downloadable, not source
+poc/link/tools/
+*.exe
+*.zip
+*.jar

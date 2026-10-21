@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "startedAt": "2026-10-21T11:49:16.912Z",
+  "durationMs": 21286,
+  "workspace": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy",
+  "install": {
+    "jobId": "2a08b06d-5644-4c17-b147-fdca9fb1fb19",
+    "files": 3641,
+    "bytes": 735402462,
+    "missingFiles": 0,
+    "missingBytes": 0
+  },
+  "installState": {
+    "state": "done",
+    "done": 3641,
+    "total": 3641
+  },
+  "offlineAccount": {
+    "id": "d6f3043e-db39-419a-9a92-63c9d25ed950",
+    "name": "TestUser",
+    "uuid": "097d3392-865a-3f3c-8b4a-da1c3473466c"
+  },
+  "offlinePlan": {
+    "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+    "javaMajor": 17,
+    "argc": 48,
+    "hasUser": true,
+    "hasOfflineToken": true,
+    "warnings": 0
+  },
+  "authlib": {
+    "info": {
+      "version": "1.2.8",
+      "sha256": "9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce17da00c6d5a7b10",
+      "jarPath": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\java\\authlib-injector\\authlib-injector-1.2.8.jar",
+      "downloaded": false,
+      "server": "https://littleskin.cn/api/yggdrasil"
+    },
+    "accountId": "b15c18e4-4143-43b8-97a5-db085fc371f2",
+    "javaagent": "-javaagent:D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\java\\authlib-injector\\authlib-injector-1.2.8.jar=https://littleskin.cn/api/yggdrasil",
+    "injected": true
+  },
+  "microsoftMissingConfig": "mc:auth:beginDeviceCode failed: MS_CLIENT_ID_MISSING 未配置微软应用 ID，正版登录暂不可用 {\"hint\":\"设置 MCL_MS_CLIENT_ID（可选 MCL_MS_TENANT），或在设置页填入 Azure 应用的客户端 ID；离线账户可正常使用。\",\"docs\":\"https://learn.microsoft.com/entra/identity-platform/quickstart-register-app\"}",
+  "sessionId": "d720cab6-a007-4fd6-a7b1-babc043bfd89",
+  "mainMenu": {
+    "found": true,
+    "settingUser": true
+  },
+  "finalStatus": {
+    "ok": true,
+    "data": {
+      "instanceId": "1.20.1",
+      "state": "crashed",
+      "sessionId": "d720cab6-a007-4fd6-a7b1-babc043bfd89",
+      "startedAt": 1792583360937,
+      "exitCode": null,
+      "durationMs": 14239,
+      "reportReady": true
+    }
+  },
+  "warnings": [],
+  "launcherLog": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\launcher.log",
+  "gameLog": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\logs\\latest.log"
+}

@@ -1,0 +1,60 @@
+﻿{
+    "runId":  "20261021-132357",
+    "startedAt":  "2026-10-21T13:23:59.2682478+08:00",
+    "backend":  "mc",
+    "host":  {
+                 "bindIp":  "26.125.118.57",
+                 "aliasIp":  "127.0.0.55",
+                 "peerPort":  58896,
+                 "rpcPort":  58897,
+                 "networkName":  "mcl-poc",
+                 "mode":  "no-tun",
+                 "mappedCidr":  "192.168.77.1/32"
+             },
+    "member":  {
+                   "localWorldPort":  58899,
+                   "localDecoyPort":  58900,
+                   "rpcPort":  58898,
+                   "mode":  "no-tun"
+               },
+    "steps":  [
+                  {
+                      "name":  "public-shared-node",
+                      "ok":  true,
+                      "detail":  "resolves=False tcp11010=False (expected NXDOMAIN from this network)",
+                      "at":  "2026-10-21T13:23:59.5420732+08:00"
+                  },
+                  {
+                      "name":  "tun-mode-probe",
+                      "ok":  false,
+                      "detail":  "TUN requires admin: False",
+                      "at":  "2026-10-21T13:24:03.7751965+08:00"
+                  },
+                  {
+                      "name":  "fatal",
+                      "ok":  false,
+                      "detail":  "missing Java: D:\\DSH-宸ヤ綔鏂囦欢\\tools\\jdk21\\jdk-21.0.12.1+1\\bin\\java.exe",
+                      "at":  "2026-10-21T13:24:03.7782057+08:00"
+                  }
+              ],
+    "ok":  false,
+    "hashes":  {
+                   "zip":  "790fd9be347b00753570ac2b65f874a591ede9427603fe34e74a86b2b084847f",
+                   "zipBytes":  39616733,
+                   "easytier-core.exe":  "6490c6f5b5b809065517bb3324ca34c0f1f367f81b7fda04a6352391508b8ff8",
+                   "easytier-cli.exe":  "3afdf2e4306c3f8d65408ddd230c7e4118ffdb5d550921022aed9966693c82ba",
+                   "wintun.dll":  "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce"
+               },
+    "publicSharedNode":  {
+                             "host":  "public.easytier.top",
+                             "port":  11010,
+                             "resolves":  false,
+                             "tcp11010":  false
+                         },
+    "tunMode":  {
+                    "available":  true,
+                    "evidence":  "no denial captured"
+                },
+    "error":  "missing Java: D:\\DSH-宸ヤ綔鏂囦欢\\tools\\jdk21\\jdk-21.0.12.1+1\\bin\\java.exe",
+    "finishedAt":  "2026-10-21T13:24:03.7782057+08:00"
+}

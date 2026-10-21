@@ -1,0 +1,45 @@
+import type { AssetArea, LogLevel } from '@shared/assets'
+import type { AssetsModuleService } from './service'
+
+export function makeHandlers(service: AssetsModuleService) {
+  return {
+    listSaves: (input: { instanceId: string }) => service.listSaves(input),
+    backupSave: (input: { instanceId: string; name: string; outPath?: string }) =>
+      service.backupSave(input),
+    deleteSaves: (input: { instanceId: string; names: string[] }) => service.deleteSaves(input),
+    listScreenshots: (input: { instanceId: string }) => service.listScreenshots(input),
+    previewScreenshot: (input: { instanceId: string; name: string }) =>
+      service.previewScreenshot(input),
+    deleteScreenshots: (input: { instanceId: string; names: string[] }) =>
+      service.deleteScreenshots(input),
+    listLogs: (input: { instanceId?: string }) => service.listLogs(input),
+    queryLogs: (input: {
+      instanceId?: string
+      level?: LogLevel
+      minLevel?: LogLevel
+      since?: number
+      until?: number
+      search?: string
+      limit?: number
+      offset?: number
+    }) => service.queryLogs(input),
+    exportLogs: (input: { instanceId?: string; outPath?: string }) => service.exportLogs(input),
+    exportDiagnostics: (input: { instanceId?: string; outPath?: string }) =>
+      service.exportDiagnostics(input),
+    openFolder: (input: { instanceId?: string; area: AssetArea }) => service.openFolder(input),
+    showInFolder: (input: {
+      instanceId: string
+      kind: 'save' | 'screenshot'
+      name: string
+    }) => service.showInFolder(input),
+    openFile: (input: {
+      instanceId: string
+      kind: 'save' | 'screenshot'
+      name: string
+    }) => service.openFile(input),
+    listTrash: () => service.listTrash(),
+    restoreTrash: (input: { ids?: string[] }) => service.restoreTrash(input),
+  }
+}
+
+export type AssetsHandlers = ReturnType<typeof makeHandlers>

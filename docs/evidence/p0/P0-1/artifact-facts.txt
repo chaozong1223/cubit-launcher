@@ -1,0 +1,72 @@
+﻿=== artifact facts 2026-10-21T19:47:32.1957576+08:00 ===
+id=1.20.1 mainClass=net.minecraft.client.main.Main libraries=88 assetIndex=5 javaMajor=17
+clientJar bytes=23028853 sha1=0C3EC587AF28E5A785C0B4A7B8A30F9A8F78F838
+assetIndex bytes=413067 sha1=8A45C6BE38AC9486B04944BFFCB96F8AAE1B0649
+assetObjects count=3575 bytes=651496644
+libraryJars count=64 bytes=60876077
+natives count=3 files=.mcl-natives.json,jna960339180758518137.dll,jna960339180758518137.dll.x
+launch-last.json exists=True bytes=16858
+launch-last.bat exists=True bytes=7400
+gameLog exists=True bytes=3810
+[19:12:39] [Render thread/INFO]: Setting user: TestUser
+[19:12:39] [Render thread/INFO]: Backend library: LWJGL version 3.3.1 build 7
+[19:12:41] [Render thread/INFO]: Sound engine started
+[19:12:42] [Render thread/INFO]: Created: 1024x512x4 minecraft:textures/atlas/blocks.png-atlas
+=== launcher.log exit lines ===
+2026-10-21T11:10:39.596Z INFO  [module:launch] natives ready {"jars":7,"extracted":18,"cacheHit":false}
+2026-10-21T11:10:39.604Z INFO  [module:launch] game process started {"instanceId":"1.20.1","sessionId":"c52335cd-1a34-43cb-967f-96bf124e18d5","pid":29072,"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-191039.log"}
+2026-10-21T11:10:53.801Z WARN  [ipc] invalid event payload {"moduleId":"launch","event":"exited","paths":["reportId"]}
+2026-10-21T11:10:53.802Z INFO  [module:launch] game process exited {"instanceId":"1.20.1","exitCode":null,"signal":"SIGTERM","durationMs":14192,"classification":"killed","hints":[],"logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-191039.log"}
+2026-10-21T11:12:33.432Z INFO  [app] boot {"version":"0.1.0","electron":"44.9.3","chrome":"152.0.7977.167","node":"24.22.0","platform":"win32","arch":"x64","dataRoot":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data","mcRoot":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc","portable":false,"source":"env","packaged":true}
+2026-10-21T11:12:33.486Z INFO  [module:download] module registered {"mcRoot":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc","dataRoot":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data"}
+2026-10-21T11:12:33.492Z INFO  [module:launch] module registered {"deps":["version","instance","java"]}
+2026-10-21T11:12:33.492Z INFO  [module] module registered {"moduleId":"launch"}
+2026-10-21T11:12:33.493Z INFO  [module:loader] module registered {"mcRoot":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc","dataRoot":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data","hasIpc":true}
+2026-10-21T11:12:33.500Z INFO  [module:net] module registered {"deps":["launch","instance"],"relayPeers":0,"maxMembers":8,"launch":true,"instance":true}
+2026-10-21T11:12:33.503Z INFO  [module:version] module registered {"mcRoot":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc"}
+2026-10-21T11:12:33.506Z INFO  [ipc] module channels registered {"module":"launch","methods":5,"events":4}
+2026-10-21T11:12:33.508Z INFO  [ipc] module IPC bridge ready {"modules":["auth","instance","java","launch","loader","net","repair","version"],"moduleInvokeChannels":58,"moduleEventChannels":21}
+2026-10-21T11:12:33.537Z INFO  [app] ready {"modules":["system","auth","download","hello","instance","java","launch","loader","net","repair","version"],"failedModules":[]}
+2026-10-21T11:12:33.540Z INFO  [module:auth] auth launch bridge wired {"authlib":true}
+2026-10-21T11:12:33.633Z INFO  [window] did-finish-load {"url":"app://mc-launcher/index.html"}
+2026-10-21T11:12:33.773Z INFO  [window] shown {"title":"主页 · Cubit Launcher"}
+2026-10-21T11:12:33.882Z INFO  [app] renderer ready {"version":"0.1.0","errors":0,"nodeRequire":false,"nodeProcess":false,"blockedChannelRejected":true,"href":"app://mc-launcher/index.html"}
+2026-10-21T11:12:34.130Z INFO  [module:launch] java selected {"path":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","version":"17.0.15","requiredMajor":17,"forcedPath":null,"forcedMajor":null}
+2026-10-21T11:12:34.168Z INFO  [module:launch] code page detected {"codePage":936,"source":"chcp"}
+2026-10-21T11:12:34.179Z INFO  [module:launch] launch plan prepared {"instanceId":"1.20.1","versionId":"1.20.1","mcVersion":"1.20.1","loader":{"type":"vanilla","version":null},"chain":["1.20.1"],"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","javaMajor":17,"memory":{"minMb":1024,"maxMb":8047},"argv":49,"warnings":0,"dryRun":false}
+2026-10-21T11:12:34.190Z INFO  [module:launch] natives ready {"jars":7,"extracted":0,"cacheHit":true}
+2026-10-21T11:12:34.197Z INFO  [module:launch] game process started {"instanceId":"1.20.1","sessionId":"429d7e3d-558c-4b8e-92e5-f1de24714afd","pid":19888,"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-191234.log"}
+2026-10-21T11:12:47.414Z WARN  [ipc] invalid event payload {"moduleId":"launch","event":"exited","paths":["reportId"]}
+2026-10-21T11:12:47.415Z INFO  [module:launch] game process exited {"instanceId":"1.20.1","exitCode":null,"signal":"SIGTERM","durationMs":13213,"classification":"killed","hints":[],"logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-191234.log"}
+=== dirs ===
+
+Name                 Length  
+----                 ------  
+1.20.1-natives               
+logs                         
+resourcepacks                
+saves                        
+1.20.1.jar           23028853
+1.20.1.json          34974   
+authlib-injector.log 917     
+
+
+
+=== resume launch game log 2026-10-21T19:50:53.1823469+08:00 ===
+[19:49:26] [Render thread/INFO]: Setting user: TestUser
+[19:49:26] [Render thread/INFO]: Backend library: LWJGL version 3.3.1 build 7
+[19:49:29] [Render thread/INFO]: Sound engine started
+[19:49:29] [Render thread/INFO]: Created: 1024x512x4 minecraft:textures/atlas/blocks.png-atlas
+=== resume launcher launch/exit lines ===
+2026-10-21T11:12:34.190Z INFO  [module:launch] natives ready {"jars":7,"extracted":0,"cacheHit":true}
+2026-10-21T11:12:34.197Z INFO  [module:launch] game process started {"instanceId":"1.20.1","sessionId":"429d7e3d-558c-4b8e-92e5-f1de24714afd","pid":19888,"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-191234.log"}
+2026-10-21T11:12:47.415Z INFO  [module:launch] game process exited {"instanceId":"1.20.1","exitCode":null,"signal":"SIGTERM","durationMs":13213,"classification":"killed","hints":[],"logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-191234.log"}
+2026-10-21T11:49:18.369Z INFO  [module:download] install started {"jobId":"2a08b06d-5644-4c17-b147-fdca9fb1fb19","versionId":"1.20.1","mode":"install","files":3641,"missingFiles":0,"bytes":735402462}
+2026-10-21T11:49:18.476Z INFO  [module:download] job finished {"jobId":"2a08b06d-5644-4c17-b147-fdca9fb1fb19","mode":"install","state":"done","downloaded":0,"skipped":3641,"failed":0,"bytes":0,"durationMs":105}
+2026-10-21T11:49:20.883Z INFO  [module:launch] code page detected {"codePage":936,"source":"chcp"}
+2026-10-21T11:49:20.895Z INFO  [module:launch] launch plan prepared {"instanceId":"1.20.1","versionId":"1.20.1","mcVersion":"1.20.1","loader":{"type":"vanilla","version":null},"chain":["1.20.1"],"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","javaMajor":17,"memory":{"minMb":1024,"maxMb":8047},"argv":48,"warnings":0,"dryRun":true}
+2026-10-21T11:49:20.908Z INFO  [module:launch] launch plan prepared {"instanceId":"1.20.1","versionId":"1.20.1","mcVersion":"1.20.1","loader":{"type":"vanilla","version":null},"chain":["1.20.1"],"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","javaMajor":17,"memory":{"minMb":1024,"maxMb":8047},"argv":49,"warnings":0,"dryRun":true}
+2026-10-21T11:49:20.921Z INFO  [module:launch] launch plan prepared {"instanceId":"1.20.1","versionId":"1.20.1","mcVersion":"1.20.1","loader":{"type":"vanilla","version":null},"chain":["1.20.1"],"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","javaMajor":17,"memory":{"minMb":1024,"maxMb":8047},"argv":48,"warnings":0,"dryRun":false}
+2026-10-21T11:49:20.930Z INFO  [module:launch] natives ready {"jars":7,"extracted":0,"cacheHit":true}
+2026-10-21T11:49:20.937Z INFO  [module:launch] game process started {"instanceId":"1.20.1","sessionId":"d720cab6-a007-4fd6-a7b1-babc043bfd89","pid":38284,"java":"C:\\Users\\<user>\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe","logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-194920.log"}
+2026-10-21T11:49:35.182Z INFO  [module:launch] game process exited {"instanceId":"1.20.1","exitCode":null,"signal":"SIGTERM","durationMs":14239,"classification":"killed","hints":[],"logFile":"D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\data\\logs\\game\\1.20.1\\20261021-194920.log"}

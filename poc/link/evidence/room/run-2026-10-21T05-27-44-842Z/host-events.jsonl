@@ -1,0 +1,12 @@
+{"at":"2026-10-21T05:27:44.923Z","type":"expired_ticket_issued","file":"D:\\DSH-工作文件\\mc-launcher\\poc\\link\\evidence\\room\\run-2026-10-21T05-27-44-842Z\\expired.ticket"}
+{"at":"2026-10-21T05:27:44.925Z","type":"room_created","code":"0NRMWP","controlPort":56879,"bind":"127.0.0.1","maxMembers":2,"mcVersion":"1.20.1","loader":"vanilla"}
+{"at":"2026-10-21T05:27:44.992Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:45.509Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:45.658Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:45.789Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:45.804Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:47.029Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:47.157Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:47.220Z","type":"freeze","value":false}
+{"at":"2026-10-21T05:27:48.095Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:48.220Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}

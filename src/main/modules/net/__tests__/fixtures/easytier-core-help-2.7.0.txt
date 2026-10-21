@@ -1,0 +1,5 @@
+EasyTier 2.7.0 easytier-core --help (actual capture excerpt; poc/link/tools/easytier-core-help-2.7.0.txt)
+  -c, --config-file <CONFIG_FILE>...
+      --network-name <NETWORK_NAME>
+      --network-secret <NETWORK_SECRET>
+          网络密钥，用于验证此节点属于VPN网络 [env: ET_NETWORK_SECRET=]

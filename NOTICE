@@ -1,0 +1,133 @@
+# NOTICE — Cubit Launcher（mc-launcher）
+
+Copyright (C) 2026 mc-launcher contributors.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 of the License (GPL-3.0). See the `LICENSE` file for the
+full text.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+## Corresponding Source
+
+When distributing binaries of this project, the Corresponding Source must be
+made available as required by GPL-3.0. The source is this repository (including
+`package.json`, `package-lock.json`, build scripts and the instructions in
+`README.md` / `docs/07-handoff.md`), published at the project's public
+repository tag corresponding to the binary.
+
+## Third-party components and services
+
+This project depends on third-party software and services. The list below is a
+human-readable summary; the authoritative license texts and versions are in the
+dependency lockfile, the packaged application, and the upstream projects.
+
+### Runtime / build dependencies
+
+| Component | License | Use |
+|---|---|---|
+| Electron | MIT | Desktop runtime |
+| Chromium | BSD-style + third-party licenses | Rendered by Electron |
+| Node.js | MIT | Main process runtime |
+| React / React DOM | MIT | Renderer UI |
+| zod | MIT | IPC/contract validation |
+| Vite / electron-vite | MIT | Build tooling |
+| electron-builder | MIT | Packaging |
+| TypeScript | Apache-2.0 | Type checking / build |
+| Vitest | MIT | Tests |
+
+Electron/Chromium/Node.js and other dependencies retain their own copyright
+notices and license texts. Redistributors must preserve them and include the
+generated `THIRD-PARTY-LICENSES.txt` (if present) with the binary.
+
+### EasyTier (optional LAN/tunnel sidecar)
+
+- Project: EasyTier — https://github.com/EasyTier/EasyTier
+- Version used by the design: **2.7.0** (fixed version; SHA-256 is verified)
+- License: **LGPL-3.0**
+- How it is used: as a **separate executable process** (`easytier-core`),
+  downloaded at runtime from the official release after user consent. It is
+  **not** linked into this application, **not** modified, and **not** bundled
+  by default. Users may replace it with their own build/path.
+- LGPL-3.0 text and source location are provided alongside the component
+  (`dataRoot/modules/link/licenses/EasyTier-LICENSE.txt` when installed), and
+  the project source is available at the URL above (version tag `v2.7.0`).
+- The application's own GPL-3.0 license and EasyTier's LGPL-3.0 are compatible;
+  see `docs/02-compliance-security.md` §6.6.
+
+### authlib-injector (optional third-party account support)
+
+- Project: authlib-injector — https://github.com/yushijinhun/authlib-injector
+- Version used in acceptance: **1.2.8** (fixed version; SHA-256 verified)
+- License: **AGPL-3.0 with an explicit exception** that permits unmodified
+  binary distribution and Java Agent loading.
+- How it is used: downloaded at runtime from the official release and loaded as
+  an unmodified `-javaagent` for third-party (Authlib/Yggdrasil) accounts. The
+  project does not modify its code. Its license text is shipped/displayed with
+  the component as required.
+
+### Minecraft / Mojang
+
+- Minecraft is a trademark of Mojang Synergies AB / Microsoft.
+- This is an **unofficial** launcher and is not affiliated with, endorsed by, or
+  sponsored by Mojang or Microsoft.
+- The launcher **does not distribute Minecraft game files or Mojang assets**.
+  Version metadata and files are downloaded by the launcher at the user's
+  request from Mojang endpoints or configured mirrors. Users are responsible for
+  owning a legitimate Minecraft account where required.
+- Offline accounts are for single-player/LAN use; the launcher does not provide
+  or endorse bypassing Mojang authentication or joining online servers without
+  a valid account.
+
+### Modrinth
+
+- Project/data source: https://modrinth.com / https://api.modrinth.com
+- Mod metadata and files belong to their respective authors and Modrinth.
+- The launcher uses a single identifying User-Agent, respects the documented
+  rate limit (≤300 requests/minute), downloads directly from `cdn.modrinth.com`,
+  verifies `sha1`/`sha512`, does not re-host or mirror Modrinth files, and does
+  not bundle them in the installer.
+- Modrinth API usage is subject to Modrinth's terms; see
+  `docs/02-compliance-security.md` §5.1.
+
+### CurseForge
+
+- P0 **does not call the CurseForge API** and contains **no CurseForge API key**.
+  It only opens project pages in the browser and parses local pack zips.
+- P1 may integrate CurseForge only with the operator's own official API key and
+  after the legal prerequisites in `docs/02-compliance-security.md` §5.2
+  (key not exposed in client, no API-data caching, no proxy anonymity,
+  competitor-terms review) are satisfied.
+
+### BMCLAPI / mirrors
+
+- BMCLAPI is a third-party mirror service; mirrored files remain the property of
+  their source sites. It is not an open-source service and provides no SLA.
+- The launcher displays the active download source in the UI and logs it; the
+  mirror can be disabled. The launcher does not re-package BMCLAPI as its own
+  public API/mirror.
+
+### Plain Craft Launcher 2 (PCL2)
+
+- This project is an independent clean-room implementation. It does **not**
+  include, copy, port, or redistribute PCL2 source code, icons, backgrounds,
+  music, skin assets, or other bundled resources.
+- PCL2 is not open source; its distribution is governed by the author's
+  "PCL 分发有限许可". See `docs/clean-room-log.md` and
+  `docs/02-compliance-security.md` for the clean-room record.
+
+### Other services
+
+- Microsoft/Xbox Live authentication endpoints are used only for the user's own
+  Microsoft account, with the user's consent; tokens are stored encrypted with
+  Electron `safeStorage` (DPAPI on Windows) where persistence is implemented.
+- No telemetry is sent by this project.
+
+## Contact / source
+
+For source, build instructions, known blockers, and the acceptance status, see
+`README.md`, `docs/05-acceptance-report.md`, `docs/06-user-guide.md`, and
+`docs/07-handoff.md`.

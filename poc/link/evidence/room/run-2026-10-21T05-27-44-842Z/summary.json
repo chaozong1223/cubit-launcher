@@ -1,0 +1,64 @@
+{
+  "runId": "2026-10-21T05-27-44-842Z",
+  "startedAt": "2026-10-21T05:27:44.844Z",
+  "cases": [
+    {
+      "name": "ticket-self-verifies",
+      "ok": true,
+      "detail": "code=0NRMWP exp=1792561064"
+    },
+    {
+      "name": "normal-join",
+      "ok": false,
+      "detail": "connected=false worldUpdate=false elapsed=5ms",
+      "code": "AUTH_FAILED"
+    },
+    {
+      "name": "short-code-incomplete",
+      "ok": true,
+      "detail": "INVITE_INCOMPLETE only a 6-char code was provided; cross-network join needs the full MCL1 ticket"
+    },
+    {
+      "name": "tampered-ticket-rejected",
+      "ok": true,
+      "detail": "TICKET_SIGNATURE_INVALID signature verification failed"
+    },
+    {
+      "name": "expired-ticket-rejected",
+      "ok": true,
+      "detail": "INVITE_EXPIRED ticket expired"
+    },
+    {
+      "name": "version-mismatch",
+      "ok": false,
+      "detail": "AUTH_FAILED bad auth"
+    },
+    {
+      "name": "bad-token-rejected",
+      "ok": true,
+      "detail": "AUTH_FAILED bad auth"
+    },
+    {
+      "name": "room-full",
+      "ok": false,
+      "detail": "AUTH_FAILED bad auth"
+    },
+    {
+      "name": "heartbeat-timeout",
+      "ok": false,
+      "detail": "AUTH_FAILED bad auth elapsed=6ms"
+    },
+    {
+      "name": "host-close-notifies-members",
+      "ok": false,
+      "detail": "AUTH_FAILED bad auth elapsed=5ms"
+    },
+    {
+      "name": "join-after-close-fails",
+      "ok": false,
+      "detail": "AUTH_FAILED bad auth"
+    }
+  ],
+  "ok": false,
+  "finishedAt": "2026-10-21T05:27:48.284Z"
+}

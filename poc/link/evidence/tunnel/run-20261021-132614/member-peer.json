@@ -1,0 +1,30 @@
+﻿[
+    {
+        "cidr":  "10.144.144.2/24",
+        "ipv4":  "10.144.144.2",
+        "hostname":  "poc-member",
+        "cost":  "Local",
+        "lat_ms":  "-",
+        "loss_rate":  "-",
+        "rx_bytes":  "-",
+        "tx_bytes":  "-",
+        "tunnel_proto":  "-",
+        "nat_type":  "Unknown",
+        "id":  "1194051925",
+        "version":  "2.7.0-8b7f1f01"
+    },
+    {
+        "cidr":  "10.144.144.1/24",
+        "ipv4":  "10.144.144.1",
+        "hostname":  "poc-host",
+        "cost":  "p2p",
+        "lat_ms":  "0.09",
+        "loss_rate":  "0.0%",
+        "rx_bytes":  "1.00 kB",
+        "tx_bytes":  "1.07 kB",
+        "tunnel_proto":  "tcp",
+        "nat_type":  "Unknown",
+        "id":  "3349499114",
+        "version":  "2.7.0-8b7f1f01"
+    }
+]

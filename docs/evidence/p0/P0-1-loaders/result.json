@@ -1,0 +1,138 @@
+{
+  "workspace": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy",
+  "mcDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc",
+  "installs": {
+    "fabric": {
+      "listCount": 255,
+      "listSource": "mirror",
+      "chosen": "0.19.5",
+      "stable": true,
+      "recommended": true,
+      "installMethod": "meta-json",
+      "versionId": "fabric-loader-0.19.5-1.20.1",
+      "jobId": "d9db9d22-f9da-4fb9-a577-2923d538fda8",
+      "finalState": "done",
+      "finalStage": "done",
+      "message": null,
+      "verify": {
+        "chain": [
+          "1.20.1",
+          "fabric-loader-0.19.5-1.20.1"
+        ],
+        "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient",
+        "loader": {
+          "type": "fabric",
+          "version": "0.19.5"
+        },
+        "libraries": 96,
+        "classpathCount": 52,
+        "javaMajor": 17
+      },
+      "launch": {
+        "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+        "javaMajor": 17,
+        "argc": 49,
+        "mainClass": null,
+        "hasParentLibraries": true,
+        "placeholders": 0
+      },
+      "versionJsonExists": true
+    },
+    "quilt": {
+      "listCount": 307,
+      "listSource": "official",
+      "chosen": "0.30.1",
+      "stable": true,
+      "recommended": true,
+      "installMethod": "meta-json",
+      "versionId": "quilt-loader-0.30.1-1.20.1",
+      "jobId": "4c9aca74-51a9-41bf-8863-9dd57203f945",
+      "finalState": "done",
+      "finalStage": "done",
+      "message": null,
+      "verify": {
+        "chain": [
+          "1.20.1",
+          "quilt-loader-0.30.1-1.20.1"
+        ],
+        "mainClass": "org.quiltmc.loader.impl.launch.knot.KnotClient",
+        "loader": {
+          "type": "quilt",
+          "version": "0.30.1"
+        },
+        "libraries": 99,
+        "classpathCount": 55,
+        "javaMajor": 17
+      },
+      "launch": {
+        "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+        "javaMajor": 17,
+        "argc": 48,
+        "mainClass": null,
+        "hasParentLibraries": true,
+        "placeholders": 0
+      },
+      "versionJsonExists": true
+    }
+  },
+  "plans": {
+    "forge": {
+      "listCount": 137,
+      "picked": "47.4.28",
+      "recommended": true,
+      "method": "installer",
+      "versionId": "1.20.1-forge-47.4.28",
+      "installer": {
+        "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.28/forge-1.20.1-47.4.28-installer.jar",
+        "mirrorUrl": "https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.1-47.4.28/forge-1.20.1-47.4.28-installer.jar",
+        "fileName": "forge-1.20.1-47.4.28-installer.jar",
+        "sha1": "585dd6071897becaed3b09bff4c3d9559e0cbc75",
+        "size": null,
+        "hashSource": "official",
+        "hashNote": null
+      },
+      "requiredJavaMajor": 17,
+      "parentInstalled": true,
+      "warnings": [],
+      "executed": false,
+      "notExecutedReason": "opt-in per t34 contract: official maven ~75 KB/s, installer needs ~60 MB more dependencies; execution path covered by fake-ProcessPort tests (docs/05 §P0-1/loader)."
+    },
+    "neoforge": {
+      "listCount": 60,
+      "picked": "47.1.105",
+      "method": "installer",
+      "versionId": "1.20.1-neoforge-47.1.105",
+      "installer": {
+        "url": "https://maven.neoforged.net/releases/net/neoforged/forge/1.20.1-47.1.105/forge-1.20.1-47.1.105-installer.jar",
+        "mirrorUrl": "https://bmclapi2.bangbang93.com/maven/net/neoforged/forge/1.20.1-47.1.105/forge-1.20.1-47.1.105-installer.jar",
+        "fileName": "forge-1.20.1-47.1.105-installer.jar",
+        "sha1": null,
+        "size": null,
+        "hashSource": "none",
+        "hashNote": "官方 maven 的 .sha1 未取到；继续安装需要确认风险"
+      },
+      "hashSource": "none",
+      "warnings": [
+        "无法获取安装器的官方 .sha1（NeoForge maven 在当前网络不可达）；继续安装需要用户明确确认风险"
+      ]
+    }
+  },
+  "errors": {
+    "neoforgeUnverified": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "installer has no upstream sha1; pass allowUnverifiedInstaller=true after user confirmation",
+      "retryable": false
+    },
+    "forgeConfirmationMismatch": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "confirmSha1 must echo the installer sha1 shown in the plan",
+      "retryable": false
+    },
+    "parentMissing": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "all metadata sources failed; last: unexpected status 400: https://meta.fabricmc.net/v2/versions/loader/1.7.10",
+      "retryable": false
+    }
+  },
+  "account": "2353e86f-ca8a-4491-89c4-a409b61907b0"
+}

@@ -1,0 +1,19 @@
+{"at":"2026-10-21T05:27:52.949Z","type":"expired_ticket_issued","file":"D:\\DSH-工作文件\\mc-launcher\\poc\\link\\evidence\\room\\run-2026-10-21T05-27-52-871Z\\expired.ticket"}
+{"at":"2026-10-21T05:27:52.951Z","type":"room_created","code":"V1AKXC","controlPort":65419,"bind":"127.0.0.1","maxMembers":2,"mcVersion":"1.20.1","loader":"vanilla"}
+{"at":"2026-10-21T05:27:53.018Z","type":"member_join","memberId":"b15ff71824f5","name":"alice","mcVersion":"1.20.1","loader":"vanilla"}
+{"at":"2026-10-21T05:27:53.019Z","type":"world_update","port":25565,"state":"open","address":"127.0.0.1:25565"}
+{"at":"2026-10-21T05:27:54.559Z","type":"member_leave","memberId":"b15ff71824f5","reason":"heartbeat_timeout"}
+{"at":"2026-10-21T05:27:55.083Z","type":"error","code":"VERSION_MISMATCH","message":"host 1.20.1/vanilla, member 1.20.4/vanilla"}
+{"at":"2026-10-21T05:27:55.208Z","type":"error","code":"AUTH_FAILED","message":"bad auth"}
+{"at":"2026-10-21T05:27:55.334Z","type":"member_join","memberId":"23bc74f25dcd","name":"hold-a","mcVersion":"1.20.1","loader":"vanilla"}
+{"at":"2026-10-21T05:27:55.354Z","type":"member_join","memberId":"19129de7bcb7","name":"hold-b","mcVersion":"1.20.1","loader":"vanilla"}
+{"at":"2026-10-21T05:27:56.588Z","type":"error","code":"ROOM_FULL","message":"max 2"}
+{"at":"2026-10-21T05:27:56.599Z","type":"member_leave","memberId":"23bc74f25dcd","reason":"heartbeat_timeout"}
+{"at":"2026-10-21T05:27:56.599Z","type":"member_leave","memberId":"19129de7bcb7","reason":"heartbeat_timeout"}
+{"at":"2026-10-21T05:27:56.729Z","type":"member_join","memberId":"a0ac571fdd2c","name":"hb-victim","mcVersion":"1.20.1","loader":"vanilla"}
+{"at":"2026-10-21T05:27:57.237Z","type":"freeze","value":true}
+{"at":"2026-10-21T05:27:58.285Z","type":"member_leave","memberId":"a0ac571fdd2c","reason":"socket_closed"}
+{"at":"2026-10-21T05:27:58.353Z","type":"freeze","value":false}
+{"at":"2026-10-21T05:27:59.257Z","type":"member_join","memberId":"5c824ee158df","name":"close-victim","mcVersion":"1.20.1","loader":"vanilla"}
+{"at":"2026-10-21T05:27:59.770Z","type":"room_closed","reason":"HOST_LEFT"}
+{"at":"2026-10-21T05:27:59.771Z","type":"member_leave","memberId":"5c824ee158df","reason":"socket_closed"}

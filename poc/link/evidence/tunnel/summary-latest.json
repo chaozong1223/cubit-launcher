@@ -1,0 +1,155 @@
+﻿{
+    "runId":  "20261021-133239",
+    "startedAt":  "2026-10-21T13:32:42.6148624+08:00",
+    "backend":  "echo",
+    "host":  {
+                 "bindIp":  "10.33.135.230",
+                 "aliasIp":  "127.0.0.55",
+                 "peerPort":  64318,
+                 "rpcPort":  64319,
+                 "networkName":  "mcl-poc",
+                 "mode":  "no-tun",
+                 "mappedCidr":  "192.168.77.1/32"
+             },
+    "member":  {
+                   "localWorldPort":  64321,
+                   "localDecoyPort":  64322,
+                   "rpcPort":  64320,
+                   "mode":  "no-tun"
+               },
+    "steps":  [
+                  {
+                      "name":  "public-shared-node",
+                      "ok":  true,
+                      "detail":  "resolves=False tcp11010=False (expected NXDOMAIN from this network)",
+                      "at":  "2026-10-21T13:32:42.9049860+08:00"
+                  },
+                  {
+                      "name":  "tun-mode-probe",
+                      "ok":  true,
+                      "detail":  "informational: denied=False (no denial captured); TUN is P1 and needs UAC",
+                      "at":  "2026-10-21T13:32:51.1484873+08:00"
+                  },
+                  {
+                      "name":  "echo-server-direct",
+                      "ok":  true,
+                      "detail":  "echo on 127.0.0.55:25565",
+                      "at":  "2026-10-21T13:32:52.2833753+08:00"
+                  },
+                  {
+                      "name":  "host-sidecar-start",
+                      "ok":  true,
+                      "detail":  "pid=27764 listener=tcp://10.33.135.230:64318 rpc=127.0.0.1:64319",
+                      "at":  "2026-10-21T13:32:53.3510442+08:00"
+                  },
+                  {
+                      "name":  "p2p-peer-established",
+                      "ok":  true,
+                      "detail":  "host peer via tcp tunnel, nat=Unknown",
+                      "at":  "2026-10-21T13:32:54.0129760+08:00"
+                  },
+                  {
+                      "name":  "echo-through-tunnel",
+                      "ok":  true,
+                      "detail":  "MCLPONG tunnel-20261021-133239 pid=7976 at=2026-10-21T05:32:54.038Z",
+                      "at":  "2026-10-21T13:32:54.0433413+08:00"
+                  },
+                  {
+                      "name":  "decoy-port-not-exposed",
+                      "ok":  true,
+                      "detail":  "reply=",
+                      "at":  "2026-10-21T13:33:54.0591258+08:00"
+                  },
+                  {
+                      "name":  "sidecar-listeners-scoped",
+                      "ok":  true,
+                      "detail":  "sidecars bind loopback/lan only (MC server itself binds *:25565 by design)",
+                      "at":  "2026-10-21T13:33:54.4637891+08:00"
+                  }
+              ],
+    "ok":  true,
+    "hashes":  {
+                   "zip":  "790fd9be347b00753570ac2b65f874a591ede9427603fe34e74a86b2b084847f",
+                   "zipBytes":  39616733,
+                   "easytier-core.exe":  "6490c6f5b5b809065517bb3324ca34c0f1f367f81b7fda04a6352391508b8ff8",
+                   "easytier-cli.exe":  "3afdf2e4306c3f8d65408ddd230c7e4118ffdb5d550921022aed9966693c82ba",
+                   "wintun.dll":  "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce"
+               },
+    "publicSharedNode":  {
+                             "host":  "public.easytier.top",
+                             "port":  11010,
+                             "resolves":  false,
+                             "tcp11010":  false
+                         },
+    "tunMode":  {
+                    "available":  true,
+                    "evidence":  "no denial captured"
+                },
+    "peer":  {
+                 "connected":  true,
+                 "natType":  "Unknown",
+                 "peer":  [
+                              {
+                                  "cidr":  "10.144.144.2/24",
+                                  "ipv4":  "10.144.144.2",
+                                  "hostname":  "poc-member",
+                                  "cost":  "Local",
+                                  "lat_ms":  "-",
+                                  "loss_rate":  "-",
+                                  "rx_bytes":  "-",
+                                  "tx_bytes":  "-",
+                                  "tunnel_proto":  "-",
+                                  "nat_type":  "Unknown",
+                                  "id":  "4206630624",
+                                  "version":  "2.7.0-8b7f1f01"
+                              },
+                              {
+                                  "cidr":  "10.144.144.1/24",
+                                  "ipv4":  "10.144.144.1",
+                                  "hostname":  "poc-host",
+                                  "cost":  "p2p",
+                                  "lat_ms":  "0.04",
+                                  "loss_rate":  "0.0%",
+                                  "rx_bytes":  "990 B",
+                                  "tx_bytes":  "1.06 kB",
+                                  "tunnel_proto":  "tcp",
+                                  "nat_type":  "Unknown",
+                                  "id":  "205179522",
+                                  "version":  "2.7.0-8b7f1f01"
+                              }
+                          ]
+             },
+    "listeners":  [
+                      {
+                          "LocalAddress":  "127.0.0.1",
+                          "LocalPort":  64322,
+                          "OwningProcess":  27960
+                      },
+                      {
+                          "LocalAddress":  "127.0.0.1",
+                          "LocalPort":  64321,
+                          "OwningProcess":  27960
+                      },
+                      {
+                          "LocalAddress":  "127.0.0.1",
+                          "LocalPort":  64320,
+                          "OwningProcess":  27960
+                      },
+                      {
+                          "LocalAddress":  "127.0.0.1",
+                          "LocalPort":  64319,
+                          "OwningProcess":  27764
+                      },
+                      {
+                          "LocalAddress":  "10.33.135.230",
+                          "LocalPort":  64318,
+                          "OwningProcess":  27764
+                      },
+                      {
+                          "LocalAddress":  "127.0.0.55",
+                          "LocalPort":  25565,
+                          "OwningProcess":  7976
+                      }
+                  ],
+    "finishedAt":  "2026-10-21T13:33:54.4693058+08:00"
+}

@@ -1,0 +1,17 @@
+{
+  "joined": {
+    "state": "connected",
+    "members": 1
+  },
+  "close": {
+    "elapsedMs": 3099,
+    "state": "error",
+    "code": "ROOM_CLOSED",
+    "message": "room closed: HOST_LEFT"
+  },
+  "stale": {
+    "state": "error",
+    "code": "PORT_MAPPING_REQUIRED",
+    "message": "当前网络无法自动建立连接，请按手动端口映射指引操作，或配置一个可达的中继节点。"
+  }
+}

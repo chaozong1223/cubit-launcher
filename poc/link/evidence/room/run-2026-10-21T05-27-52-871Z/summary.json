@@ -1,0 +1,64 @@
+{
+  "runId": "2026-10-21T05-27-52-871Z",
+  "startedAt": "2026-10-21T05:27:52.873Z",
+  "cases": [
+    {
+      "name": "ticket-self-verifies",
+      "ok": true,
+      "detail": "code=V1AKXC exp=1792561072"
+    },
+    {
+      "name": "normal-join",
+      "ok": false,
+      "detail": "connected=true worldUpdate=true elapsed=1548ms",
+      "code": "HEARTBEAT_TIMEOUT"
+    },
+    {
+      "name": "short-code-incomplete",
+      "ok": true,
+      "detail": "INVITE_INCOMPLETE only a 6-char code was provided; cross-network join needs the full MCL1 ticket"
+    },
+    {
+      "name": "tampered-ticket-rejected",
+      "ok": true,
+      "detail": "TICKET_SIGNATURE_INVALID signature verification failed"
+    },
+    {
+      "name": "expired-ticket-rejected",
+      "ok": true,
+      "detail": "INVITE_EXPIRED ticket expired"
+    },
+    {
+      "name": "version-mismatch",
+      "ok": true,
+      "detail": "VERSION_MISMATCH host 1.20.1/vanilla, member 1.20.4/vanilla"
+    },
+    {
+      "name": "bad-token-rejected",
+      "ok": true,
+      "detail": "AUTH_FAILED bad auth"
+    },
+    {
+      "name": "room-full",
+      "ok": true,
+      "detail": "ROOM_FULL max 2"
+    },
+    {
+      "name": "heartbeat-timeout",
+      "ok": true,
+      "detail": "HEARTBEAT_TIMEOUT no PONG for 1200ms elapsed=1564ms"
+    },
+    {
+      "name": "host-close-notifies-members",
+      "ok": true,
+      "detail": "ROOM_CLOSED room closed: HOST_LEFT elapsed=522ms"
+    },
+    {
+      "name": "join-after-close-fails",
+      "ok": true,
+      "detail": "NETWORK_UNREACHABLE connect ECONNREFUSED 127.0.0.1:65419"
+    }
+  ],
+  "ok": false,
+  "finishedAt": "2026-10-21T05:27:59.976Z"
+}

@@ -1,0 +1,795 @@
+{
+  "workspace": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy",
+  "mcDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc",
+  "dataDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-04-data",
+  "plans": {
+    "auto": {
+      "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+      "javaMajor": 17,
+      "argc": 48,
+      "xmx": [
+        "-Xmx8047m"
+      ],
+      "xmxCount": 1,
+      "xms": [
+        "-Xms1024m"
+      ],
+      "width": "1280",
+      "height": "720",
+      "widthCount": 1,
+      "heightCount": 1,
+      "fullscreen": 0,
+      "g1": [
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true"
+      ],
+      "encoding": [
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK"
+      ],
+      "natives": [
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives"
+      ],
+      "brand": [
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0"
+      ],
+      "custom": [],
+      "placeholders": [],
+      "username": "ArgsUser",
+      "accessToken": "0",
+      "userType": "legacy",
+      "uuid": "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+      "gameDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+      "assetsDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+      "assetIndex": "5",
+      "mainClass": "net.minecraft.client.main.Main",
+      "argv": [
+        "-Xms1024m",
+        "-Xmx8047m",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true",
+        "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump",
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0",
+        "-cp",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\github\\oshi\\oshi-core\\6.2.2\\oshi-core-6.2.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\code\\gson\\gson\\2.10\\gson-2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\failureaccess\\1.0.1\\failureaccess-1.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\guava\\31.1-jre\\guava-31.1-jre.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\ibm\\icu\\icu4j\\71.1\\icu4j-71.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\authlib\\4.0.43\\authlib-4.0.43.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\blocklist\\1.0.10\\blocklist-1.0.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\brigadier\\1.1.8\\brigadier-1.1.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\datafixerupper\\6.0.8\\datafixerupper-6.0.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\logging\\1.1.1\\logging-1.1.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\patchy\\2.2.10\\patchy-2.2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\text2speech\\1.17.9\\text2speech-1.17.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-codec\\commons-codec\\1.15\\commons-codec-1.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-io\\commons-io\\2.11.0\\commons-io-2.11.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-logging\\commons-logging\\1.2\\commons-logging-1.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-buffer\\4.1.82.Final\\netty-buffer-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-codec\\4.1.82.Final\\netty-codec-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-common\\4.1.82.Final\\netty-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-handler\\4.1.82.Final\\netty-handler-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-resolver\\4.1.82.Final\\netty-resolver-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-classes-epoll\\4.1.82.Final\\netty-transport-classes-epoll-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-native-unix-common\\4.1.82.Final\\netty-transport-native-unix-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport\\4.1.82.Final\\netty-transport-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\it\\unimi\\dsi\\fastutil\\8.5.9\\fastutil-8.5.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna-platform\\5.12.1\\jna-platform-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna\\5.12.1\\jna-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\sf\\jopt-simple\\jopt-simple\\5.0.4\\jopt-simple-5.0.4.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-compress\\1.21\\commons-compress-1.21.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-lang3\\3.12.0\\commons-lang3-3.12.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpclient\\4.5.13\\httpclient-4.5.13.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpcore\\4.4.15\\httpcore-4.4.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-api\\2.19.0\\log4j-api-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-core\\2.19.0\\log4j-core-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-slf4j2-impl\\2.19.0\\log4j-slf4j2-impl-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\joml\\joml\\1.10.5\\joml-1.10.5.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-glfw\\3.3.1\\lwjgl-glfw-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-jemalloc\\3.3.1\\lwjgl-jemalloc-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-openal\\3.3.1\\lwjgl-openal-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-opengl\\3.3.1\\lwjgl-opengl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-stb\\3.3.1\\lwjgl-stb-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-tinyfd\\3.3.1\\lwjgl-tinyfd-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl\\3.3.1\\lwjgl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\slf4j\\slf4j-api\\2.0.1\\slf4j-api-2.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1.jar",
+        "-Dlog4j.configurationFile=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets\\log_configs\\client-1.12.xml",
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK",
+        "net.minecraft.client.main.Main",
+        "--username",
+        "ArgsUser",
+        "--version",
+        "1.20.1",
+        "--gameDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+        "--assetsDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+        "--assetIndex",
+        "5",
+        "--uuid",
+        "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+        "--accessToken",
+        "0",
+        "--userType",
+        "legacy",
+        "--versionType",
+        "release",
+        "--width",
+        "1280",
+        "--height",
+        "720"
+      ]
+    },
+    "custom4096": {
+      "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+      "javaMajor": 17,
+      "argc": 48,
+      "xmx": [
+        "-Xmx4096m"
+      ],
+      "xmxCount": 1,
+      "xms": [
+        "-Xms1024m"
+      ],
+      "width": "1280",
+      "height": "720",
+      "widthCount": 1,
+      "heightCount": 1,
+      "fullscreen": 0,
+      "g1": [
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true"
+      ],
+      "encoding": [
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK"
+      ],
+      "natives": [
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives"
+      ],
+      "brand": [
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0"
+      ],
+      "custom": [],
+      "placeholders": [],
+      "username": "ArgsUser",
+      "accessToken": "0",
+      "userType": "legacy",
+      "uuid": "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+      "gameDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+      "assetsDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+      "assetIndex": "5",
+      "mainClass": "net.minecraft.client.main.Main",
+      "argv": [
+        "-Xms1024m",
+        "-Xmx4096m",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true",
+        "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump",
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0",
+        "-cp",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\github\\oshi\\oshi-core\\6.2.2\\oshi-core-6.2.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\code\\gson\\gson\\2.10\\gson-2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\failureaccess\\1.0.1\\failureaccess-1.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\guava\\31.1-jre\\guava-31.1-jre.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\ibm\\icu\\icu4j\\71.1\\icu4j-71.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\authlib\\4.0.43\\authlib-4.0.43.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\blocklist\\1.0.10\\blocklist-1.0.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\brigadier\\1.1.8\\brigadier-1.1.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\datafixerupper\\6.0.8\\datafixerupper-6.0.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\logging\\1.1.1\\logging-1.1.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\patchy\\2.2.10\\patchy-2.2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\text2speech\\1.17.9\\text2speech-1.17.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-codec\\commons-codec\\1.15\\commons-codec-1.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-io\\commons-io\\2.11.0\\commons-io-2.11.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-logging\\commons-logging\\1.2\\commons-logging-1.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-buffer\\4.1.82.Final\\netty-buffer-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-codec\\4.1.82.Final\\netty-codec-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-common\\4.1.82.Final\\netty-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-handler\\4.1.82.Final\\netty-handler-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-resolver\\4.1.82.Final\\netty-resolver-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-classes-epoll\\4.1.82.Final\\netty-transport-classes-epoll-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-native-unix-common\\4.1.82.Final\\netty-transport-native-unix-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport\\4.1.82.Final\\netty-transport-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\it\\unimi\\dsi\\fastutil\\8.5.9\\fastutil-8.5.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna-platform\\5.12.1\\jna-platform-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna\\5.12.1\\jna-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\sf\\jopt-simple\\jopt-simple\\5.0.4\\jopt-simple-5.0.4.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-compress\\1.21\\commons-compress-1.21.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-lang3\\3.12.0\\commons-lang3-3.12.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpclient\\4.5.13\\httpclient-4.5.13.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpcore\\4.4.15\\httpcore-4.4.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-api\\2.19.0\\log4j-api-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-core\\2.19.0\\log4j-core-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-slf4j2-impl\\2.19.0\\log4j-slf4j2-impl-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\joml\\joml\\1.10.5\\joml-1.10.5.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-glfw\\3.3.1\\lwjgl-glfw-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-jemalloc\\3.3.1\\lwjgl-jemalloc-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-openal\\3.3.1\\lwjgl-openal-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-opengl\\3.3.1\\lwjgl-opengl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-stb\\3.3.1\\lwjgl-stb-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-tinyfd\\3.3.1\\lwjgl-tinyfd-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl\\3.3.1\\lwjgl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\slf4j\\slf4j-api\\2.0.1\\slf4j-api-2.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1.jar",
+        "-Dlog4j.configurationFile=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets\\log_configs\\client-1.12.xml",
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK",
+        "net.minecraft.client.main.Main",
+        "--username",
+        "ArgsUser",
+        "--version",
+        "1.20.1",
+        "--gameDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+        "--assetsDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+        "--assetIndex",
+        "5",
+        "--uuid",
+        "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+        "--accessToken",
+        "0",
+        "--userType",
+        "legacy",
+        "--versionType",
+        "release",
+        "--width",
+        "1280",
+        "--height",
+        "720"
+      ]
+    },
+    "fullscreen": {
+      "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+      "javaMajor": 17,
+      "argc": 49,
+      "xmx": [
+        "-Xmx4096m"
+      ],
+      "xmxCount": 1,
+      "xms": [
+        "-Xms1024m"
+      ],
+      "width": "1280",
+      "height": "720",
+      "widthCount": 1,
+      "heightCount": 1,
+      "fullscreen": 1,
+      "g1": [
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true"
+      ],
+      "encoding": [
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK"
+      ],
+      "natives": [
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives"
+      ],
+      "brand": [
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0"
+      ],
+      "custom": [],
+      "placeholders": [],
+      "username": "ArgsUser",
+      "accessToken": "0",
+      "userType": "legacy",
+      "uuid": "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+      "gameDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+      "assetsDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+      "assetIndex": "5",
+      "mainClass": "net.minecraft.client.main.Main",
+      "argv": [
+        "-Xms1024m",
+        "-Xmx4096m",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true",
+        "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump",
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0",
+        "-cp",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\github\\oshi\\oshi-core\\6.2.2\\oshi-core-6.2.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\code\\gson\\gson\\2.10\\gson-2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\failureaccess\\1.0.1\\failureaccess-1.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\guava\\31.1-jre\\guava-31.1-jre.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\ibm\\icu\\icu4j\\71.1\\icu4j-71.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\authlib\\4.0.43\\authlib-4.0.43.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\blocklist\\1.0.10\\blocklist-1.0.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\brigadier\\1.1.8\\brigadier-1.1.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\datafixerupper\\6.0.8\\datafixerupper-6.0.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\logging\\1.1.1\\logging-1.1.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\patchy\\2.2.10\\patchy-2.2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\text2speech\\1.17.9\\text2speech-1.17.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-codec\\commons-codec\\1.15\\commons-codec-1.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-io\\commons-io\\2.11.0\\commons-io-2.11.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-logging\\commons-logging\\1.2\\commons-logging-1.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-buffer\\4.1.82.Final\\netty-buffer-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-codec\\4.1.82.Final\\netty-codec-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-common\\4.1.82.Final\\netty-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-handler\\4.1.82.Final\\netty-handler-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-resolver\\4.1.82.Final\\netty-resolver-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-classes-epoll\\4.1.82.Final\\netty-transport-classes-epoll-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-native-unix-common\\4.1.82.Final\\netty-transport-native-unix-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport\\4.1.82.Final\\netty-transport-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\it\\unimi\\dsi\\fastutil\\8.5.9\\fastutil-8.5.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna-platform\\5.12.1\\jna-platform-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna\\5.12.1\\jna-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\sf\\jopt-simple\\jopt-simple\\5.0.4\\jopt-simple-5.0.4.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-compress\\1.21\\commons-compress-1.21.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-lang3\\3.12.0\\commons-lang3-3.12.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpclient\\4.5.13\\httpclient-4.5.13.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpcore\\4.4.15\\httpcore-4.4.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-api\\2.19.0\\log4j-api-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-core\\2.19.0\\log4j-core-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-slf4j2-impl\\2.19.0\\log4j-slf4j2-impl-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\joml\\joml\\1.10.5\\joml-1.10.5.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-glfw\\3.3.1\\lwjgl-glfw-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-jemalloc\\3.3.1\\lwjgl-jemalloc-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-openal\\3.3.1\\lwjgl-openal-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-opengl\\3.3.1\\lwjgl-opengl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-stb\\3.3.1\\lwjgl-stb-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-tinyfd\\3.3.1\\lwjgl-tinyfd-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl\\3.3.1\\lwjgl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\slf4j\\slf4j-api\\2.0.1\\slf4j-api-2.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1.jar",
+        "-Dlog4j.configurationFile=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets\\log_configs\\client-1.12.xml",
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK",
+        "net.minecraft.client.main.Main",
+        "--username",
+        "ArgsUser",
+        "--version",
+        "1.20.1",
+        "--gameDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+        "--assetsDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+        "--assetIndex",
+        "5",
+        "--uuid",
+        "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+        "--accessToken",
+        "0",
+        "--userType",
+        "legacy",
+        "--versionType",
+        "release",
+        "--width",
+        "1280",
+        "--height",
+        "720",
+        "--fullscreen"
+      ]
+    },
+    "extraArg": {
+      "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+      "javaMajor": 17,
+      "argc": 50,
+      "xmx": [
+        "-Xmx4096m"
+      ],
+      "xmxCount": 1,
+      "xms": [
+        "-Xms1024m"
+      ],
+      "width": "1280",
+      "height": "720",
+      "widthCount": 1,
+      "heightCount": 1,
+      "fullscreen": 1,
+      "g1": [
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true"
+      ],
+      "encoding": [
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK"
+      ],
+      "natives": [
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives"
+      ],
+      "brand": [
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0"
+      ],
+      "custom": [
+        "-Dmcl.acceptance=1"
+      ],
+      "placeholders": [],
+      "username": "ArgsUser",
+      "accessToken": "0",
+      "userType": "legacy",
+      "uuid": "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+      "gameDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+      "assetsDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+      "assetIndex": "5",
+      "mainClass": "net.minecraft.client.main.Main",
+      "argv": [
+        "-Xms1024m",
+        "-Xmx4096m",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true",
+        "-Dmcl.acceptance=1",
+        "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump",
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0",
+        "-cp",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\github\\oshi\\oshi-core\\6.2.2\\oshi-core-6.2.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\code\\gson\\gson\\2.10\\gson-2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\failureaccess\\1.0.1\\failureaccess-1.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\guava\\31.1-jre\\guava-31.1-jre.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\ibm\\icu\\icu4j\\71.1\\icu4j-71.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\authlib\\4.0.43\\authlib-4.0.43.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\blocklist\\1.0.10\\blocklist-1.0.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\brigadier\\1.1.8\\brigadier-1.1.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\datafixerupper\\6.0.8\\datafixerupper-6.0.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\logging\\1.1.1\\logging-1.1.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\patchy\\2.2.10\\patchy-2.2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\text2speech\\1.17.9\\text2speech-1.17.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-codec\\commons-codec\\1.15\\commons-codec-1.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-io\\commons-io\\2.11.0\\commons-io-2.11.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-logging\\commons-logging\\1.2\\commons-logging-1.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-buffer\\4.1.82.Final\\netty-buffer-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-codec\\4.1.82.Final\\netty-codec-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-common\\4.1.82.Final\\netty-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-handler\\4.1.82.Final\\netty-handler-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-resolver\\4.1.82.Final\\netty-resolver-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-classes-epoll\\4.1.82.Final\\netty-transport-classes-epoll-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-native-unix-common\\4.1.82.Final\\netty-transport-native-unix-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport\\4.1.82.Final\\netty-transport-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\it\\unimi\\dsi\\fastutil\\8.5.9\\fastutil-8.5.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna-platform\\5.12.1\\jna-platform-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna\\5.12.1\\jna-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\sf\\jopt-simple\\jopt-simple\\5.0.4\\jopt-simple-5.0.4.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-compress\\1.21\\commons-compress-1.21.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-lang3\\3.12.0\\commons-lang3-3.12.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpclient\\4.5.13\\httpclient-4.5.13.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpcore\\4.4.15\\httpcore-4.4.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-api\\2.19.0\\log4j-api-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-core\\2.19.0\\log4j-core-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-slf4j2-impl\\2.19.0\\log4j-slf4j2-impl-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\joml\\joml\\1.10.5\\joml-1.10.5.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-glfw\\3.3.1\\lwjgl-glfw-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-jemalloc\\3.3.1\\lwjgl-jemalloc-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-openal\\3.3.1\\lwjgl-openal-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-opengl\\3.3.1\\lwjgl-opengl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-stb\\3.3.1\\lwjgl-stb-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-tinyfd\\3.3.1\\lwjgl-tinyfd-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl\\3.3.1\\lwjgl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\slf4j\\slf4j-api\\2.0.1\\slf4j-api-2.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1.jar",
+        "-Dlog4j.configurationFile=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets\\log_configs\\client-1.12.xml",
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK",
+        "net.minecraft.client.main.Main",
+        "--username",
+        "ArgsUser",
+        "--version",
+        "1.20.1",
+        "--gameDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+        "--assetsDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+        "--assetIndex",
+        "5",
+        "--uuid",
+        "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+        "--accessToken",
+        "0",
+        "--userType",
+        "legacy",
+        "--versionType",
+        "release",
+        "--width",
+        "1280",
+        "--height",
+        "720",
+        "--fullscreen"
+      ]
+    },
+    "a4096": {
+      "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+      "javaMajor": 17,
+      "argc": 49,
+      "xmx": [
+        "-Xmx4096m"
+      ],
+      "xmxCount": 1,
+      "xms": [
+        "-Xms1024m"
+      ],
+      "width": "1280",
+      "height": "720",
+      "widthCount": 1,
+      "heightCount": 1,
+      "fullscreen": 1,
+      "g1": [
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true"
+      ],
+      "encoding": [
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK"
+      ],
+      "natives": [
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives"
+      ],
+      "brand": [
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0"
+      ],
+      "custom": [],
+      "placeholders": [],
+      "username": "ArgsUser",
+      "accessToken": "0",
+      "userType": "legacy",
+      "uuid": "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+      "gameDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+      "assetsDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+      "assetIndex": "5",
+      "mainClass": "net.minecraft.client.main.Main",
+      "argv": [
+        "-Xms1024m",
+        "-Xmx4096m",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true",
+        "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump",
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1-natives",
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0",
+        "-cp",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\github\\oshi\\oshi-core\\6.2.2\\oshi-core-6.2.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\code\\gson\\gson\\2.10\\gson-2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\failureaccess\\1.0.1\\failureaccess-1.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\guava\\31.1-jre\\guava-31.1-jre.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\ibm\\icu\\icu4j\\71.1\\icu4j-71.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\authlib\\4.0.43\\authlib-4.0.43.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\blocklist\\1.0.10\\blocklist-1.0.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\brigadier\\1.1.8\\brigadier-1.1.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\datafixerupper\\6.0.8\\datafixerupper-6.0.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\logging\\1.1.1\\logging-1.1.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\patchy\\2.2.10\\patchy-2.2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\text2speech\\1.17.9\\text2speech-1.17.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-codec\\commons-codec\\1.15\\commons-codec-1.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-io\\commons-io\\2.11.0\\commons-io-2.11.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-logging\\commons-logging\\1.2\\commons-logging-1.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-buffer\\4.1.82.Final\\netty-buffer-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-codec\\4.1.82.Final\\netty-codec-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-common\\4.1.82.Final\\netty-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-handler\\4.1.82.Final\\netty-handler-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-resolver\\4.1.82.Final\\netty-resolver-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-classes-epoll\\4.1.82.Final\\netty-transport-classes-epoll-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-native-unix-common\\4.1.82.Final\\netty-transport-native-unix-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport\\4.1.82.Final\\netty-transport-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\it\\unimi\\dsi\\fastutil\\8.5.9\\fastutil-8.5.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna-platform\\5.12.1\\jna-platform-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna\\5.12.1\\jna-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\sf\\jopt-simple\\jopt-simple\\5.0.4\\jopt-simple-5.0.4.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-compress\\1.21\\commons-compress-1.21.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-lang3\\3.12.0\\commons-lang3-3.12.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpclient\\4.5.13\\httpclient-4.5.13.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpcore\\4.4.15\\httpcore-4.4.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-api\\2.19.0\\log4j-api-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-core\\2.19.0\\log4j-core-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-slf4j2-impl\\2.19.0\\log4j-slf4j2-impl-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\joml\\joml\\1.10.5\\joml-1.10.5.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-glfw\\3.3.1\\lwjgl-glfw-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-jemalloc\\3.3.1\\lwjgl-jemalloc-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-openal\\3.3.1\\lwjgl-openal-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-opengl\\3.3.1\\lwjgl-opengl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-stb\\3.3.1\\lwjgl-stb-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-tinyfd\\3.3.1\\lwjgl-tinyfd-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl\\3.3.1\\lwjgl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\slf4j\\slf4j-api\\2.0.1\\slf4j-api-2.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1\\1.20.1.jar",
+        "-Dlog4j.configurationFile=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets\\log_configs\\client-1.12.xml",
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK",
+        "net.minecraft.client.main.Main",
+        "--username",
+        "ArgsUser",
+        "--version",
+        "1.20.1",
+        "--gameDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1",
+        "--assetsDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+        "--assetIndex",
+        "5",
+        "--uuid",
+        "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+        "--accessToken",
+        "0",
+        "--userType",
+        "legacy",
+        "--versionType",
+        "release",
+        "--width",
+        "1280",
+        "--height",
+        "720",
+        "--fullscreen"
+      ]
+    },
+    "b2048": {
+      "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+      "javaMajor": 17,
+      "argc": 48,
+      "xmx": [
+        "-Xmx2048m"
+      ],
+      "xmxCount": 1,
+      "xms": [
+        "-Xms1024m"
+      ],
+      "width": "854",
+      "height": "480",
+      "widthCount": 1,
+      "heightCount": 1,
+      "fullscreen": 0,
+      "g1": [
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true"
+      ],
+      "encoding": [
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK"
+      ],
+      "natives": [
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives"
+      ],
+      "brand": [
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0"
+      ],
+      "custom": [],
+      "placeholders": [],
+      "username": "ArgsUser",
+      "accessToken": "0",
+      "userType": "legacy",
+      "uuid": "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+      "gameDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b",
+      "assetsDir": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+      "assetIndex": "5",
+      "mainClass": "net.minecraft.client.main.Main",
+      "argv": [
+        "-Xms1024m",
+        "-Xmx2048m",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseG1GC",
+        "-XX:G1NewSizePercent=20",
+        "-XX:G1ReservePercent=20",
+        "-XX:G1HeapRegionSize=32M",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:+PerfDisableSharedMem",
+        "-XX:MinHeapFreeRatio=25",
+        "-XX:MaxHeapFreeRatio=40",
+        "-Dlog4j2.formatMsgNoLookups=true",
+        "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump",
+        "-Djava.library.path=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives",
+        "-Djna.tmpdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives",
+        "-Dorg.lwjgl.system.SharedLibraryExtractPath=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives",
+        "-Dio.netty.native.workdir=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b-natives",
+        "-Dminecraft.launcher.brand=mc-launcher",
+        "-Dminecraft.launcher.version=0.1.0",
+        "-cp",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\github\\oshi\\oshi-core\\6.2.2\\oshi-core-6.2.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\code\\gson\\gson\\2.10\\gson-2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\failureaccess\\1.0.1\\failureaccess-1.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\google\\guava\\guava\\31.1-jre\\guava-31.1-jre.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\ibm\\icu\\icu4j\\71.1\\icu4j-71.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\authlib\\4.0.43\\authlib-4.0.43.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\blocklist\\1.0.10\\blocklist-1.0.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\brigadier\\1.1.8\\brigadier-1.1.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\datafixerupper\\6.0.8\\datafixerupper-6.0.8.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\logging\\1.1.1\\logging-1.1.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\patchy\\2.2.10\\patchy-2.2.10.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\com\\mojang\\text2speech\\1.17.9\\text2speech-1.17.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-codec\\commons-codec\\1.15\\commons-codec-1.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-io\\commons-io\\2.11.0\\commons-io-2.11.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\commons-logging\\commons-logging\\1.2\\commons-logging-1.2.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-buffer\\4.1.82.Final\\netty-buffer-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-codec\\4.1.82.Final\\netty-codec-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-common\\4.1.82.Final\\netty-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-handler\\4.1.82.Final\\netty-handler-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-resolver\\4.1.82.Final\\netty-resolver-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-classes-epoll\\4.1.82.Final\\netty-transport-classes-epoll-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport-native-unix-common\\4.1.82.Final\\netty-transport-native-unix-common-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\io\\netty\\netty-transport\\4.1.82.Final\\netty-transport-4.1.82.Final.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\it\\unimi\\dsi\\fastutil\\8.5.9\\fastutil-8.5.9.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna-platform\\5.12.1\\jna-platform-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\java\\dev\\jna\\jna\\5.12.1\\jna-5.12.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\net\\sf\\jopt-simple\\jopt-simple\\5.0.4\\jopt-simple-5.0.4.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-compress\\1.21\\commons-compress-1.21.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\commons\\commons-lang3\\3.12.0\\commons-lang3-3.12.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpclient\\4.5.13\\httpclient-4.5.13.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\httpcomponents\\httpcore\\4.4.15\\httpcore-4.4.15.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-api\\2.19.0\\log4j-api-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-core\\2.19.0\\log4j-core-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\apache\\logging\\log4j\\log4j-slf4j2-impl\\2.19.0\\log4j-slf4j2-impl-2.19.0.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\joml\\joml\\1.10.5\\joml-1.10.5.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-glfw\\3.3.1\\lwjgl-glfw-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-jemalloc\\3.3.1\\lwjgl-jemalloc-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-openal\\3.3.1\\lwjgl-openal-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-opengl\\3.3.1\\lwjgl-opengl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-stb\\3.3.1\\lwjgl-stb-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl-tinyfd\\3.3.1\\lwjgl-tinyfd-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\lwjgl\\lwjgl\\3.3.1\\lwjgl-3.3.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\libraries\\org\\slf4j\\slf4j-api\\2.0.1\\slf4j-api-2.0.1.jar;D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b\\1.20.1-b.jar",
+        "-Dlog4j.configurationFile=D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets\\log_configs\\client-1.12.xml",
+        "-Dstdout.encoding=GBK",
+        "-Dstderr.encoding=GBK",
+        "-Dfile.encoding=GBK",
+        "net.minecraft.client.main.Main",
+        "--username",
+        "ArgsUser",
+        "--version",
+        "1.20.1-b",
+        "--gameDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\versions\\1.20.1-b",
+        "--assetsDir",
+        "D:\\DSH-工作文件\\mc-launcher\\.e2e\\e2e-install-H2EdGy\\mc\\assets",
+        "--assetIndex",
+        "5",
+        "--uuid",
+        "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+        "--accessToken",
+        "0",
+        "--userType",
+        "legacy",
+        "--versionType",
+        "release",
+        "--width",
+        "854",
+        "--height",
+        "480"
+      ]
+    }
+  },
+  "errors": {
+    "managedXmx": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "managed JVM argument in custom list: -Xmx2G",
+      "retryable": false
+    },
+    "javaMissing": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "forced Java is not usable: executable not found",
+      "retryable": false
+    },
+    "javaInvalid": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "forced Java is not usable: probe timed out after 8000 ms",
+      "retryable": false
+    }
+  },
+  "instances": [
+    {
+      "id": "1.20.1",
+      "state": "ready",
+      "mcVersion": "1.20.1"
+    },
+    {
+      "id": "1.20.1-b",
+      "state": "ready",
+      "mcVersion": null
+    }
+  ],
+  "dryRunFiles": [
+    {
+      "file": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-04-data\\logs\\dry-run.json",
+      "exists": true,
+      "bytes": 16494
+    },
+    {
+      "file": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-04-data\\logs\\launch-dry-run.json",
+      "exists": false,
+      "bytes": 0
+    }
+  ],
+  "dryRunLogs": [
+    "app-20261021.jsonl",
+    "dry-run.json",
+    "game",
+    "launch-last.bat",
+    "launch-last.json",
+    "launcher.log"
+  ],
+  "javaRestored": {
+    "versionId": "1.20.1",
+    "requiredMajor": 17,
+    "requiredSource": "version-json",
+    "selected": {
+      "path": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+      "home": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta",
+      "source": "mojang-runtime",
+      "version": {
+        "major": 17,
+        "minor": 0,
+        "patch": 15,
+        "raw": "17.0.15"
+      },
+      "vendor": "Microsoft",
+      "arch": "amd64",
+      "bits": 64,
+      "probedAt": 1792583476000
+    },
+    "scope": "auto",
+    "reason": {
+      "code": "exact-match",
+      "text": "版本 1.20.1 要求 Java 17，已安装的 Java 17 完全匹配",
+      "details": {
+        "requiredMajor": 17
+      }
+    },
+    "alternatives": [
+      {
+        "path": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-epsilon\\bin\\java.exe",
+        "home": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-epsilon",
+        "source": "mojang-runtime",
+        "version": {
+          "major": 25,
+          "minor": 0,
+          "patch": 1,
+          "raw": "25.0.1"
+        },
+        "vendor": "Microsoft",
+        "arch": "amd64",
+        "bits": 64,
+        "probedAt": 1792583476028
+      },
+      {
+        "path": "D:\\DSH-工作文件\\tools\\jdk21\\jdk-21.0.12.1+1\\bin\\java.exe",
+        "home": "D:\\DSH-工作文件\\tools\\jdk21\\jdk-21.0.12.1+1",
+        "source": "java-home",
+        "version": {
+          "major": 21,
+          "minor": 0,
+          "patch": 12,
+          "raw": "21.0.12.1"
+        },
+        "vendor": "Microsoft",
+        "arch": "amd64",
+        "bits": 64,
+        "probedAt": 1792583475959
+      },
+      {
+        "path": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-delta\\bin\\java.exe",
+        "home": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-delta",
+        "source": "mojang-runtime",
+        "version": {
+          "major": 21,
+          "minor": 0,
+          "patch": 7,
+          "raw": "21.0.7"
+        },
+        "vendor": "Microsoft",
+        "arch": "amd64",
+        "bits": 64,
+        "probedAt": 1792583476017
+      },
+      {
+        "path": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+        "home": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta",
+        "source": "mojang-runtime",
+        "version": {
+          "major": 17,
+          "minor": 0,
+          "patch": 15,
+          "raw": "17.0.15"
+        },
+        "vendor": "Microsoft",
+        "arch": "amd64",
+        "bits": 64,
+        "probedAt": 1792583476000
+      }
+    ],
+    "download": {
+      "needed": false,
+      "suggestedMajor": null,
+      "installedMajor": 17,
+      "sources": [
+        "adoptium",
+        "microsoft"
+      ],
+      "reason": null
+    },
+    "warnings": []
+  },
+  "account": {
+    "id": "c89f4c67-b36c-4ee4-bae0-08d4963364b3",
+    "kind": "offline",
+    "name": "ArgsUser",
+    "uuid": "b92683c9-c2b4-3c3e-b9c8-7839a882baa0",
+    "authlibServer": null,
+    "createdAt": 1792583467031
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "name": "mc-launcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Clean-room Minecraft launcher desktop shell (Electron + TypeScript + React)",
+  "author": "mc-launcher team",
+  "license": "GPL-3.0-only",
+  "main": "out/main/index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "postinstall": "node scripts/ensure-electron.mjs",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "guard": "node scripts/check-frozen.mjs",
+    "check": "npm run guard && npm run typecheck && npm run test",
+    "pack": "electron-vite build && electron-builder --dir --win",
+    "dist": "electron-vite build && electron-builder --win",
+    "clean": "node scripts/clean.mjs",
+    "e2e:install-launch": "node scripts/e2e-install-launch.mjs"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "44.9.3",
+    "electron-builder": "26.15.3",
+    "electron-vite": "6.0.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  },
+  "build": {
+    "appId": "com.mclauncher.desktop",
+    "productName": "mc-launcher",
+    "electronVersion": "44.9.3",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "asar": true,
+    "npmRebuild": false,
+    "icon": "build/icon.ico",
+    "files": [
+      "out/**/*",
+      "package.json",
+      "LICENSE",
+      "COPYING",
+      "NOTICE"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true,
+      "signExecutable": false
+    }
+  }
+}

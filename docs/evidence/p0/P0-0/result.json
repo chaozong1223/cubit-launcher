@@ -1,0 +1,39 @@
+{
+  "fixtures": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-fixtures",
+  "instances": [
+    {
+      "id": "broken-json",
+      "state": "corrupt-json",
+      "reason": "invalid JSON: D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-fixtures\\versions\\broken-json\\broken-json.json",
+      "mcVersion": null
+    },
+    {
+      "id": "no-jar",
+      "state": "missing-jar",
+      "reason": "client jar not found: D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-fixtures\\versions\\no-jar\\no-jar.jar",
+      "mcVersion": null
+    }
+  ],
+  "brokenStart": {
+    "ok": false,
+    "error": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "invalid JSON: D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-fixtures\\versions\\broken-json\\broken-json.json",
+      "retryable": false
+    }
+  },
+  "noJarStart": {
+    "ok": false,
+    "error": {
+      "code": "IPC.HANDLER_FAILED",
+      "message": "client jar missing: D:\\DSH-工作文件\\mc-launcher\\.e2e\\qa-fixtures\\versions\\no-jar\\no-jar.jar",
+      "retryable": false
+    }
+  },
+  "javawBefore": 0,
+  "javawAfter": 0,
+  "screenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\P0-0\\fixtures-instances.png",
+  "detail": {
+    "id": "Hunt%EF%BC%9AHistory%201949%20-%20Blood%20Testament"
+  }
+}
