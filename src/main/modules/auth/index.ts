@@ -1,3 +1,4 @@
+import { shell } from 'electron'
 import type { ModuleContext } from '../_registry'
 import { getService, publishService } from '../_services'
 import { resolveModuleRoots } from '../_context'
@@ -75,6 +76,7 @@ export function register(ctx: ModuleContext): void {
     dataRoot: roots.dataRoot,
     log: ctx.log,
     cipher: createSafeStorageCipher(),
+    openExternal: (url) => shell.openExternal(url),
   })
 
   publishService(moduleId, service)

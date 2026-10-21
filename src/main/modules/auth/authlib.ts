@@ -15,6 +15,28 @@ export const AUTHLIB_SHA256 = '9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce
 export const AUTHLIB_SIZE = 349_681
 const MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
 
+/** Curated public Authlib-injector skin sites. Users may also enter a custom URL. */
+export const AUTHLIB_PRESETS = [
+  {
+    id: 'littleskin',
+    name: 'LittleSkin',
+    server: 'https://littleskin.cn/api/yggdrasil',
+    homepage: 'https://littleskin.cn',
+  },
+  {
+    id: 'mcbbs',
+    name: 'MCBBS 皮肤站',
+    server: 'https://skin.mcbbss.cn/api/yggdrasil',
+    homepage: 'https://skin.mcbbss.cn',
+  },
+  {
+    id: 'blessing-skin',
+    name: 'Blessing Skin',
+    server: 'https://skin.prinzeugen.net/api/yggdrasil',
+    homepage: 'https://skin.prinzeugen.net',
+  },
+] as const
+
 export interface AuthlibInfo {
   version: string
   sha256: string

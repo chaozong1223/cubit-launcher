@@ -1,3 +1,5 @@
+import { useEffect, useState, type ReactNode } from 'react'
+import noticeText from '../../../../NOTICE?raw'
 import { useBackend } from '../data/BackendContext'
 import { describeError } from '../data/backend'
 import { useSystem } from '../system'
@@ -6,11 +8,61 @@ import { navigate } from '../router'
 import { Badge, Banner, Button, Card, PageHeader, Skeleton } from '../ui'
 import { Icon, CubeMark } from '../icons'
 
+function noticeSection(text: string, heading: string): string {
+  const marker = `### ${heading}`
+  const start = text.indexOf(marker)
+  if (start < 0) return ''
+  const rest = text.slice(start + marker.length)
+  const next = rest.indexOf('\n### ')
+  return (next >= 0 ? rest.slice(0, next) : rest).trim()
+}
+
+const projectNotice = noticeText.split(/^### /m)[0].trim()
+const hmclNotice = noticeSection(noticeText, 'HMCL (ported account code)')
+const hmclCopyright = hmclNotice
+  .split(/\r?\n/)
+  .find((line) => line.includes('Copyright (C) 2020–2026 huangyuhui and HMCL contributors'))
+  ?.replace(/^-\s*/, '')
+  .trim() ?? ''
+const easytierNotice = noticeSection(noticeText, 'EasyTier (optional LAN/tunnel sidecar)')
+const modrinthNotice = noticeSection(noticeText, 'Modrinth')
+const hmclUrl = hmclNotice.match(/https:\/\/github\.com\/HMCL-dev\/HMCL/)?.[0] ?? 'https://github.com/HMCL-dev/HMCL'
+const easytierUrl = easytierNotice.match(/https:\/\/github\.com\/EasyTier\/EasyTier/)?.[0] ?? 'https://github.com/EasyTier/EasyTier'
+const modrinthUrl = modrinthNotice.match(/https:\/\/modrinth\.com[^\s)]*/)?.[0] ?? 'https://modrinth.com'
+
+function NoticeBlock({ text }: { text: string }) {
+  return <pre className="about-notice-block" tabIndex={0}>{text}</pre>
+}
+
+function LicenseLink({ href, children }: { href: string; children: ReactNode }) {
+  return <a className="about-license-link" href={href} target="_blank" rel="noreferrer">{children}<Icon name="external" /></a>
+}
+
 export function AboutPage() {
   const backend = useBackend()
   const system = useSystem()
   const theme = useTheme()
   const info = system.info
+  const [noticeOpen, setNoticeOpen] = useState(false)
+
+  useEffect(() => {
+    if (!noticeOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNoticeOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [noticeOpen])
+
+  const downloadNotice = () => {
+    const blob = new Blob([noticeText], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'NOTICE'
+    anchor.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 
   return (
     <>
@@ -96,6 +148,80 @@ export function AboutPage() {
           </div>
         </Card>
       </div>
+
+      <Card className="about-license-card">
+        <div className="about-license-head">
+          <div>
+            <div className="eyebrow">Open source licenses</div>
+            <h2>开源许可</h2>
+            <p>以下内容直接来自仓库根 <code className="mono">NOTICE</code>（构建时内联，同一份文案来源）；本页不维护第二套声明。</p>
+          </div>
+          <Badge tone="accent">GPL-3.0</Badge>
+        </div>
+
+        <div className="about-license-grid">
+          <section className="about-license-section">
+            <h3>本项目 · GPL-3.0</h3>
+            <NoticeBlock text={projectNotice} />
+          </section>
+          <section className="about-license-section">
+            <h3>HMCL 移植代码 · GPL-3.0</h3>
+            <p className="about-license-source">
+              来源：<LicenseLink href={hmclUrl}>HMCL-dev/HMCL</LicenseLink>
+              <span className="muted"> · 版权与 GPL-3.0 声明见下方 NOTICE 原文</span>
+            </p>
+            {hmclCopyright ? <p className="about-license-copyright">{hmclCopyright}</p> : null}
+            <NoticeBlock text={hmclNotice} />
+          </section>
+          <section className="about-license-section">
+            <h3>EasyTier · LGPL-3.0</h3>
+            <p className="about-license-source">
+              来源：<LicenseLink href={easytierUrl}>EasyTier/EasyTier</LicenseLink>
+              <span className="muted"> · 独立进程，运行时下载，不修改、不静态链接</span>
+            </p>
+            <NoticeBlock text={easytierNotice} />
+          </section>
+          <section className="about-license-section">
+            <h3>Modrinth · 数据与服务声明</h3>
+            <p className="about-license-source">
+              来源：<LicenseLink href={modrinthUrl}>modrinth.com</LicenseLink>
+              <span className="muted"> · 仅使用公开 API，不转存资源</span>
+            </p>
+            <NoticeBlock text={modrinthNotice} />
+          </section>
+        </div>
+
+        <div className="about-license-actions">
+          <Button variant="primary" icon="info" onClick={() => setNoticeOpen(true)}>查看完整 NOTICE</Button>
+          <Button variant="secondary" icon="download" onClick={downloadNotice}>下载 NOTICE</Button>
+          <span className="muted">完整文本可滚动查看；下载后可随源码/二进制保留。</span>
+        </div>
+      </Card>
+
+      {noticeOpen ? (
+        <div
+          className="about-notice-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setNoticeOpen(false)
+          }}
+        >
+          <div className="about-notice-modal" role="dialog" aria-modal="true" aria-labelledby="about-notice-title">
+            <div className="about-notice-modal__head">
+              <div>
+                <div className="eyebrow">Repository notice</div>
+                <h2 id="about-notice-title">完整 NOTICE</h2>
+              </div>
+              <Button size="sm" variant="ghost" icon="close" aria-label="关闭完整 NOTICE" onClick={() => setNoticeOpen(false)} />
+            </div>
+            <pre className="about-notice-full" tabIndex={0}>{noticeText}</pre>
+            <div className="about-notice-modal__actions">
+              <Button size="sm" variant="secondary" icon="download" onClick={downloadNotice}>下载 NOTICE</Button>
+              <Button size="sm" variant="primary" icon="close" onClick={() => setNoticeOpen(false)}>关闭</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="legal-note" style={{ marginTop: 14 }}>
         本项目与 Mojang Studios、Microsoft 无关。Minecraft 是 Mojang Studios 的商标。启动器仅支持正版登录；离线账户仅用于单机或 online-mode=false 的自建服务器。代码采用 clean-room 实现，未读取或移植 PCL2 源码。

@@ -31,6 +31,7 @@ import {
   writeLaunchArtifacts,
 } from './artifacts'
 import { extractNatives, planNatives } from './natives'
+import { applyGameLanguage } from './options'
 import { assertPathBudget } from '../../kernel/paths'
 import {
   startLaunchProcess,
@@ -54,6 +55,8 @@ export interface LaunchRequestInput {
   accountId?: string | null
   server?: { host: string; port: number } | null
   dryRun?: boolean
+  /** Persisted launcher language setting; null means follow the game. */
+  gameLanguage?: string | null
 }
 
 export interface LaunchOrchestratorOptions {
@@ -97,6 +100,23 @@ interface SessionRecord {
 }
 
 const IDLE_STATE: LaunchState = 'idle'
+
+/**
+ * Only a real crash may surface the crash panel. Normal exits, launch anomalies
+ * and launcher-requested kills all end in `exited`; the exit report keeps the
+ * richer classification (normal/suspect/killed).
+ */
+export function launchStateForClassification(
+  classification: LaunchExit['classification'],
+): LaunchState {
+  return classification === 'crashed' ? 'crashed' : 'exited'
+}
+
+export function reportReadyForClassification(
+  classification: LaunchExit['classification'],
+): boolean {
+  return classification === 'crashed'
+}
 
 /**
  * Orchestrates the launch chain without Electron: instance → version merge →
@@ -434,6 +454,25 @@ export class LaunchOrchestrator extends EventEmitter {
       })
     }
 
+    // Apply the language setting to the real gameDir from the launch plan
+    // (isolated version dir or shared mcRoot), before spawning Java.
+    try {
+      const language = input.gameLanguage === undefined ? 'zh_cn' : input.gameLanguage
+      const result = applyGameLanguage(this.fs, prepared.plan.cwd, language)
+      if (result.changed) {
+        this.logger.info('game language applied', {
+          instanceId: prepared.instance.id,
+          language: result.language,
+          path: result.path,
+        })
+      }
+    } catch (error) {
+      this.logger.warn('game language write failed; launching unchanged', {
+        instanceId: prepared.instance.id,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+
     if (!this.fs.exists(prepared.plan.javaPath)) {
       throw new CoreError('PROCESS.SPAWN_FAILED', {
         message: `java executable not found: ${prepared.plan.javaPath}`,
@@ -584,12 +623,12 @@ export class LaunchOrchestrator extends EventEmitter {
 
     const status: LaunchStatus = {
       instanceId,
-      state: exit.classification === 'normal' ? 'exited' : 'crashed',
+      state: launchStateForClassification(exit.classification),
       sessionId: handle.sessionId,
       startedAt: exit.startedAt,
       exitCode: exit.exitCode,
       durationMs: exit.durationMs,
-      reportReady: exit.classification !== 'normal',
+      reportReady: reportReadyForClassification(exit.classification),
     }
     this.statusByInstance.set(instanceId, status)
     this.sessions.delete(handle.sessionId)

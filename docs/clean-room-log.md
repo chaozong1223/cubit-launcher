@@ -16,7 +16,7 @@
 | C6 | 正版购买/赞助劝导**文案自写**，不复刻 PCL 的劝导原文；不提供"离线进正版服"的任何提示或工具 | 02 MC-09 |
 | C7 | 不使用 PCL 的图标/背景/音乐/皮肤资源；不复制其 XAML 结构与 UI 文案原句 | 02 LIC-03 |
 | C8 | 读取用户 PCL 目录仅只读、不写回、不移动、不删除；UI 不宣称"PCL 官方兼容/合作" | 02 LIC-05 |
-| C9 | HMCL 代码可在 GPL-3.0 下移植：保留版权头、NOTICE、衍生仍 GPL-3.0、分发提供源码、标注修改、改名/版本区分、保留软件内版权声明；不使用 HMCL 商标/Logo/资源 | 02 LIC-17/18/19 |
+| C9 | HMCL 代码可在 GPL-3.0 下移植：保留版权头、NOTICE、衍生仍 GPL-3.0、分发提供源码、标注修改、改名/版本区分、保留软件内版权声明（**当前 About 页待补，见 CR-004**）；不使用 HMCL 商标/Logo/资源 | 02 LIC-17/18/19/22 |
 | C10 | 角色隔离：规格作者读 PCL 源码后**不得实现对应模块**；实现者不得读 PCL 源码；每次阅读登记（时间/作者/文件/目的/规格路径/是否复制） | 02 LIC-13/14/20 |
 
 ## 2. 模块记录
@@ -25,7 +25,8 @@
 |---|---|---|---|---|---|---|---|
 | CR-001 | 2026-10-21 | `01-requirements.md`（需求与范围、功能矩阵、P0 验收） | ① `E:\MC\PCL` 的 `Setup.ini`、`Log1..5.txt`、`LatestLaunch.bat`（用户数据，只读；读取内容用于行为分析）、`authlib-injector.jar`/`JavaWrapper.jar`（仅文件名/大小）；② `E:\MC\.minecraft\versions` 的目录、版本 JSON、`PCL\Setup.ini`/`config.json`（用户数据，只读）；③ `Plain Craft Launcher 2.exe` 的只读字符串扫描（运行产物）；④ GitHub 仓库 `Meloong-Git/PCL` 的**目录树**（`Plain Craft Launcher 2/Pages/**`、`Modules/**` 的路径名）；⑤ `LTCatt/PCL2Help`（PCL 内置帮助文档库，CC0-1.0）；⑥ Mojang/BMCLAPI 端点探测 | 仅目录/文件**名**、日志文本、落盘文件、可执行文件字符串、公开文档与端点响应 | **否**。未打开任何 `.vb/.xaml/.resx/.png/.ico/.wav`；未读取仓库文件内容；**只看了树，没看内容** | clean-room 合规；目录树仅用于功能枚举；实现依据可追溯到黑盒行为/公开规范 | planner / *待 reviewer 复核* |
 | CR-002 | 2026-10-21 | 启动链 / Java 检测 / 进程与日志（t6 实现） | ① 本机 `E:\MC\.minecraft\versions\**\*.json`、`runtime\**\bin\java.exe`（用户数据，只读；作为互操作夹具与探测对象）；② 公开 `client.json` 格式说明（Minecraft Wiki 的 gamixo 镜像，2026-06-25 缓存；只取字段结构、rules 语义、natives/arguments 布局）；③ `java -XshowSettings:properties -version` 的公开输出格式（运行产物）；④ 按公开格式手写的 Forge / Fabric / legacy 夹具（自建，不含任何 PCL 内容） | 版本 JSON 字段、rules/natives/arguments 结构、Java 属性行；未读取任何 PCL 文件内容，未参考 PCL `Setup.ini`/`Log*.txt` | **否**。t6 全程未打开 `E:\MC\PCL` 下任何文件，未访问 PCL 仓库 | clean-room 成立；实现依据为公开格式 + 用户数据只读互操作 + 自建夹具 | core-dev / *待 reviewer 复核* |
-| CR-003 | 2026-10-21 | 项目级（PCL / HMCL 许可重核，t37） | ① `Meloong-Git/PCL` 根 `LICENCE`（sha `ae3dd050…`，1,360 B）全文；② 其引用的《PCL 分发有限许可》原文（shimo.im/docs/rGrd8pY8xWkt6ryW，2026-06-18 修订版，2026-10-21 抓取）；③ `HMCL-dev/HMCL` 的 `LICENSE`（GPL-3.0，35,149 B）、README 的 Additional terms、`Launcher.java` 版权头；④ PCL `Modules/**` 与 HMCL `HMCLCore/**` 的**目录/文件名单**（仅枚举） | 许可证/README 全文；PCL 模块文件名（`ModLaunch.vb`、`ModDownload.vb`、`ModSecret.vb` 等）；HMCLCore 目录名（`auth/download/game/java/launch/modpack/task/util`）；**未打开任何 PCL `.vb/.xaml/.resx` 内容** | **否**（本次未读 PCL 源码内容；仅读许可证/README 与文件名）。此前项目只对 PCL 做目录级 clean-room；**HMCL 从未被使用/复制/移植**（仓库仅注释提及 HMCL，无代码） | PCL：阅读可由规格作者进行，但代码不得复制/移植/分发衍生；大范围参考有重度使用风险（§10.3.2/10.3.6）。HMCL：GPL-3.0 + §7 附加条款，可移植（§10.3.3）。本记录不改变“此前未使用 HMCL”的事实 | architect / *待 reviewer 复核* |
+| CR-003 | 2026-10-21 | 项目级（PCL / HMCL 许可重核，t37） | ① `Meloong-Git/PCL` 根 `LICENCE`（sha `ae3dd050…`，1,360 B）全文；② 其引用的《PCL 分发有限许可》原文（shimo.im/docs/rGrd8pY8xWkt6ryW，2026-06-18 修订版，2026-10-21 抓取）；③ `HMCL-dev/HMCL` 的 `LICENSE`（GPL-3.0，35,149 B）、README 的 Additional terms、`Launcher.java` 版权头；④ PCL `Modules/**` 与 HMCL `HMCLCore/**` 的**目录/文件名单**（仅枚举） | 许可证/README 全文；PCL 模块文件名（`ModLaunch.vb`、`ModDownload.vb`、`ModSecret.vb` 等）；HMCLCore 目录名（`auth/download/game/java/launch/modpack/task/util`）；**未打开任何 PCL `.vb/.xaml/.resx` 内容** | **否**（本次未读 PCL 源码内容；仅读许可证/README 与文件名）。此前项目只对 PCL 做目录级 clean-room；**t37 时 HMCL 未使用/复制/移植**（仓库仅注释提及 HMCL，无代码）；**t62 后续经用户授权移植账户模块，见 CR-004** | PCL：阅读可由规格作者进行，但代码不得复制/移植/分发衍生；大范围参考有重度使用风险（§10.3.2/10.3.6）。HMCL：GPL-3.0 + §7 附加条款，可移植（§10.3.3）。t37 记录的是当时状态，t62 移植见 CR-004 | architect / *待 reviewer 复核* |
+| CR-004 | 2026-10-21 | HMCL 账户模块移植（t62：`hmcl-port/` 4 文件 + `auth/microsoft.ts` 适配版） | ① `HMCL-dev/HMCL` commit `e7b9a95df0acf79b9797dcef38463e2b22e37a6a` 的 6 个源文件：`HMCLCore/.../auth/OAuth.java`、`HMCL/src/main/java/org/jackhuang/hmcl/game/OAuthServer.java`、`HMCLCore/.../auth/microsoft/MicrosoftService.java`、`HMCLCore/.../auth/yggdrasil/YggdrasilService.java`、`HMCLCore/.../auth/authlibinjector/AuthlibInjectorServer.java`、`HMCLCore/.../auth/yggdrasil/Texture.java`；② 用户 2026-10-21 授权（HMCL GPL-3.0 可移植）；③ `NOTICE` HMCL 段 | 上述 6 个源文件的 GPL 版权头、OAuth/设备码/回环、Xbox/XSTS/profile、Yggdrasil/Authlib 元数据、皮肤纹理缓存行为；TS **5** 文件：`hmcl-port/{oauth,microsoft,yggdrasil,skin-cache}.ts` + `src/main/modules/auth/microsoft.ts`（适配版） | **否**（本次是 HMCL 代码移植；未读/未用 PCL 源码） | **条件合规（待 reviewer 复核）**：保留 GPL 版权头；NOTICE 列 commit/6 源文件/5 TS 目标/修改点；衍生整体 GPL-3.0；产品名 Cubit Launcher 与 HMCL 区分；源码可得；**软件内 About 的 HMCL 版权声明待补（发布前必须，见 07-handoff §13）**；无 PCL 代码 | core-dev（t62）/ *待 reviewer 复核* |
 
 ## 3. 后续模块记录（待各模块 owner 补充）
 
@@ -58,12 +59,12 @@
 | 2026-10-21 | architect | `Meloong-Git/PCL` | `Plain Craft Launcher 2/Modules/**`、`Modules/Minecraft/**` 的**文件名清单** | 给“可读/别碰”清单提供准确路径 | 02 §10.3.5 | 否（仅文件名） | 待 reviewer |
 | 2026-10-21 | architect | `HMCL-dev/HMCL` | `HMCLCore/src/main/java/org/jackhuang/hmcl/**` 目录名 | 给可移植清单提供准确路径 | 02 §10.3.5 | 否（仅目录名） | 待 reviewer |
 
-> **结论**：本次没有打开任何 PCL `.vb/.xaml/.resx` 内容，也没有复制/移植 HMCL 代码；仓库中此前只有注释提及 HMCL（`src/shared/java.ts` 的“HMCL-style”），**无 HMCL 代码**。
+> **结论（t37 当时）**：本次没有打开任何 PCL `.vb/.xaml/.resx` 内容，也没有复制/移植 HMCL 代码；仓库中当时只有注释提及 HMCL（`src/shared/java.ts` 的“HMCL-style”），**无 HMCL 代码**。t62 后续经用户授权移植账户模块，见 §5 / CR-004。
 
 ### 4.3 此前状态（供审计）
 
 - 项目此前只对 PCL 做**目录级 clean-room**（CR-001/CR-002：只看了树/文件名单，未读内容）；
-- **HMCL 从未被使用、复制或移植**；本次之前也没有 HMCL 相关实现依据；
+- **t37 时 HMCL 未使用、复制或移植**；t62 后续经用户授权移植账户模块（5 个 TS 文件，见 §5 / CR-004）；
 - 本次改判后，若后续要读 PCL 源码，必须按 §4.4 登记并产出规格，且**规格作者不得实现对应模块**。
 
 ### 4.4 后续阅读登记模板（强制）
@@ -77,10 +78,55 @@
 3. 规格作者与实现者必须是不同人；实现者 PR 必须声明“未读 PCL 源码”。
 4. 发现实现者读源码/复制表达 → 按 02 §2.5 taint 处置，并在本文件记录事件。
 
-## 5. 变更记录
+## 5. HMCL 移植记录（CR-004，t62）
+
+### 5.1 事实
+
+| 项 | 内容 |
+|---|---|
+| 日期 | 2026-10-21 |
+| 来源 | `HMCL-dev/HMCL`，commit `e7b9a95df0acf79b9797dcef38463e2b22e37a6a`（HMCL 3.6.x 账户代码） |
+| 许可 | GPL-3.0 + README「Additional terms under GPLv3 Section 7」 |
+| 执行人 | core-dev（t62） |
+| 审核 | *待 reviewer 复核* |
+| 授权 | 用户 2026-10-21 明确同意按 GPL-3.0 移植（t62 objective） |
+
+### 5.2 文件映射（6 源文件 → 5 TS 文件）
+
+| HMCL 源文件 | TS 目标 | 移植内容 | 主要修改 |
+|---|---|---|---|
+| `HMCLCore/.../auth/OAuth.java` | `src/main/modules/auth/hmcl-port/oauth.ts` | OAuth 设备码/回环/PKCE/state/回调 | CompletableFuture/NanoHTTPD → Node `http` + result holder；JavaFX 事件/浏览器 → `openExternal()`；**不使用 HMCL 的 client_id** |
+| `HMCL/src/main/java/org/jackhuang/hmcl/game/OAuthServer.java` | 同上 | 回环 HTTP 服务器行为 | 同上；绑定 127.0.0.1 + 临时端口 |
+| `HMCLCore/.../auth/microsoft/MicrosoftService.java` | `hmcl-port/microsoft.ts` | Xbox/XSTS/Minecraft profile、皮肤列表 | Gson → 结构化 JSON；ObservableOptionalCache/线程池移除；皮肤首个 URL 优先行为保留 |
+| `HMCLCore/.../auth/microsoft/MicrosoftService.java` | `src/main/modules/auth/microsoft.ts`（适配版） | 微软设备码/令牌/档案适配 | 复用 `HttpPort`/`AppError`；**不使用 HMCL client_id** |
+| `HMCLCore/.../auth/yggdrasil/YggdrasilService.java` | `hmcl-port/yggdrasil.ts` | Yggdrasil 认证/刷新/验证、metadata | Gson → 结构化解析；HTTP 由调用方 `HttpPort` 提供 |
+| `HMCLCore/.../auth/authlibinjector/AuthlibInjectorServer.java` | `hmcl-port/yggdrasil.ts` | Authlib 服务器元数据/链接解析 | 保留 meta/links/feature.non_email_login 字段契约 |
+| `HMCLCore/.../auth/yggdrasil/Texture.java` | `hmcl-port/microsoft.ts` / `hmcl-port/skin-cache.ts` | 皮肤/披风纹理模型与缓存 | `ObservableOptionalCache<UUID, CompleteGameProfile>` → 小型 TTL `ProfileCache`；普通对象 |
+
+> `MicrosoftService.java` 同时支撑 `hmcl-port/microsoft.ts` 与 `src/main/modules/auth/microsoft.ts`，故 6 源文件 → 5 TS 文件、7 条映射。
+
+### 5.3 GPLv3 §7 附加条款核对
+
+| 条款 | 要求 | 现状 | 结论 |
+|---|---|---|---|
+| §7(b) | 不得移除软件中显示的版权声明 | 每个移植文件保留 `Copyright (C) 2020–2021 huangyuhui …` + GPL 声明；`NOTICE` HMCL 段保留；**About 页尚未显示 HMCL 版权声明** | **部分满足**：文件/NOTICE 已保留；About 页发布前必须补（见 07-handoff §13） |
+| §7(c) | 修改后分发须以合理方式改软件名或版本号以区分原版 | 产品名 **Cubit Launcher**；包名 `mc-launcher`；版本 `0.1.0`；未使用 HMCL 名称/Logo | **满足** |
+| §5/§6 | 衍生作品整体 GPL-3.0；分发提供 Corresponding Source | 仓库 GPL-3.0（`LICENSE` + `COPYING`），源码公开；构建脚本/说明在 README/07-handoff | **满足** |
+| §10 | 下游自动获得 GPL 授权 | 整体 GPL-3.0，无额外冲突限制 | **满足** |
+| 商标 | GPL 不授予商标 | 未使用 HMCL 名称/Logo/图标 | **满足** |
+
+### 5.4 审计结论
+
+- 使用了什么：HMCL 账户模块 6 个 Java 源文件的**移植**（5 个 TS 文件：`hmcl-port/` 4 个 + `auth/microsoft.ts` 适配版），保留 GPL 版权头与修改说明。
+- 来自哪里：`HMCL-dev/HMCL` commit `e7b9a95d…`，GPL-3.0。
+- 许可如何满足：衍生整体 GPL-3.0、源码可得、NOTICE/文件头保留、改名/版本区分、未用商标/资源；**About 版权声明为发布前待补项**。
+- 未使用 PCL 源码；PCL 仍按 02 §10.3 的“规格作者可读、实现者不读、代码不移植”执行。
+
+## 6. 变更记录
 
 | 版本 | 日期 | 变更 | 作者 |
 |---|---|---|---|
 | 0.1 | 2026-10-21 | 首建：C1–C8 承诺 + CR-001（01 需求文档） | planner |
 | 0.2 | 2026-10-21 | 新增 CR-002（t6 启动链/Java/日志：公开格式 + 本机数据只读 + 自建夹具） | core-dev |
 | 0.3 | 2026-10-21 | t37 许可重核：PCL 源码改为“规格作者可读、实现者不可读、只产出行为规格”，代码仍禁止复制/移植；HMCL 确认 GPL-3.0 + §7，可移植；新增 C9/C10、CR-003、§4 阅读登记与模板；记录此前只对 PCL 做目录级 clean-room、HMCL 从未使用 | architect |
+| 0.4 | 2026-10-21 | t65 更正：t62 已实际移植 HMCL 账户代码；新增 CR-004 与 §5（6 源文件→5 TS 映射、修改点、GPL §7(b)/(c) 核对）；把 CR-003/§4.3 的“HMCL 从未使用”更正为“t37 时未使用；t62 移植见 CR-004”；标注 About 版权声明待补 | architect |

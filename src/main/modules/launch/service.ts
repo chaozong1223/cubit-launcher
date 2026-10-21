@@ -1,16 +1,20 @@
 import type {
   LaunchExitReport,
   LaunchPlan,
+  LaunchSettings,
+  LaunchSettingsPatch,
   LaunchStatus,
 } from '@shared/launch'
 import type { ScopedLogger } from '../../kernel/logger'
 import type { ModuleRoots } from '../_context'
 import { CoreError } from '../../core/errors'
 import type { AuthlibInjection, LaunchAccount } from '../../core/launch/args'
+import { AppError } from '@shared/errors'
 import {
   LaunchOrchestrator,
   type LaunchRequestInput,
 } from '../../core/launch/orchestrator'
+import { loadLaunchSettings, saveLaunchSettings } from './settings'
 
 /** Version is injected by the shell once it can read app.getVersion(). */
 export const DEFAULT_APP_VERSION = process.env.MCL_APP_VERSION ?? '0.1.0'
@@ -67,7 +71,29 @@ export class LaunchModuleService {
   }
 
   async start(input: LaunchRequestInput): Promise<{ sessionId: string }> {
-    return this.requireOrchestrator().start(input)
+    const settings = loadLaunchSettings(this.roots.dataRoot)
+    return this.requireOrchestrator().start({
+      ...input,
+      gameLanguage: settings.language,
+    })
+  }
+
+  getSettings(): LaunchSettings {
+    return loadLaunchSettings(this.roots.dataRoot)
+  }
+
+  setLanguage(input: LaunchSettingsPatch): LaunchSettings {
+    try {
+      return saveLaunchSettings(this.roots.dataRoot, input)
+    } catch (error) {
+      throw new AppError('LAUNCH.INVALID_LANGUAGE', '游戏语言代码不合法', {
+        details: {
+          value: input.language,
+          hint: '请选择内置语言，或输入类似 zh_cn、en_us 的 Minecraft 语言代码。',
+          cause: error instanceof Error ? error.message : String(error),
+        },
+      })
+    }
   }
 
   async stop(sessionId: string): Promise<{ ok: boolean }> {

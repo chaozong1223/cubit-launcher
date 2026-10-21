@@ -24,6 +24,9 @@ repository tag corresponding to the binary.
 This project depends on third-party software and services. The list below is a
 human-readable summary; the authoritative license texts and versions are in the
 dependency lockfile, the packaged application, and the upstream projects.
+Some source files are ported from third-party open-source projects (currently
+HMCL); those files retain their original copyright headers and are identified
+below.
 
 ### Runtime / build dependencies
 
@@ -69,6 +72,50 @@ generated `THIRD-PARTY-LICENSES.txt` (if present) with the binary.
   project does not modify its code. Its license text is shipped/displayed with
   the component as required.
 
+### HMCL (ported account code)
+
+- Project: HMCL — https://github.com/HMCL-dev/HMCL
+- License: **GPL-3.0** (compatible with this project's GPL-3.0)
+- Source commit ported: **e7b9a95df0acf79b9797dcef38463e2b22e37a6a**
+  (2026-10-21; HMCL 3.6.x account code).
+- Ported source files (original copyright headers retained in the TS files):
+  - `HMCLCore/src/main/java/org/jackhuang/hmcl/auth/OAuth.java`
+  - `HMCL/src/main/java/org/jackhuang/hmcl/game/OAuthServer.java`
+  - `HMCLCore/src/main/java/org/jackhuang/hmcl/auth/microsoft/MicrosoftService.java`
+  - `HMCLCore/src/main/java/org/jackhuang/hmcl/auth/yggdrasil/YggdrasilService.java`
+  - `HMCLCore/src/main/java/org/jackhuang/hmcl/auth/authlibinjector/AuthlibInjectorServer.java`
+  - `HMCLCore/src/main/java/org/jackhuang/hmcl/auth/yggdrasil/Texture.java`
+- TS destinations:
+  - `src/main/modules/auth/hmcl-port/oauth.ts` (OAuth.java + OAuthServer.java)
+  - `src/main/modules/auth/hmcl-port/microsoft.ts` (MicrosoftService.java + Texture.java profile/skin fields)
+  - `src/main/modules/auth/hmcl-port/yggdrasil.ts` (YggdrasilService.java + AuthlibInjectorServer.java + Texture.java)
+  - `src/main/modules/auth/hmcl-port/skin-cache.ts` (MicrosoftService.java `ObservableOptionalCache<UUID, CompleteGameProfile>` usage)
+  - `src/main/modules/auth/microsoft.ts` (adapted MicrosoftService.java OAuth/token/profile bridge)
+  - wired into `src/main/modules/auth/service.ts`
+- Modifications: Java Gson/records → structural TS; Java
+  CompletableFuture/NanoHTTPD → Node `http` server; Java thread pool/FX
+  callbacks → injected `openExternal` and caller polling; HMCL's application
+  **client_id is never used** (ours is configurable via env/settings); device
+  code flow keeps our existing MS Entra endpoints, loopback uses Azure
+  `/oauth2/v2.0/authorize|token` for our app; device/loopback scopes and the
+  Xbox/XSTS/Minecraft profile texture parsing follow HMCL.
+- Copyright (C) 2020–2026 huangyuhui and HMCL contributors; GPL-3.0 applies to
+  the ported portions. See `LICENSE`.
+- The copyright declaration is retained in every ported file and in this
+  NOTICE; the application's About page must also display the HMCL copyright
+  declaration before release (doc 02 LIC-22; see `docs/07-handoff.md` §13).
+
+### PCL2 (Plain Craft Launcher 2)
+
+- PCL2 is **not open source**; its distribution license authorizes only
+  **verbatim copies** and does not grant modification or derivative rights.
+- No PCL2 source code (or decompiled code) is copied, ported, or redistributed
+  in this project. Behavioral comparison is black-box; where behavior specs are
+  used, they are authored by a separate spec author and the implementation does
+  not read PCL2 source (see `docs/02-compliance-security.md` §10.3).
+- No PCL2 icons, backgrounds, music, skin assets, or other bundled resources
+  are used.
+
 ### Minecraft / Mojang
 
 - Minecraft is a trademark of Mojang Synergies AB / Microsoft.
@@ -109,15 +156,6 @@ generated `THIRD-PARTY-LICENSES.txt` (if present) with the binary.
 - The launcher displays the active download source in the UI and logs it; the
   mirror can be disabled. The launcher does not re-package BMCLAPI as its own
   public API/mirror.
-
-### Plain Craft Launcher 2 (PCL2)
-
-- This project is an independent clean-room implementation. It does **not**
-  include, copy, port, or redistribute PCL2 source code, icons, backgrounds,
-  music, skin assets, or other bundled resources.
-- PCL2 is not open source; its distribution is governed by the author's
-  "PCL 分发有限许可". See `docs/clean-room-log.md` and
-  `docs/02-compliance-security.md` for the clean-room record.
 
 ### Other services
 

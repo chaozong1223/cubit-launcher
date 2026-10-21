@@ -41,6 +41,21 @@ export const LaunchPlanSchema = z.object({
 })
 export type LaunchPlan = z.infer<typeof LaunchPlanSchema>
 
+/** null/absent means "follow the game" and leaves options.txt untouched. */
+export const GameLanguageSchema = z.string().regex(/^[a-z]{2,3}(?:_[A-Za-z0-9]+)?$/)
+
+export const LaunchSettingsSchema = z.object({
+  language: GameLanguageSchema.nullable(),
+  defaultLanguage: z.string(),
+  note: z.string(),
+})
+export type LaunchSettings = z.infer<typeof LaunchSettingsSchema>
+
+export const LaunchSettingsPatchSchema = z.object({
+  language: GameLanguageSchema.nullable(),
+})
+export type LaunchSettingsPatch = z.infer<typeof LaunchSettingsPatchSchema>
+
 export const LaunchStatusSchema = z.object({
   instanceId: z.string(),
   state: LaunchState,
@@ -109,6 +124,14 @@ export const contract = defineContract({
       input: z.object({ instanceId: z.string() }),
       output: LaunchExitReportSchema.nullable(),
     },
+    getSettings: {
+      input: z.void(),
+      output: LaunchSettingsSchema,
+    },
+    setLanguage: {
+      input: LaunchSettingsPatchSchema,
+      output: LaunchSettingsSchema,
+    },
   },
   events: {
     status: {
@@ -149,4 +172,6 @@ export interface LaunchService {
   stop(sessionId: string): Promise<{ ok: boolean }>
   status(instanceId: string): LaunchStatus
   lastReport(instanceId: string): LaunchExitReport | null
+  getSettings(): LaunchSettings
+  setLanguage(input: LaunchSettingsPatch): LaunchSettings
 }

@@ -437,3 +437,60 @@ evidence/p0/
 3. 拖拽与文件选择器两入口各实测一次，落盘 SHA-256 完全一致，PASS。
 4. 未改产品代码；新增证据均在 `docs/evidence/p0/t45/`，验收脚本为 `docs/evidence/p0/tools/*.mjs`、`picker-dialog.ps1`。
 5. e2e 未能在并发任务占用 `.e2e/runtime` 时通过；建议 t46 完成后按 §1.3 重跑，并把 20:15 构建的 `net.lanWorlds` handler 缺失/渲染崩溃作为独立阻断项修复。
+
+---
+
+## 17. t61 最终复核（发布决策，不覆盖 §1–§16）
+
+> 2026-10-21 22:20–22:45；构建 `release/win-unpacked/mc-launcher.exe` 22:40:23（247,155,712 B）；完整报告见 `docs/07-final-acceptance.md`。
+> 背景：t34/t45 的结论早于 B1–B8 修复。本轮在**当前代码**上重跑了 P0-1 全新安装、B1–B7、一键启动、全局拖拽/自动识别、删除实例；未复用旧结论。
+
+### 17.1 总结论
+
+**P0 仍未全部通过**：P0-0/1/2/3/4/5/7/8 通过或通过（带条件）；**唯一剩余 P0 阻断是 P0-6 的 L0 真实 LAN 世界发现与一键进世界未闭环**。因此 **README 不能改为“P0 通过”**；待补齐 LAN 世界实测后可按 §8 的句子更新。
+
+### 17.2 P0-1 重跑（全新空目录）
+
+- 空目录安装 3641 文件 / 735,402,462 B，**0 failed，616,609 ms（10.27 min）**；jar SHA1 `0c3ec587…`、3575 assets、64 libs（`t61/e2e-launcher.log`）。
+- 启动到主菜单：`Setting user: TestUser` + `Sound engine started`；真实窗口截图 `t61/main-menu.png`。
+- 当前构建 22:40 在清空游戏日志后重跑 e2e：**exit 0 / E2E PASS / mainMenu=true**（22:43:27/29 新日志）。
+- 构建漂移：首次安装用 22:07 构建；22:36–22:38 auth `profile` handler 并发修复后 22:40 重建；最终构建重跑 e2e（跳过安装）与一键启动均通过。若发布审计要求同一构建，应重跑 10 分钟安装。
+- 源策略：本轮显式 `sourcePreference=official`（默认镜像 CDN `*.749333.xyz` 持续超时），官方源 0 失败；默认 auto 的端到端安装列为残余风险。
+- 异常：安装中 `config.paths.minecraftRoot` 被外部动作改为 `E:\MC\.minecraft`（`minecraft root imported` 14:24:03），导致一次 launch 写 `E:\MC\...\1.20.1-natives` EPERM；重启后成功。该调用非 e2e/探针发出，记录为环境异常，不据此判产品失败。
+
+### 17.3 B1–B7 复核
+
+| ID | 结论 | 证据 |
+|---|---|---|
+| B1 下载源熔断 | **PASS（代码/单测）；默认 auto 端到端残余风险** | 3 次失败→60 s cooldown，另一源继续；`sources.test` 冷却/恢复/全源不可用 3 例通过（`unit-breaker-rotation-verbose.log`）；官源全新安装 0 失败 |
+| B2 设置项 | **PASS** | 设置·启动保存 1024/4096、1280×720、`-Dmcl.t61=1`，dry-run 与 instance.json 一致（`settings-launch.png`、`probe-ui.log`） |
+| B3 错误码 | **PASS** | `JAVA.INVALID`、`LOADER.PARENT_MISSING`、`ROOM_NOT_FOUND`、`INSTANCE.NOT_FOUND` 均透传，非 `IPC.HANDLER_FAILED` |
+| B4 崩溃/轮转 | **PASS** | 坏 JVM 参数 35 ms 崩溃；`data/crash-reports/*.txt` + 实例副本；首页自动 CrashPanel；`logger.test` 轮转通过 |
+| B5 联机 | **PASS（控制面/UI）；L0 LAN 世界条件项** | 双进程 2 成员、房主 0 ms、LAN 空态、关房 3.1 s ROOM_CLOSED、邀请码错误码；截图 `net-host-room.png`。旧邀请码返回 NETWORK_UNREACHABLE（可读但非 ROOM_CLOSED，记为残余） |
+| B6 账户入口 | **PASS** | 微软设备码/Authlib 入口存在；点击微软登录返回 MS_CLIENT_ID_MISSING，不伪造成功（`account-entries.png`） |
+| B7 CF zip | **PASS** | 全局拖入 CF zip 自动识别 manifest，导入 CurseAutoTest，`api.curseforge.com` 0 命中（`global-drop-cf.png`） |
+
+### 17.4 一键启动 / 全局拖拽 / 删除实例
+
+- 一键启动：当前构建真实完整实例，主页只点 1 次「启动游戏」→ **9,953 ms 到主菜单**；`Setting user: T61User`/`Sound engine started`；UI 显示「运行中 / 结束游戏」；点结束后 UI「已结束 · 退出码 — · 耗时 22.2 秒 / 就绪」。截图 `oneclick-running.png`、`oneclick-stopped.png`。
+- 残余：结束后 `mc:launch:status.state=crashed`（exitCode null，report=killed），建议改为 exited/killed 语义。
+- 全局拖拽：`.jar`→mods；`.mrpack`→自动识别并导入 `1.20.1-2`；CF `.zip`→自动识别并导入 `CurseAutoTest`；均无类型确认（`global-drop-*.png`）。
+- 删除/恢复：删除 `CurseAutoTest`→确认框→回收站 `kind=other/instanceId=CurseAutoTest`→「恢复实例」→列表重新出现（`delete-dialog.png`、`trash-instance.png`、`instance-restored.png`）。
+
+### 17.5 命令
+
+| 命令 | 结果 | 证据 |
+|---|---|---|
+| typecheck / build | exit 0 | `t61/gates-current.log` |
+| `npm.cmd --prefix mc-launcher run test` | **exit 0，458 passed / 19 skipped** | 同上 |
+| `npm.cmd --prefix mc-launcher run e2e:install-launch`（当前构建，清理旧日志） | **exit 0，E2E PASS** | `t61/e2e-rerun3.log`、`e2e-result-final.json` |
+
+### 17.6 剩余阻断/残余
+
+1. **P0-6 L0 真实 LAN 世界**：无房主「对局域网开放」日志、无成员进入世界服务端日志；L1/L2 条件项。复现见 `docs/07-final-acceptance.md` §7。
+2. B1 默认 auto 全新安装未在最终构建端到端完成（本轮用 official）。
+3. 用户主动结束游戏后 status=crashed（应为 exited/killed）。
+4. B5 旧邀请码返回 NETWORK_UNREACHABLE（可读，但未区分 ROOM_CLOSED）。
+5. e2e 脚本不会自动轮换旧 `latest.log`，可能误判到菜单；本轮手工清空后重跑。
+
+因此 README 仍保持“P0 未通过”；待 P0-6-L0 补齐后可按 `docs/07` §8 的句子改为“P0 通过，可对外称可用（L1/L2 条件项）”。

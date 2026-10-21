@@ -1,3 +1,13 @@
+/*
+ * Ported/adapted from HMCL (Hello Minecraft! Launcher)
+ * Copyright (C) 2021 huangyuhui <huanghongxun2008@126.com> and contributors
+ *
+ * Source: https://github.com/HMCL-dev/HMCL
+ * Commit: e7b9a95df0acf79b9797dcef38463e2b22e37a6a
+ * File: HMCLCore/src/main/java/org/jackhuang/hmcl/auth/microsoft/MicrosoftService.java
+ * GPL-3.0; see LICENSE. Modifications (t62): HMCL OAuth/SCOPE behaviour adapted
+ * to our HttpPort/AppError mapping; HMCL's application client_id is never used.
+ */
 import { toAuthError } from './errors'
 import { HttpNetworkError, type HttpPort } from './http'
 
@@ -43,7 +53,7 @@ const XSTS_URL = 'https://xsts.auth.xboxlive.com/xsts/authorize'
 const MC_LOGIN_URL = 'https://api.minecraftservices.com/authentication/login_with_xbox'
 const MC_PROFILE_URL = 'https://api.minecraftservices.com/minecraft/profile'
 
-export const DEVICE_CODE_SCOPE = 'XboxLive.signin offline_access openid profile'
+export const DEVICE_CODE_SCOPE = 'XboxLive.signin offline_access'
 
 function parseJson(body: string): Record<string, unknown> | null {
   try {

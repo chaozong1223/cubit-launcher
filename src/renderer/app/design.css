@@ -1372,6 +1372,52 @@ svg { display: block; }
 .license-row:last-child { border-bottom: 0; }
 .license-row .badge { margin-left: auto; height: 18px; font-size: 9.5px; }
 .legal-note { margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border-subtle); font-size: 11px; line-height: 17px; color: var(--text-3); }
+.about-license-card { margin-top: 14px; padding: 18px; }
+.about-license-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.about-license-head h2 { margin: 1px 0 0; font: 600 16px/22px var(--font-display); }
+.about-license-head p { margin: 4px 0 0; max-width: 760px; color: var(--text-3); font-size: 10.5px; line-height: 16px; }
+.about-license-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 13px; }
+.about-license-section { min-width: 0; padding: 11px 12px; border: 1px solid var(--border-subtle); border-radius: 7px; background: var(--surface-2); }
+.about-license-section h3 { margin: 0; color: var(--text); font: 600 11.5px/17px var(--font-sans); }
+.about-license-source { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 4px 0 0; font-size: 9.5px; line-height: 15px; }
+.about-license-copyright { margin: 5px 0 0; color: var(--text-2); font-size: 9.5px; line-height: 15px; overflow-wrap: anywhere; }
+.about-license-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-text); text-decoration: none; }
+.about-license-link:hover { text-decoration: underline; }
+.about-license-link .ico { width: 10px; height: 10px; }
+.about-notice-block {
+  max-height: 190px; margin: 8px 0 0; padding: 8px 9px; overflow: auto;
+  border: 1px solid var(--border-subtle); border-radius: 5px;
+  background: var(--surface); color: var(--text-3);
+  font: 9.5px/15px var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.about-notice-block:focus-visible, .about-notice-full:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.about-license-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.about-license-actions > .muted { font-size: 9.5px; }
+.about-notice-modal-backdrop {
+  position: fixed; inset: 0; z-index: 9700; display: grid; place-items: center; padding: 28px;
+  background: rgba(4, 8, 7, .66); backdrop-filter: blur(3px);
+}
+.about-notice-modal {
+  display: flex; flex-direction: column; width: min(920px, 94vw); max-height: 86vh;
+  padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); box-shadow: 0 28px 90px rgba(0,0,0,.5);
+}
+.about-notice-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex: none; }
+.about-notice-modal__head h2 { margin: 2px 0 0; font: 600 17px/22px var(--font-display); }
+.about-notice-full {
+  flex: 1; min-height: 0; margin: 12px 0 0; padding: 12px; overflow: auto;
+  border: 1px solid var(--border-subtle); border-radius: 7px;
+  background: var(--surface-2); color: var(--text-2);
+  font: 10px/16px var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.about-notice-modal__actions { display: flex; justify-content: flex-end; gap: 7px; flex: none; margin-top: 12px; }
+
+@media (max-width: 900px) {
+  .about-license-grid { grid-template-columns: 1fr; }
+  .about-notice-modal-backdrop { padding: 12px; }
+  .about-notice-modal { max-height: 92vh; padding: 13px; }
+}
+
 .about-links { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .design-link-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-top: 14px; border: 1px dashed var(--accent); background: var(--accent-subtle); border-radius: 8px; color: var(--accent-text); text-decoration: none; }
 .design-link-card:hover { text-decoration: none; filter: brightness(.99); }

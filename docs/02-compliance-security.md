@@ -1,10 +1,12 @@
 # 02 · 许可证/合规与信任边界基线
 
-**Status**: v0.3 · 2026-10-21 改判（PCL 源码可读、HMCL GPL 可移植），结论已写回，可直接转工程约束
-**Author**: architect（🏛️ 软件架构师 / 🛡️ 安全架构师）  **Date**: 2026-10-21  **Version**: 0.3
-**Scope**: 任务 t2/t37。为 `01-requirements.md`（范围/验收）与 `03-architecture.md`（架构/安全基线）提供**法律边界与信任边界**，并把结论落成可执行的工程约束。
+**Status**: v0.4 · 2026-10-21 补记 HMCL 账户模块移植（t62）与 GPLv3 §7 核对；结论已写回，可直接转工程约束
+**Author**: architect（🏛️ 软件架构师 / 🛡️ 安全架构师）  **Date**: 2026-10-21  **Version**: 0.4
+**Scope**: 任务 t2/t37/t65。为 `01-requirements.md`（范围/验收）与 `03-architecture.md`（架构/安全基线）提供**法律边界与信任边界**，并把结论落成可执行的工程约束。
 **免责**: 本文是工程合规判断，**不是法律意见**。标注「需法务」的条目必须在对外发布前取得书面结论（§10.2）。
 
+> **v0.4 变更（t65 补记）**：t62 已实际移植 HMCL 账户代码：源 **6 个 Java 文件** → **5 个 TS 文件**（`hmcl-port/` 4 个 + `src/main/modules/auth/microsoft.ts` 适配版），commit `e7b9a95d…`。新增 **§10.3.9 已发生的移植记录**与 LIC-21/22，核对 GPLv3 §7(b)/(c)、源码可得、改名区分；**About 页 HMCL 版权声明仍待补（发布前必须）**。更正 t37 的“HMCL 未使用”为“t37 时未使用；t62 移植见 CR-004”。
+>
 > **v0.3 变更（用户 2026-10-21 补充裁定）**：PCL **源码可以读**（此前只允许目录级观察），但阅读产出只能是**行为规格**、实现者不得读源码（双人隔离）；PCL **代码仍不得复制/移植/分发衍生**。HMCL 为 **GPL-3.0 + §7 附加条款**，**可以移植**（保留版权头、NOTICE、衍生仍 GPL-3.0、改名/版本区分、保留版权声明）。新增 **§10.3 第三方源码使用政策** 与 LIC-13~20；§2.2/§2.3/§2.4/§2.5 重写；§0 增至 18 条裁定。
 >
 > 阅读顺序建议：先看 §0 的 18 条裁定（够拍板）→ §10.3（够写规格/移植）→ §8 的约束总表（够写代码）→ 需要出处时再回 §2~§7 与附录 A。
@@ -32,7 +34,7 @@
 | 15 | 本地要开哪些端口 | 只允许 `127.0.0.1` + 临时端口 + 一次性 token/state；OAuth 回调用 PKCE+state；sidecar 管理面默认关闭或 loopback 鉴权；**任何服务不得绑 `0.0.0.0`** | RFC 8252 + 40-architecture §3.1/§6.9 | SEC-NET-01~10 |
 | 16 | 我们自己的许可证 | **GPL-3.0**（GPLv3，用户 2026-10-21 裁定，非 Apache-2.0）：分发二进制须提供 Corresponding Source、不得附加冲突限制；依赖须 GPL-3.0 兼容（禁 GPL-2.0-only/CDDL/专有/SSPL/BSL）；LGPL 仅独立进程；AGPL 仅 authlib 例外。见 §6.6 兼容性复核 | 用户裁定 + FSF 兼容性 + 本文件 §6.6/§7.9 | LIC-09、LIC-11/12、SEC-SUP-01/09 |
 | 17 | PCL 源码**能不能读**、读到什么程度 | **可以读**（用户 2026-10-21 明确授权；阅读本身不是复制/分发）。但只有**规格作者**读，产出只能是**行为规格**（接口形状/参数含义/文件格式/状态机/错误分类/进度阶段）；**实现者不得读源码**；禁止抄结构/命名/注释/资源。大量参考重实现实质功能仍可能触发 PCL 指南的「重度使用」义务，须按 §10.3 控制范围并在超范围时升级 captain/法务 | PCL `LICENCE`；著作权法一般原理；用户裁定 | LIC-13~16/20 |
-| 18 | HMCL 代码**能不能移植** | **可以**。HMCL 为 **GPL-3.0**，另有 GPLv3 §7 附加条款：修改后分发须以合理方式改软件名或版本号以区分原版（§7(c)），且不得移除软件中显示的版权声明（§7(b)）。移植为 TS 属衍生：保留版权头、加 NOTICE、衍生仍 GPL-3.0、分发提供源码、标注修改；商标/Logo/资源不在 GPL 范围 | HMCL `LICENSE` + README「Additional terms」；Launcher.java 版权头 | LIC-17~19 |
+| 18 | HMCL 代码**能不能移植** | **可以**。HMCL 为 **GPL-3.0**，另有 GPLv3 §7 附加条款：修改后分发须以合理方式改软件名或版本号以区分原版（§7(c)），且不得移除软件中显示的版权声明（§7(b)）。移植为 TS 属衍生：保留版权头、加 NOTICE、衍生仍 GPL-3.0、分发提供源码、标注修改；商标/Logo/资源不在 GPL 范围。**已发生移植：t62 账户模块 6 源文件→5 TS 文件（hmcl-port 4 + auth/microsoft.ts），见 §10.3.9；About 版权声明待补** | HMCL `LICENSE` + README「Additional terms」；Launcher.java 版权头；NOTICE | LIC-17~19、LIC-21/22 |
 
 > **2026-10-21 用户裁定（写回）**：Q2 原版下载 = **只做下载器**（官方源 + BMCLAPI；不分发游戏文件/Mojang 资源；无需额外法务动作，见 §3.6）；Q6 自身许可证 = **GPL-3.0**（见 §2.3、§6.6、§7.9）；Q7 微软登录 = **立即自建 Azure 应用并提交 MCE 审核，P0 不依赖审批**（见 §3.1.1、MC-21~23）；CurseForge = **P1 接入且自备官方 key**（见 §5.2、API-07~12/16~22）。
 >
@@ -680,7 +682,7 @@
 | **link（联机）** | t9；t13 审 | NET-01~18、SEC-NET-01~10、SEC-LINK-01~06 | sidecar 生命周期、邀请码、房间信任、LGPL 声明 |
 | **updater / 发布包** | t5；t13 审 | SEC-APP-08/09、SEC-SUP-05/07/09、SEC-DL-14 | 若本轮无更新器，则至少做到「发布包签名 + 手动更新说明」 |
 | **crash / log** | t6 | SEC-LOG-01~06、SEC-APP-12 | 双脱敏；本地生成 |
-| **release / CI / 文案** | t5 + t10（About/免责声明）+ t14（手册） | LIC-09/10/11/12、LIC-17/19/20、SEC-SUP-01~09、MC-14/15、NET-02 | 许可证清单、SBOM、源码可得性、HMCL NOTICE/版权声明（如有移植）、免责声明 |
+| **release / CI / 文案** | t5 + t10（About/免责声明）+ t14（手册） | LIC-09/10/11/12、LIC-17/19/20/21/22、SEC-SUP-01~09、MC-14/15、NET-02 | 许可证清单、SBOM、源码可得性、HMCL NOTICE/版权声明/About 显示、免责声明 |
 | **端到端验收** | t12（QA）+ t13（审查） | §9 全部闸门 | 逐条留证（落盘文件 + 命令行 + 日志三件套） |
 
 **额外一条（launch 模块，容易漏）**：spawn Java 前清除会注入 agent/classpath 的环境变量：`JAVA_TOOL_OPTIONS`、`_JAVA_OPTIONS`、`JDK_JAVA_OPTIONS`、`CLASSPATH`、`JAVA_HOME`（除非用户显式指定 Java 时由我们设置）。验证：单测断言子进程 env 不含这些键。
@@ -707,7 +709,7 @@
 - [ ] **G-12 Mojang 条款口径**：EULA / Usage Guidelines 原文由法务复核一次（Q1）；原版下载口径已定（只做下载器），无需额外动作（§3.6）
 - [ ] **G-13 CurseForge 前置**（仅当启用 P1 CF）：API-16~22 全满足，否则保持「跳转 + 本地导入」（§5.2）
 - [ ] **G-14 微软登录待审批降级**：未配置 client_id / 403 两条路径均诚实报错，不重试风暴、不静默转离线（MC-21~23）
-- [ ] **G-15 随包/移植组件许可**：AGPL authlib / LGPL EasyTier 的许可证与源码链接随附；若移植 HMCL，`NOTICE` + 文件版权头 + 改名/版本区分 + 软件内版权声明保留（LIC-17/19）；GPL 组合作品声明（LIC-11、NET-02、SEC-SUP-09）
+- [ ] **G-15 随包/移植组件许可**：AGPL authlib / LGPL EasyTier 的许可证与源码链接随附；若移植 HMCL，`NOTICE` + 文件版权头 + 改名/版本区分 + 软件内版权声明保留（LIC-17/19/22）；GPL 组合作品声明（LIC-11、NET-02、SEC-SUP-09）
 - [ ] **G-16 隐私与导出**：崩溃报告/错误报告导出前二次脱敏；默认零遥测（SEC-LOG-03/04/06）
 
 **建议项（本轮尽量）**
@@ -917,14 +919,58 @@
 | **LIC-18** | HMCL/PCL 的商标、Logo、图标、字体、音乐、`.resx`/`.xaml` 资源不随代码许可 | 发布物资源审查 | client-dev / architect |
 | **LIC-19** | 发布门禁：`NOTICE`/`THIRD-PARTY-LICENSES` 列 HMCL（如有移植）；源码可得；改名/版本区分；版权声明保留 | G-01/G-15 + 解包检查 | architect / qa |
 | **LIC-20** | 违规处置：实现者读 PCL 源码 → taint 重写；复制表达 → 删除/重写；HMCL 缺声明 → 阻断发布 | 事件记录 + 复核 | reviewer / captain |
+| **LIC-21** | 每次 HMCL 移植必须在 `clean-room-log` 建 CR：日期、commit、源文件→TS 映射、修改点、执行人、审核；同步更新 `NOTICE` | CR 存在且与 NOTICE 文件清单一致 | 实现者 / reviewer |
+| **LIC-22** | 软件内（About/许可页）必须显示 HMCL 版权声明（GPLv3 §7(b)）；仅文件头/NOTICE 不够 | 发布前截图/解包检查；当前状态见 §10.3.9（待补） | client-dev / architect / qa |
 
 #### 10.3.8 PR / 发布检查（复制到模板）
 
 - [ ] 本 PR 是否使用 PCL 源码？→ 若是，附 `docs/specs/pcl-*.md` 路径 + 阅读记录；实现者声明“未读源码”。
 - [ ] 是否复制 PCL 代码/结构/命名/注释/资源？→ 必须为否；reviewer 抽查。
-- [ ] 是否移植 HMCL？→ 附文件清单 + 版权头 + NOTICE + 修改标注；确认衍生仍 GPL-3.0。
+- [ ] 是否移植 HMCL？→ 附文件清单 + 版权头 + NOTICE + 修改标注；确认衍生仍 GPL-3.0；建 CR-004 式记录。
 - [ ] 是否使用 HMCL/PCL 的 Logo/图标/字体/音乐/`.resx`/`.xaml`？→ 必须为否。
-- [ ] 发布物是否含 HMCL 版权声明与源码链接？→ 是（如有移植）。
+- [ ] 发布物/About 是否含 HMCL 版权声明与源码链接？→ 是（如有移植；About 见 LIC-22）。
+- [ ] `NOTICE` 的 HMCL 源文件/TS 目标清单是否与实际 `hmcl-port/` 文件一致？→ 是。
+
+#### 10.3.9 已发生的移植记录（HMCL 账户模块，t62）
+
+> 这是**事实记录**，不是“待评估”：t62 已把 HMCL 账户代码移植进 `src/main/modules/auth/hmcl-port/`。t37 文档里“HMCL 未使用”指的是 t37 当时；现更正为“t37 时未使用；t62 移植见 CR-004”。
+
+**来源与范围**
+
+| 项 | 内容 |
+|---|---|
+| 日期 | 2026-10-21 |
+| 来源仓库/commit | `HMCL-dev/HMCL` @ `e7b9a95df0acf79b9797dcef38463e2b22e37a6a`（HMCL 3.6.x 账户代码） |
+| 许可 | GPL-3.0 + README 的 GPLv3 §7 附加条款 |
+| 执行人 | core-dev（t62） |
+| 审核 | *待 reviewer 复核*（CR-004） |
+| 被移植文件 | 6 个 Java 源文件 → 5 个 TS 文件（`hmcl-port/` 4 个 + `auth/microsoft.ts` 适配版） |
+
+**文件映射**
+
+| HMCL 源文件 | TS 目标 | 移植内容 | 主要修改 |
+|---|---|---|---|
+| `HMCLCore/.../auth/OAuth.java` | `hmcl-port/oauth.ts` | 设备码/回环/PKCE/state/回调 | NanoHTTPD/CompletableFuture → Node `http`；JavaFX → `openExternal()`；**不用 HMCL client_id** |
+| `HMCL/src/main/java/org/jackhuang/hmcl/game/OAuthServer.java` | `hmcl-port/oauth.ts` | 回环 HTTP server | 127.0.0.1 + 临时端口；结果 holder |
+| `HMCLCore/.../auth/microsoft/MicrosoftService.java` | `hmcl-port/microsoft.ts` | Xbox/XSTS/Minecraft profile、皮肤列表 | Gson → 结构化 JSON；缓存/线程池移除；首个皮肤 URL 优先 |
+| `HMCLCore/.../auth/microsoft/MicrosoftService.java` | `src/main/modules/auth/microsoft.ts` | 微软设备码/令牌/档案适配（与 hmcl-port 分工） | 复用 `HttpPort`/`AppError`；**不用 HMCL client_id** |
+| `HMCLCore/.../auth/yggdrasil/YggdrasilService.java` | `hmcl-port/yggdrasil.ts` | Yggdrasil 认证/刷新/验证/metadata | Gson → 结构化；HTTP 由调用方提供 |
+| `HMCLCore/.../auth/authlibinjector/AuthlibInjectorServer.java` | `hmcl-port/yggdrasil.ts` | Authlib 服务器元数据/链接 | 保留 meta/links/feature.non_email_login 契约 |
+| `HMCLCore/.../auth/yggdrasil/Texture.java` | `hmcl-port/microsoft.ts` + `hmcl-port/skin-cache.ts` | 皮肤/披风模型与缓存 | ObservableOptionalCache/线程池 → TTL `ProfileCache` |
+
+> 说明：`MicrosoftService.java` 同时支撑 `hmcl-port/microsoft.ts`（profile/skin 解析）与 `src/main/modules/auth/microsoft.ts`（微软 OAuth/令牌适配），所以是 **6 个源文件 → 5 个 TS 文件、7 条映射**。
+
+**GPLv3 §7 核对**
+
+| 条款 | 要求 | 现状 | 结论 |
+|---|---|---|---|
+| §7(b) | 不得移除软件中显示的版权声明 | 每个移植文件保留 HMCL 版权头 + GPL 声明；`NOTICE` HMCL 段保留；**About 页尚未显示** | **部分满足**；About 必须在发布前补（LIC-22，见 07-handoff §13） |
+| §7(c) | 修改后分发须改名/改版本以区分原版 | 产品名 **Cubit Launcher**（非 HMCL）；包名 `mc-launcher`；版本 `0.1.0`；未用 HMCL 名称/Logo | **满足** |
+| §5/§6 | 衍生整体 GPL-3.0；分发提供 Corresponding Source | 仓库 `LICENSE`/`COPYING` 为 GPLv3；源码公开；构建说明在 README/07-handoff | **满足** |
+| §10 | 下游自动获得 GPL 授权 | 整体 GPL-3.0，无额外冲突限制 | **满足** |
+| 商标 | GPL 不授予商标/品牌 | 未使用 HMCL 名称/Logo/图标/字体 | **满足** |
+
+**审计结论**：使用了 HMCL 账户模块 6 个源文件的移植（5 个 TS 文件：`hmcl-port/` 4 个 + `auth/microsoft.ts` 适配版）；来源与 commit 明确；衍生整体 GPL-3.0、源码可得、版权头/NOTICE 保留、产品名与版本可区分；**唯一未闭环项是 About 软件内版权声明**（发布前必须补，不得以“文件头已保留”代替）。PCL 代码未使用。
 
 ---
 
@@ -1006,3 +1052,4 @@
 | 0.1 | 2026-10-21 | 首版：PCL 许可证裁定、clean-room 规程、Mojang/MS 边界、BMCLAPI/Modrinth/CurseForge 条款、联机组件许可、安全基线与约束总表 |
 | 0.2 | 2026-10-21 | 写回用户裁定：Q6 改 GPL-3.0（+§6.6 兼容性复核、LIC-11/12、SEC-SUP-09）；Q7 微软登录立即申请、P0 不依赖审批（+§3.1.1 端点/权限清单、MC-21~23）；CurseForge 改 P1 接入自备 key（§5.2 重写、API-16~22 前置条件）；Q2 原版下载定为只做下载器（§3.6、MC-19/20）；新增 §9 闸门 ID（G-01~G-20）与 §9.2 任务归属（t5/t8/t9/t11/t13 等）；§10 收敛为已决/待定（无阻塞 P0 项） |
 | 0.3 | 2026-10-21 | 按用户补充裁定重核：PCL **源码可读**（仅规格作者；产出行为规格；实现者不得读；阅读留痕；大范围参考仍可能触发重度使用，设范围升级闸门），PCL **代码仍禁止复制/移植/分发衍生**；HMCL 确认为 **GPL-3.0 + GPLv3 §7 附加条款**（改名/版本区分、保留版权声明），**允许移植**，列出八条义务；新增 **§10.3 第三方源码使用政策**（法律三分、原文引用、角色隔离、文件级可借用清单、范围升级、LIC-13~20、PR/发布检查）；§0 增至 18 条裁定；§2.2/2.3/2.4/2.5 重写；G-02/G-15 更新。影响任务：t15/t16（mods 移植/规格）、t5/t13（评审与门禁）、t37（本次重核） |
+| 0.4 | 2026-10-21 | t65 补记：t62 已实际移植 HMCL 账户代码（6 Java → 5 TS：`hmcl-port/` 4 + `auth/microsoft.ts`，commit e7b9a95d…）；新增 §10.3.9 移植记录与 GPLv3 §7(b)/(c) 核对，新增 LIC-21/22；§0 第 18 条更新；NOTICE 同步补 skin-cache 与 auth/microsoft.ts 映射；明确 **About 页 HMCL 版权声明待补（发布前必须）**；更正 t37 的“HMCL 未使用”为“t37 时未使用；t62 移植见 CR-004”。影响任务：t62（实现）、t65（补记）、t13/t12（发布审计） |

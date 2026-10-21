@@ -207,7 +207,7 @@ npm.cmd --prefix mc-launcher run e2e:install-launch
 | 编号 | 严重级 | 问题 | 必修 |
 |---|---|---|---|
 | **R1 / H13** | low | `modules/loader/core/installer.ts:176-178` 仍逐 chunk `new TextDecoder('utf-8')`；中文 Windows 安装器输出花屏/截断多字节。**t53 报告“logEncoding 单 decoder 已满足”不实**。 | 复用 `core/launch/settings.ts` 的 `logEncodingForCodePage` + 单个 `TextDecoder(encoding, { stream: true })`，codePage 从服务层传入 |
-| **R2** | low | `helpSupportsSecretEnv` 的 `/ET_NETWORK_SECRET|--network-secret/i` 让 fail-closed 几乎恒真（任何构建都有 flag） | 判据收紧为 `/ET_NETWORK_SECRET/`；补“只有 `--network-secret` → false”断言 |
+| **R2** | low | `helpSupportsSecretEnv` 的 `/ET_NETWORK_SECRET\|--network-secret/i` 让 fail-closed 几乎恒真（任何构建都有 flag） | 判据收紧为 `/ET_NETWORK_SECRET/`；补“只有 `--network-secret` → false”断言 |
 | **R3** | low | `isTrustedUrl` 的 packaged/dev 分支无单测 | 新增 `kernel/security.test.ts` 4 例 |
 | **R4** | low | dev 态 origin 全等比较（127.0.0.1 vs localhost）会拒 IPC | 按 protocol + hostname 白名单 + port 比较，或统一 dev URL |
 | **R5** | 观察 | 全量 vitest 偶发“全绿但 exit 1”（socket 未回收） | CI 按 flake 复跑；socket 测试补 `afterEach` 关闭/端口回收 |
@@ -262,11 +262,11 @@ npm.cmd --prefix mc-launcher run e2e:install-launch
 |---|---|
 | P0 验收 | `docs/05-acceptance-report.md`；证据 `docs/evidence/p0/**`（含 `t45/`） |
 | 需求 | `docs/01-requirements.md` v1.6 |
-| 合规 | `docs/02-compliance-security.md`（v0.3） |
+| 合规 | `docs/02-compliance-security.md`（v0.4；§10.3 第三方源码使用政策、§10.3.9 移植记录） |
 | 架构 | `docs/03-architecture.md`（§9.2 含 `LAUNCH.PATH_TOO_LONG`） |
 | 联机 | `docs/04-multiplayer-design.md`；PoC `poc/link/evidence/**` |
 | 代码审查 | `docs/06-code-review-t35.md`、`06-review-round2-t52.md`、`06-review-round3-t54.md` |
-| clean-room | `docs/clean-room-log.md` |
+| 源码/移植记录 | `docs/clean-room-log.md`（CR-004）；`NOTICE`（HMCL 段）；`src/main/modules/auth/hmcl-port/` |
 | 用户手册 | `docs/06-user-guide.md` |
 | 设计 | `design/index.html`、`design/README.md` |
 
@@ -284,6 +284,7 @@ npm.cmd --prefix mc-launcher run e2e:install-launch
 8. **EasyTier**：LGPL-3.0 独立进程、运行时下载、固定 `v2.7.0` + SHA-256、不修改；`--network-secret` 不得进 argv（t51 H2），secret 只走 `ET_NETWORK_SECRET` env。
 9. **不要伪造验收**：05 的 B1/B4/B5/B7 仍未关闭；README/手册/交接必须保持“P0 未通过”。
 10. **H13 报告更正**：t53 声称“logEncoding 单 decoder 已满足”与代码不符；`modules/loader/core/installer.ts` 仍逐 chunk UTF-8，按 R1 处理。
+11. **HMCL 移植文件不要洗头**：`src/main/modules/auth/hmcl-port/{oauth,microsoft,yggdrasil,skin-cache}.ts` 保留 HMCL 版权头与修改说明；不要为了“统一风格”删掉/改写版权头；About 的 HMCL 版权声明仍是发布前待补项（02 LIC-22 / §13）。
 
 ---
 
@@ -295,3 +296,49 @@ npm.cmd --prefix mc-launcher run e2e:install-launch
 - [ ] 选一个 B 项（建议 B1 或 B5）建立复现脚本，先产出证据再改代码。
 - [ ] 改代码只动自己模块目录；冻结文件改动更新 `arch/frozen.manifest.json` 并跑 guard。
 - [ ] 任何新“通过”结论必须附 `docs/evidence/p0/**` 的文件/截图/日志路径，并在新 05 报告里注明构建时间。
+- [ ] 先读 `NOTICE` + `docs/02` §10.3.9 + `docs/clean-room-log.md` CR-004，确认哪些代码是 HMCL 移植、哪些是自研；不要声称“全部原创”。
+
+---
+
+## 13. 移植代码与许可证边界（2026-10-21）
+
+### 13.1 哪些代码是移植的
+
+| TS 文件 | 来源（HMCL @ `e7b9a95d…`） | 许可 | 修改要点 |
+|---|---|---|---|
+| `src/main/modules/auth/hmcl-port/oauth.ts` | `auth/OAuth.java` + `game/OAuthServer.java` | GPL-3.0 | NanoHTTPD/CompletableFuture → Node `http`；JavaFX → `openExternal()`；不用 HMCL client_id |
+| `src/main/modules/auth/hmcl-port/microsoft.ts` | `auth/microsoft/MicrosoftService.java` + `auth/yggdrasil/Texture.java` | GPL-3.0 | Gson → 结构化 JSON；缓存/线程池移除；皮肤首个 URL 优先 |
+| `src/main/modules/auth/hmcl-port/yggdrasil.ts` | `auth/yggdrasil/YggdrasilService.java` + `auth/authlibinjector/AuthlibInjectorServer.java` + `Texture.java` | GPL-3.0 | Gson → 结构化；HTTP 由调用方提供；保留 meta/links 契约 |
+| `src/main/modules/auth/hmcl-port/skin-cache.ts` | `auth/microsoft/MicrosoftService.java`（`ObservableOptionalCache<UUID, CompleteGameProfile>`） | GPL-3.0 | 小型 TTL `ProfileCache`；普通对象 |
+| `src/main/modules/auth/microsoft.ts` | `auth/microsoft/MicrosoftService.java` | GPL-3.0 | 微软设备码/令牌/档案适配；复用 `HttpPort`/`AppError`；不用 HMCL client_id |
+
+> 除上述 5 个文件外，账户模块的其余代码为自研；仓库其他模块没有 HMCL 代码。PCL 代码**一行未用**。
+
+### 13.2 许可证边界（维护者必须知道）
+
+- **整体**：本项目 GPL-3.0（`LICENSE` + `COPYING`）；HMCL 移植部分也是 GPL-3.0，兼容。
+- **必须保留**：每个移植文件（`hmcl-port/*.ts` 与 `auth/microsoft.ts`）顶部的 HMCL 版权头、GPL 声明、来源/commit/修改说明；`NOTICE` 的 HMCL 段；不得删除或“统一风格”改写版权头。
+- **分发**：二进制分发须提供 Corresponding Source（本仓库 tag + 构建说明，见 README/本文 §5）；不得加与 GPL-3.0 冲突的限制。
+- **区分原版**：产品名 **Cubit Launcher**、包名 `mc-launcher`、版本独立；不得使用 HMCL 名称/Logo/图标/字体冒充。
+- **About 页**：GPLv3 §7(b) 要求保留“软件中显示的版权声明”；当前只在文件头/NOTICE，**About/许可页仍待补 HMCL 版权声明**——这是发布前必须项（02 LIC-22），不要以“文件头已有”代替。
+- **不要做**：把 HMCL 代码改成 MIT/Apache；删除版权头；把 HMCL Logo/资源打包；未经 CR 继续扩大移植范围。
+
+### 13.3 其他第三方边界（不要混）
+
+| 组件 | 许可/用法 | 边界 |
+|---|---|---|
+| EasyTier 2.7.0 | LGPL-3.0，独立进程，运行时下载，固定版本 + SHA-256 | 不静态链接/不修改；许可证随组件放在 `dataRoot/modules/link/licenses/EasyTier-LICENSE.txt`；源码链接见 NOTICE |
+| authlib-injector | AGPL-3.0 + 例外，未修改 jar 作为 Java Agent | 不修改、不并入我方源码；固定版本 + SHA-256 |
+| Modrinth / BMCLAPI | 公开 API/镜像服务 | 遵守 UA/速率/来源标注；不转存、不二次封装；不随包分发游戏文件/Mojang 资源 |
+| Minecraft / Mojang | EULA / Usage Guidelines | 不随包分发游戏文件或 Mojang 资源；版本 JSON 运行时下载；离线账户不伪造会话 |
+
+### 13.4 外部审计 5 分钟路径
+
+1. `LICENSE` / `COPYING`：GPLv3 全文（两者 SHA-256 同为 `3972DC97…`）；
+2. `NOTICE`：HMCL 段（commit、6 源文件、5 TS 目标、修改点）、EasyTier、Modrinth、PCL2；
+3. `src/main/modules/auth/hmcl-port/*.ts` 与 `src/main/modules/auth/microsoft.ts` 文件头：HMCL 版权 + GPL + 修改说明；
+4. `docs/02-compliance-security.md` §10.3.9：移植记录 + §7(b)/(c) 核对；
+5. `docs/clean-room-log.md` CR-004：执行人/审核/映射；
+6. 本文件 §13：维护者边界。
+
+> 结论：**我们用了 HMCL 的账户模块移植代码（GPL-3.0），没有用 PCL 代码**；许可义务中唯一未闭环的是 About 页版权声明，其余（版权头/NOTICE/源码/改名/衍生 GPL）已满足。

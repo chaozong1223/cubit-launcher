@@ -126,13 +126,23 @@ export interface TokenCipher {
   decrypt(data: Buffer): string
 }
 
+export interface AuthlibStoredSession {
+  accessToken: string
+  clientToken: string
+  profileId: string
+  profileName: string
+  server: string
+}
+
 export interface StoredSession {
+  /** Microsoft refresh token; empty string for an Authlib-only session. */
   refreshToken: string
   refreshIssuedAt: number
   msAccessToken?: string
   mcAccessToken?: string
   mcExpiresAt?: number
   xuid?: string | null
+  authlib?: AuthlibStoredSession
 }
 
 interface SessionEntry {
@@ -196,7 +206,12 @@ export class SessionStore {
     try {
       const plain = this.cipher.decrypt(Buffer.from(entry.data, 'base64'))
       const parsed = JSON.parse(plain) as StoredSession
-      return typeof parsed.refreshToken === 'string' ? parsed : null
+      return typeof parsed.refreshToken === 'string' ||
+        (parsed.authlib &&
+          typeof parsed.authlib.accessToken === 'string' &&
+          typeof parsed.authlib.clientToken === 'string')
+        ? parsed
+        : null
     } catch {
       return null
     }

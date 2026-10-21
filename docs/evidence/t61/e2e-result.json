@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "startedAt": "2026-10-21T14:34:04.272Z",
+  "durationMs": 20969,
+  "workspace": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-fresh",
+  "install": {
+    "jobId": "0ea2a578-e733-4151-bed8-cda47281f227",
+    "files": 3641,
+    "bytes": 735402462,
+    "missingFiles": 0,
+    "missingBytes": 0
+  },
+  "installState": {
+    "state": "done",
+    "done": 3641,
+    "total": 3641
+  },
+  "offlineAccount": {
+    "id": "6ce6b3b0-95a2-4f3d-b613-91cb7ea99906",
+    "name": "TestUser",
+    "uuid": "097d3392-865a-3f3c-8b4a-da1c3473466c"
+  },
+  "offlinePlan": {
+    "javaPath": "C:\\Users\\Supreme\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-beta\\bin\\java.exe",
+    "javaMajor": 17,
+    "argc": 48,
+    "hasUser": true,
+    "hasOfflineToken": true,
+    "warnings": 0
+  },
+  "authlib": {
+    "info": {
+      "version": "1.2.8",
+      "sha256": "9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce17da00c6d5a7b10",
+      "jarPath": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-fresh\\data\\java\\authlib-injector\\authlib-injector-1.2.8.jar",
+      "downloaded": false,
+      "server": "https://littleskin.cn/api/yggdrasil"
+    },
+    "accountId": "82b15f93-28bc-4b3e-a87e-4cd1d78b1f99",
+    "javaagent": "-javaagent:D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-fresh\\data\\java\\authlib-injector\\authlib-injector-1.2.8.jar=https://littleskin.cn/api/yggdrasil",
+    "injected": true
+  },
+  "microsoftMissingConfig": "mc:auth:beginDeviceCode failed: MS_CLIENT_ID_MISSING 未配置微软应用 ID，正版登录暂不可用 {\"hint\":\"设置 MCL_MS_CLIENT_ID（可选 MCL_MS_TENANT），或在设置页填入 Azure 应用的客户端 ID；离线账户可正常使用。\",\"docs\":\"https://learn.microsoft.com/entra/identity-platform/quickstart-register-app\"}",
+  "sessionId": "13b47d46-23a0-4c3e-821f-ec5f8cd32528",
+  "mainMenu": {
+    "found": true,
+    "settingUser": true
+  },
+  "finalStatus": {
+    "ok": true,
+    "data": {
+      "instanceId": "1.20.1",
+      "state": "crashed",
+      "sessionId": "13b47d46-23a0-4c3e-821f-ec5f8cd32528",
+      "startedAt": 1792593247987,
+      "exitCode": null,
+      "durationMs": 14214,
+      "reportReady": true
+    }
+  },
+  "warnings": [],
+  "launcherLog": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-fresh\\data\\logs\\launcher.log",
+  "gameLog": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-fresh\\mc\\versions\\1.20.1\\logs\\latest.log"
+}

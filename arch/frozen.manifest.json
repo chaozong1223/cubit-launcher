@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-21T12:55:30.365Z",
+  "generatedAt": "2026-10-21T15:03:51.642Z",
   "files": {
     "package.json": "e60c9fbd20405ca07fa6585bc61f656d7536ed584ee389d6e8c3350cb15ca694",
     "package-lock.json": "ebb16c3054b858d9e56351d1556d961e75f536dae0e68a52c307a6d825a2dc71",
@@ -18,7 +18,7 @@
     "src/preload/index.ts": "5af7627f27c5c852488bd0210b76caae1642f94f270641cdee09594b145fe748",
     "src/shared/bridge.ts": "0df157e90e7c9dc1eb9973580d6c42f273551be83f2b6660b92a41e84881594e",
     "src/shared/channels.ts": "9a4e1f572bd8f64041be653f22e3ab05b5d3e40b5395b3cdeae3910f9df6005b",
-    "src/shared/errors.ts": "65f9c87134bf4d580ed6d1280a9bb8591b5567a4bb227f4c4fde22e0cba29261",
+    "src/shared/errors.ts": "ffe0f6ba51671ad3989b15a95c40ec921a1fdb75ea27636b8154076477631fb9",
     "src/shared/kernel.ts": "b17bf1e734321725c859adee746e79d9533d2bee53c522a17d6eb7f1bb651d11",
     "src/shared/system.ts": "9182cf19adea0c4248ba2d96ad18801867dae65ce138404718add6a7dfc39007"
   }

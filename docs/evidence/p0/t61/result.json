@@ -1,0 +1,102 @@
+{
+  "workspace": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-fresh",
+  "fixtures": {
+    "jar": "C:\\Users\\Supreme\\AppData\\Local\\Temp\\t61-global.jar",
+    "mrpack": "C:\\Users\\Supreme\\AppData\\Local\\Temp\\t61-pack.mrpack",
+    "curse": "C:\\Users\\Supreme\\AppData\\Local\\Temp\\t61-curse.zip"
+  },
+  "beforeInstances": [
+    "1.20.1"
+  ],
+  "jarText": [
+    "已安装到 mods",
+    "目标实例：1.20.1 · 1.20.1 · vanilla；依据：扩展名 .jar",
+    "导入整合包",
+    "原版",
+    "原版 / 加载器，等待安装后端",
+    "导入整合包",
+    "等待整合包扫描后端",
+    "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-drag-data"
+  ],
+  "jarScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\t61\\global-drop-jar.png",
+  "modsAfterJar": [
+    "t61-global.jar"
+  ],
+  "mrpackText": [
+    "整合包已导入：1.20.1",
+    "modrinth · MC 1.20.1 · vanilla · 文件 0 新 / 0 跳过 · 发现 modrinth.index.json；清单游戏版本 1.20.1；清单加载器 vanilla",
+    "导入整合包",
+    "原版",
+    "原版 / 加载器，等待安装后端",
+    "导入整合包",
+    "等待整合包扫描后端",
+    "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-drag-data"
+  ],
+  "mrpackScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\t61\\global-drop-mrpack.png",
+  "afterPackInstances": [
+    "1.20.1",
+    "1.20.1-2"
+  ],
+  "newFromPack": [
+    "1.20.1-2"
+  ],
+  "curseText": [
+    "整合包已导入：CurseAutoTest",
+    "curseforge · MC 1.20.1 · vanilla · 文件 0 新 / 0 跳过 · 发现 CurseForge manifest.json；清单游戏版本 1.20.1；清单加载器 vanilla",
+    "导入整合包",
+    "原版",
+    "原版 / 加载器，等待安装后端",
+    "导入整合包",
+    "等待整合包扫描后端",
+    "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t61-drag-data"
+  ],
+  "curseScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\t61\\global-drop-cf.png",
+  "afterCurseInstances": [
+    "1.20.1",
+    "1.20.1-2",
+    "CurseAutoTest"
+  ],
+  "newFromCurse": [
+    "CurseAutoTest"
+  ],
+  "deleteTarget": "CurseAutoTest",
+  "dialogScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\t61\\delete-dialog.png",
+  "dialogText": [
+    "回收站",
+    "导入只切换游戏目录，不会移动或删除原文件。",
+    "删除",
+    "删除",
+    "删除",
+    "删除实例",
+    "删除「CurseAutoTest」？",
+    "该实例将移入启动器回收站，可在「回收站」恢复；共享的 libraries/assets 不会被删除。",
+    "移入回收站"
+  ],
+  "confirmClick": "clicked",
+  "afterDeleteInstances": [
+    "1.20.1",
+    "1.20.1-2"
+  ],
+  "flashText": [
+    "已移入回收站，可在回收站恢复",
+    "「CurseAutoTest」已移入回收站，可在回收站恢复。"
+  ],
+  "deleteScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\t61\\instance-deleted.png",
+  "trashInstance": [
+    {
+      "id": "5f370451-a648-49ae-b1ff-3ab458c992cb",
+      "name": "CurseAutoTest",
+      "kind": "other",
+      "instanceId": "CurseAutoTest"
+    }
+  ],
+  "trashScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\t61\\trash-instance.png",
+  "restoreClick": "clicked",
+  "afterRestoreInstances": [
+    "1.20.1",
+    "1.20.1-2",
+    "CurseAutoTest"
+  ],
+  "restoreScreenshot": "D:\\DSH-工作文件\\mc-launcher\\docs\\evidence\\p0\\t61\\instance-restored.png",
+  "curseApiLogs": 0
+}

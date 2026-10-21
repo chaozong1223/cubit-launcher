@@ -123,7 +123,9 @@ function classifyExit(
   killedByUser: boolean,
 ): LaunchClassification {
   if (killedByUser) return 'killed'
-  if (signal !== null) return 'killed'
+  // A signal is a real abnormal termination unless stop() requested the kill
+  // (handled above). Do not label a crashed JVM as a user-requested kill.
+  if (signal !== null) return 'crashed'
   if (exitCode !== 0) return 'crashed'
   if (!sawMenu && durationMs < 30_000) return 'suspect'
   return 'normal'

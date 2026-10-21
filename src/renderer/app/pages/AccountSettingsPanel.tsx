@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { DeviceCode, MicrosoftConfig } from '@shared/auth'
+import type { Account, DeviceCode, MicrosoftConfig } from '@shared/auth'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
@@ -17,6 +17,65 @@ import { Icon } from '../icons'
 function authFailureText(cause: unknown): UiErrorInfo {
   const info = describeError(cause)
   return { ...info, detail: info.detail || (cause instanceof Error ? cause.message : String(cause)) }
+}
+
+function authlibFailureText(cause: unknown): UiErrorInfo {
+  const info = authFailureText(cause)
+  const haystack = `${info.code ?? ''} ${info.detail}`.toLowerCase()
+  const withCode = (title: string, detail: string, retryable: boolean): UiErrorInfo => ({
+    ...info,
+    title,
+    detail: `${detail}${info.code ? `（${info.code}）` : ''}`,
+    retryable,
+  })
+  if (/profile[^ ]*missing|没有.*(档案|角色)|selectedprofile/.test(haystack)) {
+    return withCode('皮肤站账号还没有游戏角色', '请先打开皮肤站创建 Minecraft 角色（selectedProfile），再回到启动器登录。', false)
+  }
+  if (/login[^ ]*required|reauth|重新登录|登录已失效/.test(haystack)) {
+    return withCode('需要重新登录皮肤站', '当前皮肤站登录已失效，请在下方重新输入密码登录；账户和历史配置会保留。', true)
+  }
+  if (/email[^ ]*(verify|verification|verified)|邮箱.*(验证|未验证)|需要.*邮箱/.test(haystack)) {
+    return withCode('需要先验证邮箱', '该皮肤站要求先完成邮箱验证。请打开皮肤站验证邮箱后再登录。', false)
+  }
+  if (/network|unreachable|econn|etimedout|timeout|connection|无法连接|连接失败|超时/.test(haystack)) {
+    return withCode('无法连接皮肤站', '请检查网络、代理与证书，并确认地址是 HTTPS 的 /api/yggdrasil 根地址。', true)
+  }
+  if (/invalid_grant|token.*(expir|invalid)|session.*expir|登录.*过期|令牌.*过期/.test(haystack)) {
+    return withCode('登录已过期', '登录令牌已过期，请重新输入密码完成 Authlib 重新登录。', true)
+  }
+  if (/invalid.?credential|wrong.?password|auth.*failed|login.*failed|bad.?password|authenticate.*fail|用户名或密码|密码错误/.test(haystack)) {
+    return withCode('用户名或密码错误', '请检查皮肤站账户名与密码；连续失败可能触发站点限流。密码不会保存，也不会写入日志。', true)
+  }
+  return info
+}
+
+function AuthlibAvatar({ account }: { account: Account }) {
+  const backend = useBackend()
+  const profile = useAsync(() => backend.auth.profile(account.id), [account.id])
+  const [broken, setBroken] = useState(false)
+  const url = profile.data?.avatarUrl ?? profile.data?.skinUrl ?? null
+
+  useEffect(() => {
+    setBroken(false)
+  }, [url])
+
+  useEffect(() => {
+    const off = backend.auth.subscribeChanged(() => profile.reload())
+    return off
+  }, [backend, profile.reload])
+
+  if (url && !broken) {
+    return (
+      <img
+        className="avatar avatar--sm authlib-avatar"
+        src={url}
+        alt=""
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+      />
+    )
+  }
+  return <span className="avatar avatar--sm" aria-hidden="true">{account.name.slice(0, 1).toUpperCase()}</span>
 }
 
 function deviceFailure(message: string, hint?: string): UiErrorInfo {
@@ -43,6 +102,8 @@ export function AccountSettingsPanel() {
   const [msTenant, setMsTenant] = useState('')
   const [authlibName, setAuthlibName] = useState('')
   const [authlibServer, setAuthlibServer] = useState('')
+  const [authlibPassword, setAuthlibPassword] = useState('')
+  const [authlibReloginId, setAuthlibReloginId] = useState<string | null>(null)
   const [authlibNotice, setAuthlibNotice] = useState<string | null>(null)
 
   const selected = auth.data?.accounts.find((account) => account.id === auth.data?.selectedId) ?? null
@@ -62,14 +123,14 @@ export function AccountSettingsPanel() {
     else if (selectedAuthlib?.authlibServer) setAuthlibServer((current) => current || selectedAuthlib.authlibServer || '')
   }, [authlib.data?.server, selectedAuthlib?.authlibServer])
 
-  const run = async (key: string, task: () => Promise<void>) => {
+  const run = async (key: string, task: () => Promise<void>, mapError: (cause: unknown) => UiErrorInfo = authFailureText) => {
     setBusy(key)
     setError(null)
     setNotice(null)
     try {
       await task()
     } catch (cause) {
-      setError(authFailureText(cause))
+      setError(mapError(cause))
     } finally {
       setBusy(null)
     }
@@ -132,17 +193,51 @@ export function AccountSettingsPanel() {
     setNotice(config.configured ? '微软应用配置已保存。' : '已清空/未保存 client id；微软登录仍不可用。')
   })
 
-  const createAuthlib = () => run('authlib', async () => {
+  const createAuthlib = () => run(authlibReloginId ? 'authlib-relogin' : 'authlib', async () => {
     const name = authlibName.trim()
     const server = authlibServer.trim()
-    if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) throw new Error('Authlib 用户名需为 3–16 位字母/数字/下划线')
+    const password = authlibPassword
+    if (!name || name.length > 64) throw new Error('Authlib 登录名需为 1–64 个字符（可以是账号名或邮箱）')
     if (!/^https:\/\//i.test(server)) throw new Error('Authlib 皮肤站地址必须使用 HTTPS')
-    await backend.auth.createAuthlib(name, server)
+    if (!password) throw new Error('请输入 Authlib 密码')
+    // The password exists only in this call frame. Clear the React state before
+    // awaiting IPC so it cannot be reused by a later render or persisted.
+    setAuthlibPassword('')
+    const relogin = Boolean(authlibReloginId)
+    if (relogin) await backend.auth.loginAuthlib(name, password, server)
+    else await backend.auth.createAuthlib(name, server, password)
     setAuthlibName('')
+    setAuthlibReloginId(null)
     auth.reload()
     authlib.reload()
-    setAuthlibNotice('Authlib 账户已创建并选中；启动时会注入 authlib-injector。')
-  })
+    setAuthlibNotice(relogin ? 'Authlib 重新登录成功；令牌已由 auth 模块接管。' : 'Authlib 账户已创建并选中；启动时会注入 authlib-injector。')
+  }, authlibFailureText)
+
+  const beginAuthlibRelogin = (account: Account) => {
+    setAuthlibReloginId(account.id)
+    setAuthlibName(account.name)
+    setAuthlibServer(account.authlibServer ?? authlib.data?.server ?? '')
+    setAuthlibPassword('')
+    setError(null)
+    setAuthlibNotice(`正在重新登录 ${account.name}；请输入密码，提交后密码会立即从内存中清空。`)
+  }
+
+  const cancelAuthlibRelogin = () => {
+    setAuthlibReloginId(null)
+    setAuthlibPassword('')
+    setAuthlibNotice(null)
+  }
+
+  const logoutAuthlib = (account: Account) => run(`authlib-logout:${account.id}`, async () => {
+    await backend.auth.signoutAuthlib(account.id)
+    setAuthlibReloginId(null)
+    setAuthlibPassword('')
+    setAuthlibName('')
+    setAuthlibServer('')
+    auth.reload()
+    authlib.reload()
+    setAuthlibNotice(`已退出 Authlib 登录：${account.name}（账户仍保留，可重新登录）。`)
+  }, authlibFailureText)
 
   const updateAuthlib = () => run('authlib-update', async () => {
     if (!selectedAuthlib) return
@@ -180,7 +275,9 @@ export function AccountSettingsPanel() {
         <div className="nw-account-list">
           {auth.data.accounts.map((account) => (
             <div className={`nw-account-row${account.id === auth.data?.selectedId ? ' is-selected' : ''}`} key={account.id}>
-              <span className="avatar avatar--sm" aria-hidden="true">{account.name.slice(0, 1).toUpperCase()}</span>
+              {account.kind === 'authlib'
+                ? <AuthlibAvatar account={account} />
+                : <span className="avatar avatar--sm" aria-hidden="true">{account.name.slice(0, 1).toUpperCase()}</span>}
               <span className="nw-account-name">{account.name}</span>
               <Badge tone={account.kind === 'microsoft' ? 'success' : account.kind === 'authlib' ? 'accent' : 'outline'}>{account.kind}</Badge>
               {account.kind === 'authlib' && account.authlibServer ? <span className="subtle mono">{account.authlibServer}</span> : null}
@@ -189,6 +286,33 @@ export function AccountSettingsPanel() {
                 : <Button size="xs" variant="ghost" onClick={() => void selectAccount(account.id)} loading={busy === `select:${account.id}`}>选择</Button>}
             </div>
           ))}
+          {selectedAuthlib ? (
+            <div className="settings-authlib-account">
+              <AuthlibAvatar account={selectedAuthlib} />
+              <div className="settings-authlib-account__text">
+                <strong>{selectedAuthlib.name}</strong>
+                <span className="mono">{selectedAuthlib.authlibServer}</span>
+              </div>
+              <Button
+                size="xs"
+                variant="secondary"
+                icon="refresh"
+                onClick={() => beginAuthlibRelogin(selectedAuthlib)}
+                disabled={busy === `authlib-logout:${selectedAuthlib.id}`}
+              >
+                重新登录
+              </Button>
+              <Button
+                size="xs"
+                variant="danger-ghost"
+                icon="close"
+                onClick={() => void logoutAuthlib(selectedAuthlib)}
+                loading={busy === `authlib-logout:${selectedAuthlib.id}`}
+              >
+                退出登录
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : auth.status === 'ready' ? (
         <EmptyState icon="user" title="还没有账户" description="创建离线账户即可启动；微软账户需要 client id 与 MCE 审批。" />
@@ -259,12 +383,41 @@ export function AccountSettingsPanel() {
           <Field label="皮肤站地址" hint="必须 HTTPS；创建账户后在启动时注入 authlib-injector，不改原版客户端文件。">
             <Input value={authlibServer} onChange={(event) => setAuthlibServer(event.target.value)} placeholder="https://littleskin.cn/api/yggdrasil" aria-label="Authlib 皮肤站地址" />
           </Field>
-          <Field label="Authlib 用户名" hint="3–16 位字母/数字/下划线。">
-            <div className="row gap-8">
-              <Input value={authlibName} onChange={(event) => setAuthlibName(event.target.value)} placeholder="例如 Player" aria-label="Authlib 用户名" />
-              <Button size="sm" variant="primary" icon="plus" onClick={() => void createAuthlib()} loading={busy === 'authlib'} disabled={!authlibName.trim() || !authlibServer.trim()}>创建 Authlib 账户</Button>
-            </div>
+          <Field label="Authlib 登录名（账号或邮箱）" hint="1–64 个字符；可以是皮肤站账号名或邮箱。登录后显示名取皮肤站角色名。">
+            <Input value={authlibName} onChange={(event) => setAuthlibName(event.target.value)} placeholder="账号名或邮箱" aria-label="Authlib 用户名" />
           </Field>
+          <Field label="Authlib 密码" hint="只在提交时短暂保存在内存；提交后立即清空，不写入 localStorage、配置或日志。">
+            <Input
+              type="password"
+              value={authlibPassword}
+              onChange={(event) => setAuthlibPassword(event.target.value)}
+              placeholder="皮肤站密码"
+              aria-label="Authlib 密码"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </Field>
+          {authlibReloginId ? (
+            <Banner
+              tone="info"
+              title={`正在重新登录 ${authlibName}`}
+              actions={<Button size="xs" variant="ghost" onClick={cancelAuthlibRelogin}>取消重新登录</Button>}
+            >
+              输入新密码后提交；旧令牌会由 auth 模块按后端结果处理，不会把密码写入任何文件。
+            </Banner>
+          ) : null}
+          <div className="row gap-8" style={{ marginTop: 8 }}>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={authlibReloginId ? 'refresh' : 'plus'}
+              onClick={() => void createAuthlib()}
+              loading={busy === 'authlib' || busy === 'authlib-relogin'}
+              disabled={!authlibName.trim() || !authlibServer.trim() || !authlibPassword}
+            >
+              {authlibReloginId ? '重新登录 Authlib' : '创建 Authlib 账户'}
+            </Button>
+          </div>
           {selectedAuthlib ? (
             <Button size="sm" variant="secondary" icon="refresh" onClick={() => void updateAuthlib()} loading={busy === 'authlib-update'}>更新当前 Authlib 账户地址</Button>
           ) : null}
