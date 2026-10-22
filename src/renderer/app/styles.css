@@ -1188,11 +1188,16 @@
   flex-direction: column;
   gap: 2px;
 }
+.subnav__divider {
+  height: 1px;
+  margin: 8px 12px;
+  background: var(--border-subtle);
+}
 .subnav__item {
   display: flex;
   align-items: center;
   gap: 9px;
-  height: 34px;
+  height: 38px;
   padding: 0 10px;
   border-radius: 9px;
   color: var(--text-2);

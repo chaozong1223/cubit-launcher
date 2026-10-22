@@ -204,27 +204,72 @@ function SubNav({ route }: { route: Route }) {
     return () => observer.disconnect()
   }, [route.name, sections])
 
-  if (!sections || sections.length === 0) return null
+  const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
+
+  // Pages with their own sections (download) describe those; every other page
+  // falls back to the full menu, exactly like StarCloud's expanded panel.
+  if (sections && sections.length > 0) {
+    return (
+      <aside className="subnav" id="subnav" aria-label="页面小节">
+        <div className="subnav__title">{routeTitle(route)}</div>
+        <div className="subnav__list">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              className="subnav__item subnav__item--button"
+              aria-current={active === section.id ? 'page' : undefined}
+              onClick={() => {
+                document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                setActive(section.id)
+              }}
+            >
+              <span className="subnav__item-label">{section.label}</span>
+              {section.hint ? <span className="subnav__item-meta">{section.hint}</span> : null}
+            </button>
+          ))}
+        </div>
+      </aside>
+    )
+  }
+
+  const primary = NAV_GROUPS.filter((group) => group.label !== '系统')
+  const secondary = NAV_GROUPS.filter((group) => group.label === '系统')
 
   return (
-    <aside className="subnav" id="subnav" aria-label="页面小节">
-      <div className="subnav__title">{routeTitle(route)}</div>
+    <aside className="subnav" id="subnav" aria-label="主导航">
       <div className="subnav__list">
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            className="subnav__item subnav__item--button"
-            aria-current={active === section.id ? 'page' : undefined}
-            onClick={() => {
-              document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              setActive(section.id)
-            }}
+        {primary.flatMap((group) => group.items).map((item) => (
+          <a
+            className="subnav__item"
+            href={item.path}
+            key={item.path}
+            aria-current={navActive === item.name ? 'page' : undefined}
           >
-            <span className="subnav__item-label">{section.label}</span>
-            {section.hint ? <span className="subnav__item-meta">{section.hint}</span> : null}
-          </button>
+            <Icon name={item.icon} className="ico ico--sm" />
+            <span className="subnav__item-label">{item.label}</span>
+          </a>
         ))}
+      </div>
+      <div className="subnav__divider" aria-hidden="true" />
+      <div className="subnav__list">
+        {secondary.flatMap((group) => group.items).map((item) => (
+          <a
+            className="subnav__item"
+            href={item.path}
+            key={item.path}
+            aria-current={navActive === item.name ? 'page' : undefined}
+          >
+            <Icon name={item.icon} className="ico ico--sm" />
+            <span className="subnav__item-label">{item.label}</span>
+          </a>
+        ))}
+      </div>
+      <div className="subnav__footer">
+        <button className="subnav__item subnav__item--button" type="button" onClick={() => navigate('/components')}>
+          <Icon name="flask" className="ico ico--sm" />
+          <span className="subnav__item-label">界面规范</span>
+        </button>
       </div>
     </aside>
   )
