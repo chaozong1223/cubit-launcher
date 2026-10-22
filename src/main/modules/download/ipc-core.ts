@@ -132,6 +132,12 @@ export function registerDownloadIpcCore(deps: DownloadIpcCoreDeps): DownloadIpcC
   register(DOWNLOAD_CHANNELS.listSources, methods.listSources.input, methods.listSources.output, async () =>
     bridge.listSources(),
   )
+  register(
+    DOWNLOAD_CHANNELS.downloadCustomFile,
+    methods.downloadCustomFile.input,
+    methods.downloadCustomFile.output,
+    async (_event, input) => bridge.downloadCustomFile(input),
+  )
   register(DOWNLOAD_CHANNELS.getSettings, methods.getSettings.input, methods.getSettings.output, async () =>
     bridge.getSettings(),
   )

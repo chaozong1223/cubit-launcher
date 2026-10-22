@@ -504,6 +504,7 @@ const CH = {
   systemPickFiles: 'mc:system:pickFiles',
   systemPickSaveFile: 'mc:system:pickSaveFile',
   downloadSources: channelOf('download', 'listSources'),
+  downloadCustomFile: channelOf('download', 'downloadCustomFile'),
   downloadSettings: channelOf('download', 'getSettings'),
   downloadUpdateSettings: channelOf('download', 'updateSettings'),
   downloadManifest: channelOf('download', 'fetchManifest'),
@@ -836,6 +837,7 @@ export interface Backend {
   }
   downloads: {
     channel: 'mc:download:list / mc:download:evt:progress'
+    downloadCustomFile(input: { url: string; saveDir: string; fileName?: string }): Promise<{ path: string; bytes: number; fileName: string }>
     sources(): Promise<DownloadSourcesResult>
     settings(): Promise<DownloadSettings>
     updateSettings(patch: DownloadSettingsPatch): Promise<DownloadSettings>
@@ -1176,6 +1178,7 @@ export const ipcBackend: Backend = {
   },
   downloads: {
     channel: 'mc:download:list / mc:download:evt:progress',
+    downloadCustomFile: (input) => invoke<{ path: string; bytes: number; fileName: string }>('下载自定义文件', CH.downloadCustomFile, input),
     sources: () => invoke<DownloadSourcesResult>('下载。', CH.downloadSources),
     settings: () => invoke<DownloadSettings>('下载设置', CH.downloadSettings),
     updateSettings: (patch) => invoke<DownloadSettings>('保存下载设置', CH.downloadUpdateSettings, patch),

@@ -13,6 +13,7 @@ import {
   Card,
   DataStateNotice,
   EmptyState,
+  Field,
   Input,
   PageHeader,
   PageNav,
@@ -97,6 +98,36 @@ export function SettingsPage() {
   const selection = useInstanceSelection()
   const draft = useInstanceSettingsDraft(selection.selected)
   const [section, setSection] = useState<Section>(isSection(route.section) ? route.section : 'launch')
+  const [customUrl, setCustomUrl] = useState('')
+  const [customDir, setCustomDir] = useState('')
+  const [customName, setCustomName] = useState('')
+  const [customBusy, setCustomBusy] = useState(false)
+  const [customResult, setCustomResult] = useState<string | null>(null)
+  const [customError, setCustomError] = useState<string | null>(null)
+
+  const chooseCustomDir = async () => {
+    // No folder picker in the preload bridge yet; typing the path is supported.
+  }
+  void chooseCustomDir
+
+  const runCustomDownload = async () => {
+    setCustomBusy(true)
+    setCustomResult(null)
+    setCustomError(null)
+    try {
+      const result = await backend.downloads.downloadCustomFile({
+        url: customUrl.trim(),
+        saveDir: customDir.trim(),
+        ...(customName.trim() ? { fileName: customName.trim() } : {}),
+      })
+      setCustomResult(result.path)
+    } catch (cause) {
+      const info = describeError(cause)
+      setCustomError(`${info.title}：${info.detail}`)
+    } finally {
+      setCustomBusy(false)
+    }
+  }
   const [reduceMotion, setReduceMotion] = useState(false)
 
   useEffect(() => {
@@ -216,6 +247,31 @@ export function SettingsPage() {
                   <div className="setting-group">
                     <div className="setting-group__text"><div className="setting-group__title">缓存</div><div className="setting-group__desc">缓存路径来自数据根；清理需要 download 后端。</div></div>
                     <div className="setting-control"><Button size="sm" variant="secondary" icon="folder" onClick={() => void backend.system.openDataDir()}>打开数据目录</Button></div>
+                  </div>
+                  <div className="setting-group setting-group--stack">
+                    <div className="setting-group__text">
+                      <div className="setting-group__title">下载自定义文件</div>
+                      <div className="setting-group__desc">任意 https 链接直接流式写入指定目录；只接受 https，写入时使用 .part 再改名。</div>
+                    </div>
+                    <div className="custom-download">
+                      <Field label="下载地址">
+                        <Input value={customUrl} onChange={(event) => setCustomUrl(event.target.value)} placeholder="https://example.com/file.zip" />
+                      </Field>
+                      <Field label="保存到">
+                        <Input value={customDir} onChange={(event) => setCustomDir(event.target.value)} placeholder="D:\\下载" />
+                      </Field>
+                      <Field label="文件名" hint="留空则使用链接中的文件名">
+                        <Input value={customName} onChange={(event) => setCustomName(event.target.value)} placeholder="可选" />
+                      </Field>
+                      <div className="custom-download__actions">
+                        <Button variant="primary" loading={customBusy} disabled={customBusy || !customUrl.trim() || !customDir.trim()} onClick={() => void runCustomDownload()}>
+                          开始下载
+                        </Button>
+                        <Button variant="secondary" icon="folder" onClick={() => void backend.system.openDataDir()}>打开数据目录</Button>
+                        {customResult ? <span className="instance-settings-card__saved">已保存：<code className="mono">{customResult}</code></span> : null}
+                        {customError ? <span className="instance-settings-card__error">{customError}</span> : null}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

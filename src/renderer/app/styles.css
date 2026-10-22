@@ -1316,6 +1316,24 @@
   color: var(--text-3);
 }
 .memory-bar__legend b { color: var(--text); font-weight: 600; }
+.setting-group--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.custom-download {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 620px;
+}
+.custom-download__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
 .rail-btn:hover {
   background: var(--surface-2);
   color: var(--text);

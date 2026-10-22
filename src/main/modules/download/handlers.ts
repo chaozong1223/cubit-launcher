@@ -10,6 +10,8 @@ import type { DownloadService } from './service'
  */
 export function makeHandlers(service: DownloadService) {
   return {
+    downloadCustomFile: async (input: { url: string; saveDir: string; fileName?: string }) =>
+      service.downloadCustomFile(input),
     listSources: async () => service.listSources(),
     getSettings: async () => service.getSettings(),
     updateSettings: async (input: DownloadSettingsPatch) => service.updateSettings(input),

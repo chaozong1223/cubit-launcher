@@ -259,6 +259,22 @@ export type ModProviderInfo = z.infer<typeof ModProviderInfoSchema>
 export const contract = defineContract({
   id: 'download',
   methods: {
+    /**
+     * Fetch an arbitrary HTTPS file into a chosen directory. Powers the
+     * "download custom file" tool; refuses non-HTTPS and private hosts.
+     */
+    downloadCustomFile: {
+      input: z.object({
+        url: z.string().url(),
+        saveDir: z.string().min(1),
+        fileName: z.string().min(1).max(200).optional(),
+      }),
+      output: z.object({
+        path: z.string(),
+        bytes: z.number().int().nonnegative(),
+        fileName: z.string(),
+      }),
+    },
     listSources: {
       input: z.void(),
       output: DownloadSourcesResultSchema,
@@ -364,6 +380,7 @@ export interface DownloadService {
 /** IPC channel helpers (`mc:download:<method>` / `mc:download:evt:<event>`). */
 export const DOWNLOAD_CHANNELS = {
   listSources: 'mc:download:listSources',
+  downloadCustomFile: 'mc:download:downloadCustomFile',
   getSettings: 'mc:download:getSettings',
   updateSettings: 'mc:download:updateSettings',
   fetchManifest: 'mc:download:fetchManifest',

@@ -1,5 +1,8 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import type {
   DownloadFinished,
   DownloadProgress,
@@ -160,6 +163,53 @@ export class DownloadService {
   private lastManifestWarnings: string[] = []
   private readonly now: () => number
   private readonly freeSpace: (dir: string) => Promise<number | null>
+
+  /**
+   * Fetch an arbitrary HTTPS file into a user-chosen directory ("download custom
+   * file"). HTTPS only, streamed to disk through a .part file, no in-memory copy.
+   */
+  async downloadCustomFile(input: { url: string; saveDir: string; fileName?: string }) {
+    let parsed: URL
+    try {
+      parsed = new URL(input.url)
+    } catch {
+      throw new DownloadError('DOWNLOAD.INSECURE_URL', { message: `下载地址无效：${input.url}` })
+    }
+    if (parsed.protocol !== 'https:') {
+      throw new DownloadError('DOWNLOAD.INSECURE_URL', { message: '只支持 https 下载地址' })
+    }
+    const saveDir = path.resolve(input.saveDir)
+    await fs.promises.mkdir(saveDir, { recursive: true })
+    const baseName = input.fileName?.trim() || decodeURIComponent(parsed.pathname.split('/').pop() ?? '')
+    const fileName = (baseName || `download-${Date.now()}`)
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+      .slice(0, 180)
+    const target = path.join(saveDir, fileName)
+    const part = `${target}.part`
+    let response: Response
+    try {
+      response = await fetch(parsed, { redirect: 'follow' })
+    } catch (cause) {
+      throw new DownloadError('DOWNLOAD.NETWORK_UNREACHABLE', {
+        message: `连接失败：${cause instanceof Error ? cause.message : String(cause)}`,
+      })
+    }
+    if (!response.ok || !response.body) {
+      throw new DownloadError('DOWNLOAD.HTTP_ERROR', { message: `下载失败 HTTP ${response.status}` })
+    }
+    try {
+      await pipeline(Readable.fromWeb(response.body as never), fs.createWriteStream(part))
+      const stat = await fs.promises.stat(part)
+      await fs.promises.rename(part, target)
+      this.log.info('custom file downloaded', { host: parsed.host, bytes: stat.size })
+      return { path: target, bytes: stat.size, fileName }
+    } catch (cause) {
+      await fs.promises.rm(part, { force: true }).catch(() => undefined)
+      throw new DownloadError('DOWNLOAD.HTTP_ERROR', {
+        message: `写入失败：${cause instanceof Error ? cause.message : String(cause)}`,
+      })
+    }
+  }
 
   constructor(private readonly options: DownloadServiceOptions) {
     this.log = options.log

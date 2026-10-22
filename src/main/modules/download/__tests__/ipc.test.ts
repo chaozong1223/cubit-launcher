@@ -234,7 +234,7 @@ describe('download IPC registration', () => {
     }
     registered.progress?.(progress)
     expect(broadcasts).toEqual([{ channel: DOWNLOAD_EVENTS.progress, payload: progress }])
-    expect(h.channels).toHaveLength(15)
+    expect(h.channels).toHaveLength(16)
   })
 
   it('tolerates a second registration of the same channels', () => {
@@ -249,12 +249,12 @@ describe('download IPC registration', () => {
     })
     expect(second.channels).toEqual([])
     h.ipc.invoke(DOWNLOAD_CHANNELS.getSettings, undefined)
-    expect(h.ipc.handlers.size).toBe(15)
+    expect(h.ipc.handlers.size).toBe(16)
   })
 
   it('removes every handler on dispose', () => {
     const h = setup()
-    expect(h.ipc.handlers.size).toBe(15)
+    expect(h.ipc.handlers.size).toBe(16)
     h.dispose()
     expect(h.ipc.handlers.size).toBe(0)
   })
