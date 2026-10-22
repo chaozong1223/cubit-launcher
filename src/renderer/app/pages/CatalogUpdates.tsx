@@ -17,6 +17,7 @@ import {
   EmptyState,
   Progress,
   Switch,
+  copyToClipboard,
 } from '../ui'
 import { Icon } from '../icons'
 import { formatBytes, shortText, versionTypeLabel } from './catalogUtils'
@@ -218,7 +219,7 @@ export function CatalogUpdates({ instance }: { instance: InstanceSummary | null 
 
   const copyRecycledPath = () => {
     if (!updateResult?.recycledPath) return
-    void navigator.clipboard.writeText(updateResult.recycledPath).catch(() => undefined)
+    void copyToClipboard(updateResult.recycledPath)
   }
 
   if (!instance) {

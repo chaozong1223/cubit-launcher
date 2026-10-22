@@ -11,6 +11,7 @@ import {
   EmptyState,
   Field,
   Input,
+  copyToClipboard,
 } from '../ui'
 import { Icon } from '../icons'
 
@@ -356,8 +357,8 @@ export function AccountSettingsPanel() {
   })
 
   const copy = async (text: string) => {
-    await navigator.clipboard.writeText(text).catch(() => undefined)
-    setNotice('已复制到剪贴板。')
+    const ok = await copyToClipboard(text)
+    setNotice(ok ? '已复制到剪贴板。' : '复制失败：剪贴板权限被拒，请手动选中文本按 Ctrl+C。')
   }
 
   return (

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CrashAnalysis, CrashCategory, FixAction, FixResult } from '@shared/crash'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
-import { Badge, Banner, Button, EmptyState } from '../ui'
+import { Badge, Banner, Button, EmptyState, copyToClipboard } from '../ui'
 import { Icon } from '../icons'
 
 const CATEGORY_LABEL: Record<CrashCategory, string> = {
@@ -78,8 +78,7 @@ export function CrashPanel({ instanceId, instanceName, autoAnalyze = false }: { 
       const result = await backend.crash.applyFix(instanceId, action)
       setFixResult(result)
       if (result.clipboard) {
-        await navigator.clipboard.writeText(result.clipboard).catch(() => undefined)
-        setCopied(true)
+        setCopied(await copyToClipboard(result.clipboard))
       }
     } catch (cause) {
       setError(describeError(cause))
@@ -93,8 +92,7 @@ export function CrashPanel({ instanceId, instanceName, autoAnalyze = false }: { 
     try {
       const formatted = await backend.crash.format(analysis)
       setReport(formatted.markdown)
-      await navigator.clipboard.writeText(formatted.markdown)
-      setCopied(true)
+      setCopied(await copyToClipboard(formatted.markdown))
     } catch (cause) {
       setError(describeError(cause))
     }

@@ -120,13 +120,24 @@ export function applyWindowSecurity(win: BrowserWindow): void {
   })
 }
 
-/** App-wide permission policy: deny by default, clipboard comes later if needed. */
+/**
+ * App-wide permission policy: deny by default.
+ *
+ * Only clipboard writes are granted, because the UI has copy buttons (device
+ * code, invite ticket, crash report). Everything else — media, geolocation,
+ * notifications, midi, … — stays denied. Read access is intentionally NOT
+ * granted: nothing in the app pastes.
+ */
+const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write', 'clipboard-write'])
+
 export function applySessionSecurity(): void {
   const defaultSession = session.defaultSession
-  defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false)
+  defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(ALLOWED_PERMISSIONS.has(permission))
   })
-  defaultSession.setPermissionCheckHandler(() => false)
+  defaultSession.setPermissionCheckHandler((_webContents, permission) =>
+    ALLOWED_PERMISSIONS.has(permission),
+  )
 }
 
 export function appVersionSafe(): string {

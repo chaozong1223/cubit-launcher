@@ -22,6 +22,7 @@ import {
   Skeleton,
   Switch,
   Tag,
+  copyToClipboard,
 } from '../ui'
 import { Icon } from '../icons'
 
@@ -196,17 +197,7 @@ function EnterWorldGuide({
   ].join('\n')
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      const area = document.createElement('textarea')
-      area.value = text
-      document.body.appendChild(area)
-      area.select()
-      document.execCommand('copy')
-      area.remove()
-    }
-    setCopied(true)
+    setCopied(await copyToClipboard(text))
   }
 
   return (
@@ -423,17 +414,8 @@ export function LinkPage() {
     void (async () => {
       try {
         const result = await backend.link.copyInvite()
-        try {
-          await navigator.clipboard.writeText(result.ticket)
-        } catch {
-          const area = document.createElement('textarea')
-          area.value = result.ticket
-          document.body.appendChild(area)
-          area.select()
-          document.execCommand('copy')
-          area.remove()
-        }
-        setCopied(true)
+        const ok = await copyToClipboard(result.ticket)
+        setCopied(ok)
         window.setTimeout(() => setCopied(false), 1800)
       } catch (cause) {
         setActionError(describeError(cause))

@@ -17,6 +17,40 @@ export function cx(...values: Array<string | false | null | undefined>): string 
 }
 
 /**
+ * Copies text and reports whether it actually reached the clipboard.
+ *
+ * Every Chromium permission is denied by default in this app, so
+ * `navigator.clipboard.writeText` can reject here. Callers must surface the
+ * real outcome instead of assuming success — a silent failure looked like a
+ * dead button (the device-code copy never made it to the clipboard).
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // Permission denied or insecure context; fall through to the legacy path.
+  }
+  try {
+    const area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.position = 'fixed'
+    area.style.top = '-1000px'
+    area.style.opacity = '0'
+    document.body.appendChild(area)
+    area.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(area)
+    return ok
+  } catch {
+    return false
+  }
+}
+
+/**
  * Project artwork (Modrinth `icon_url` / CurseForge logo). Falls back to the
  * package glyph when the URL is missing or the request fails, so a dead CDN
  * never leaves a hole in the list.
