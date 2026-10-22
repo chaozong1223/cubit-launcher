@@ -411,6 +411,38 @@
 .catalog-hit__tags .tag { font-size: 9px; }
 .catalog-hit__foot { display: flex; gap: 6px; margin-top: auto; padding-top: 9px; }
 .catalog-hit__reason { margin-top: 6px; color: var(--warning-text); font-size: 9.5px; line-height: 14px; }
+/* List rows (replaces the card grid): 44px artwork + title/tags + actions. */
+.catalog-row-list { display: flex; flex-direction: column; gap: 2px; }
+.catalog-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;
+  transition: background .15s, border-color .15s;
+}
+.catalog-row:hover { background: var(--surface-2); border-color: var(--border-subtle); }
+.catalog-row__main { flex: 1; min-width: 0; }
+.catalog-row__title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.catalog-row__title strong {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text); font-size: 13px; font-weight: 600;
+}
+.catalog-row__by { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); font-size: 10px; }
+.catalog-row__desc {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin: 3px 0 5px; color: var(--text-2); font-size: 11px;
+}
+.catalog-row__tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.catalog-row__tags .tag { font-size: 9px; }
+.catalog-row__reason { margin-top: 5px; color: var(--warning-text); font-size: 10px; line-height: 14px; }
+.catalog-row__side {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  flex: none; min-width: 148px;
+}
+.catalog-row__downloads { color: var(--text-3); font-size: 10.5px; white-space: nowrap; }
+.catalog-row__actions { display: flex; gap: 6px; }
+.catalog-row-skeleton {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px; border: 1px solid var(--border-subtle); border-radius: 10px;
+}
 .catalog-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; color: var(--text-3); font-size: 10px; }
 .catalog-detail { margin: 12px 0; border-color: var(--accent-border, var(--border-strong)); }
 .catalog-detail__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }

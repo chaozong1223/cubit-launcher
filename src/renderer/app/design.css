@@ -902,6 +902,21 @@ svg { display: block; }
 .stage-chip.is-active { color: var(--accent-text); border-color: var(--accent-subtle-2); background: var(--accent-subtle); }
 .stage-chip .spinner { width: 9px; height: 9px; border-width: 1.5px; }
 
+/* Project artwork (Modrinth icon_url / CurseForge logo) — falls back to the
+   package glyph when the CDN is unreachable. Sizes match list rows and cards. */
+.project-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none; overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-3);
+}
+.project-icon--sm { width: 32px; height: 32px; }
+.project-icon--md { width: 44px; height: 44px; }
+.project-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.project-icon .ico { width: 18px; height: 18px; }
+
 .instance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .instance-card {
   display: flex; flex-direction: column; gap: 9px;

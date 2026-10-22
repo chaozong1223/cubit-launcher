@@ -20,6 +20,7 @@ import {
   Field,
   Input,
   Progress,
+  ProjectIcon,
   Select,
   Skeleton,
   Tag,
@@ -63,42 +64,41 @@ function HitCard({
   onInstall: () => void
 }) {
   const compatibility = projectCompatibility(hit, instance)
-  const [iconFailed, setIconFailed] = useState(false)
   return (
-    <article className="catalog-hit">
-      <div className="catalog-hit__head">
-        <span className="catalog-hit__icon" aria-hidden="true">
-          {hit.iconUrl && !iconFailed
-            ? <img src={hit.iconUrl} alt="" loading="lazy" onError={() => setIconFailed(true)} />
-            : <Icon name="package" />}
-        </span>
-        <div className="catalog-hit__title">
+    <article className="catalog-row">
+      <ProjectIcon src={hit.iconUrl} alt="" />
+      <div className="catalog-row__main">
+        <div className="catalog-row__title">
           <strong>{hit.title}</strong>
-          <span>{hit.author ?? '作者未知'} · {projectTypeLabel(hit.projectType)}</span>
+          <span className="catalog-row__by">
+            {hit.author ?? '作者未知'} · {projectTypeLabel(hit.projectType)}
+          </span>
         </div>
-        <Badge tone="outline">{formatDownloads(hit.downloads)} 下载</Badge>
+        <p className="catalog-row__desc">{shortText(hit.description, 220) || '没有简介'}</p>
+        <div className="catalog-row__tags">
+          {hit.loaders.slice(0, 3).map((loader) => <Tag key={loader} variant={loader === 'fabric' ? 'fabric' : loader === 'forge' ? 'forge' : loader === 'neoforge' ? 'neo' : 'neutral'}>{loaderLabel(loader)}</Tag>)}
+          {hit.gameVersions.slice(0, 3).map((version) => <Tag key={version}>{version}</Tag>)}
+          {hit.gameVersions.length > 3 ? <span className="subtle">+{hit.gameVersions.length - 3}</span> : null}
+        </div>
+        {!compatibility.ok ? <div className="catalog-row__reason">{compatibility.reason}</div> : null}
       </div>
-      <p className="catalog-hit__desc">{shortText(hit.description, 220) || '没有简介'}</p>
-      <div className="catalog-hit__tags">
-        {hit.loaders.slice(0, 3).map((loader) => <Tag key={loader} variant={loader === 'fabric' ? 'fabric' : loader === 'forge' ? 'forge' : loader === 'neoforge' ? 'neo' : 'neutral'}>{loaderLabel(loader)}</Tag>)}
-        {hit.gameVersions.slice(0, 3).map((version) => <Tag key={version}>{version}</Tag>)}
-        {hit.gameVersions.length > 3 ? <span className="subtle">+{hit.gameVersions.length - 3}</span> : null}
+      <div className="catalog-row__side">
+        <span className="catalog-row__downloads">{formatDownloads(hit.downloads)} 下载</span>
+        <div className="catalog-row__actions">
+          <Button size="sm" variant="secondary" icon="search" onClick={onOpen}>详情</Button>
+          <Button
+            size="sm"
+            variant="primary"
+            icon="download"
+            loading={installing}
+            disabled={!compatibility.ok || installing}
+            title={compatibility.reason ?? '安装最新兼容版本'}
+            onClick={onInstall}
+          >
+            一键安装
+          </Button>
+        </div>
       </div>
-      <div className="catalog-hit__foot">
-        <Button size="sm" variant="secondary" icon="search" onClick={onOpen}>查看详情</Button>
-        <Button
-          size="sm"
-          variant="primary"
-          icon="download"
-          loading={installing}
-          disabled={!compatibility.ok || installing}
-          title={compatibility.reason ?? '安装最新兼容版本'}
-          onClick={onInstall}
-        >
-          一键安装
-        </Button>
-      </div>
-      {!compatibility.ok ? <div className="catalog-hit__reason">{compatibility.reason}</div> : null}
     </article>
   )
 }
@@ -461,9 +461,9 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
           <Badge tone="outline">数据来自 mc:catalog:search</Badge>
         </div>
         {search.status === 'loading' ? (
-          <div className="catalog-hit-grid">
+          <div className="catalog-row-list">
             {Array.from({ length: 4 }, (_, index) => (
-              <div className="catalog-hit" key={index}><Skeleton className="skeleton--title" style={{ width: '55%' }} /><Skeleton className="skeleton--text" style={{ marginTop: 12 }} /><Skeleton className="skeleton--text" style={{ width: '70%', marginTop: 8 }} /></div>
+              <div className="catalog-row-skeleton" key={index}><Skeleton className="skeleton--title" style={{ width: '55%' }} /><Skeleton className="skeleton--text" style={{ marginTop: 12 }} /><Skeleton className="skeleton--text" style={{ width: '70%', marginTop: 8 }} /></div>
             ))}
           </div>
         ) : search.status === 'not-wired' || search.status === 'error' ? (
@@ -471,7 +471,7 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
         ) : search.data?.hits.length === 0 ? (
           <EmptyState icon="search" title="没有找到项目" description="换一个关键词或清空筛选条件；结果只来自 Modrinth 实时 API。" />
         ) : (
-          <div className="catalog-hit-grid">
+          <div className="catalog-row-list">
             {search.data?.hits.map((hit) => (
               <HitCard
                 key={hit.projectId}

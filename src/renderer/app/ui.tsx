@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
@@ -12,6 +13,33 @@ import { Icon, type IconName } from './icons'
 
 export function cx(...values: Array<string | false | null | undefined>): string {
   return values.filter(Boolean).join(' ')
+}
+
+/**
+ * Project artwork (Modrinth `icon_url` / CurseForge logo). Falls back to the
+ * package glyph when the URL is missing or the request fails, so a dead CDN
+ * never leaves a hole in the list.
+ */
+export function ProjectIcon({
+  src,
+  alt = '',
+  size = 'md',
+}: {
+  src: string | null | undefined
+  alt?: string
+  size?: 'sm' | 'md'
+}) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    setFailed(false)
+  }, [src])
+  return (
+    <span className={cx('project-icon', `project-icon--${size}`)} aria-hidden="true">
+      {src && !failed
+        ? <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(true)} />
+        : <Icon name="package" />}
+    </span>
+  )
 }
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'subtle' | 'danger' | 'danger-ghost' | 'link'
