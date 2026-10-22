@@ -1,5 +1,13 @@
 import type { AppInfo } from '@shared/system'
 import type {
+  MemoryRecommendation,
+  PerfApplyResult,
+  PerfCacheCleanResult,
+  PerfCacheScan,
+  PerfHardware,
+  PerfProcessResult,
+} from '@shared/perf'
+import type {
   DiscoverResult,
   InstanceCopyFinished,
   InstanceCopyProgress,
@@ -430,10 +438,15 @@ const CH = {
   catalogUpdate: channelOf('catalog', 'update'),
   catalogPageUrl: channelOf('catalog', 'pageUrl'),
   catalogOpenPage: channelOf('catalog', 'openPage'),
-  catalogCurseForgeConfig: channelOf('catalog', 'getCurseForgeConfig'),
-  catalogUpdateCurseForgeConfig: channelOf('catalog', 'updateCurseForgeConfig'),
+  catalogCurseForgeConfig: channelOf('catalog', 'getCurseForgeConfig'),  catalogUpdateCurseForgeConfig: channelOf('catalog', 'updateCurseForgeConfig'),
   catalogPlanLinkImport: channelOf('catalog', 'planLinkImport'),
   catalogStartLinkImport: channelOf('catalog', 'startLinkImport'),
+  perfHardware: channelOf('perf', 'hardware'),
+  perfRecommend: channelOf('perf', 'recommend'),
+  perfApply: channelOf('perf', 'apply'),
+  perfProcesses: channelOf('perf', 'processes'),
+  perfScanCache: channelOf('perf', 'scanCache'),
+  perfCleanCache: channelOf('perf', 'cleanCache'),
   assetsListSaves: channelOf('assets', 'listSaves'),
   assetsBackupSave: channelOf('assets', 'backupSave'),
   assetsDeleteSaves: channelOf('assets', 'deleteSaves'),
@@ -739,6 +752,14 @@ export interface Backend {
     listTrash(): Promise<{ items: TrashItem[] }>
     restoreTrash(ids?: string[]): Promise<RestoreResult>
     subscribeChanged(callback: (event: AssetsChangedEvent) => void): () => void
+  }
+  perf: {
+    hardware(): Promise<PerfHardware>
+    recommend(input: { instanceId?: string; modCount?: number }): Promise<MemoryRecommendation>
+    apply(input: { instanceId: string; mb?: number }): Promise<PerfApplyResult>
+    processes(): Promise<PerfProcessResult>
+    scanCache(): Promise<PerfCacheScan>
+    cleanCache(input: { categories?: string[] }): Promise<PerfCacheCleanResult>
   }
   crash: {
     analyze(input: {
@@ -1051,6 +1072,14 @@ export const ipcBackend: Backend = {
     restoreTrash: (ids) =>
       invoke<RestoreResult>('恢复实例失败', CH.assetsRestoreTrash, ids ? { ids } : {}),
     subscribeChanged: (callback) => on('mc:assets:evt:changed', callback),
+  },
+  perf: {
+    hardware: () => invoke<PerfHardware>('性能面板硬件信息', CH.perfHardware),
+    recommend: (input) => invoke<MemoryRecommendation>('内存推荐', CH.perfRecommend, input),
+    apply: (input) => invoke<PerfApplyResult>('应用内存设置', CH.perfApply, input),
+    processes: () => invoke<PerfProcessResult>('游戏进程占用', CH.perfProcesses),
+    scanCache: () => invoke<PerfCacheScan>('缓存扫描（只读）', CH.perfScanCache),
+    cleanCache: (input) => invoke<PerfCacheCleanResult>('清理白名单缓存', CH.perfCleanCache, input),
   },
   crash: {
     analyze: (input) => invoke<CrashAnalysis>('崩溃分析', CH.crashAnalyze, input),

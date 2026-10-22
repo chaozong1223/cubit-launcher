@@ -20,6 +20,11 @@ interface RegistryResult {
 /**
  * Filesystem-as-registry: every `src/main/modules/<id>/index.ts` exporting
  * `moduleId` + `register` is discovered at build time. No central switch.
+ *
+ * Modules that own their IPC surface (catalog, assets, perf, ...) call
+ * `moduleIpc.handle()` inside `register()`; the kernel auto-registration pass
+ * skips any module that already registered and falls back to the frozen
+ * `BUILTIN_CONTRACTS` map otherwise.
  */
 const discovered = import.meta.glob<ModuleDefinition>('./*/index.ts', { eager: true })
 

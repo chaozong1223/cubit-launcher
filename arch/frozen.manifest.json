@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-21T15:03:51.642Z",
+  "generatedAt": "2026-10-22T11:59:21.969Z",
   "files": {
     "package.json": "5706aea8c8b88e8b7397d4226bde87244bc186d386932c188046e62ed9eb455c",
     "package-lock.json": "ebb16c3054b858d9e56351d1556d961e75f536dae0e68a52c307a6d825a2dc71",
@@ -14,7 +14,7 @@
     "src/main/kernel/logger.ts": "7b81100a2a8b02272e00cc40b8c9e4ddf367f8e6b7356c206dd935b318542a39",
     "src/main/kernel/paths.ts": "1a5bf9737759ab9a5de4f089cf7bae317310c8e52e109e37d5431bb3964f0f5a",
     "src/main/kernel/security.ts": "ca8ca51c2e95cd58cfd28a26c406a121ff4a1efd4f194206f53acbae2010876e",
-    "src/main/modules/_registry.ts": "3c446a9dddc37e5b0e6064dd5ef072b8745d6e135ca146c0de97a52da56cb2b5",
+    "src/main/modules/_registry.ts": "c5c6a092e6234ff682b7f33abb8eeeb44d0d5c5d0631818129fb1e1d36e042f4",
     "src/preload/index.ts": "5af7627f27c5c852488bd0210b76caae1642f94f270641cdee09594b145fe748",
     "src/shared/bridge.ts": "0df157e90e7c9dc1eb9973580d6c42f273551be83f2b6660b92a41e84881594e",
     "src/shared/channels.ts": "9a4e1f572bd8f64041be653f22e3ab05b5d3e40b5395b3cdeae3910f9df6005b",
