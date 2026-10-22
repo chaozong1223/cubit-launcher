@@ -1235,6 +1235,38 @@
 }
 .instance-settings-card__saved { color: var(--success-text); font-size: 12px; }
 .instance-settings-card__error { color: var(--danger-text); font-size: 12px; }
+.hero-more { position: relative; display: inline-flex; }
+.hero-more__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 168px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-2);
+}
+.hero-more__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.hero-more__item:hover { background: var(--surface-2); color: var(--text); }
+.hero-more__item .ico { color: var(--text-3); }
 .rail-btn:hover {
   background: var(--surface-2);
   color: var(--text);

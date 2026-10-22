@@ -35,6 +35,16 @@ function loaderTag(instance: InstanceSummary) {
   }
 }
 
+/** Sections of the instance detail page, reachable from the hero overflow menu. */
+const DETAIL_LINKS: ReadonlyArray<{ section: string; label: string; icon: Parameters<typeof Icon>[0]['name'] }> = [
+  { section: 'overview', label: '概览', icon: 'info' },
+  { section: 'mods', label: '模组', icon: 'package' },
+  { section: 'resourcepacks', label: '资源包', icon: 'folder' },
+  { section: 'shaders', label: '光影', icon: 'sun' },
+  { section: 'settings', label: '设置', icon: 'settings' },
+  { section: 'export', label: '导出', icon: 'upload' },
+]
+
 function launchUiState(instance: InstanceSummary, status: LaunchState | null): LaunchUiState {
   if (instance.state !== 'ready') return instance.state === 'missing-json' || instance.state === 'corrupt-json' ? 'blocked' : 'not-installed'
   if (!status) return 'unknown'
@@ -81,7 +91,8 @@ function launchStateLabel(state: LaunchUiState): string {
   return '就绪'
 }
 
-function Hero({ instance, onChoose }: { instance: InstanceSummary; onChoose: () => void }) {
+function Hero({ instance }: { instance: InstanceSummary }) {
+  const [detailMenuOpen, setDetailMenuOpen] = useState(false)
   const backend = useBackend()
   const status = useAsync(() => backend.launch.status(instance.id), [instance.id])
   const accounts = useAsync(() => backend.auth.list(), [])
@@ -347,7 +358,37 @@ function Hero({ instance, onChoose }: { instance: InstanceSummary; onChoose: () 
           ) : null}
           <Button variant="secondary" size="lg" icon="package" onClick={() => navigate('/catalog')} title="打开资源库，按当前实例筛选模组">下载模组</Button>
           <Button variant="secondary" size="lg" icon="terminal" onClick={() => void preview()} disabled={busy} title="dry-run：生成真实启动参数，不启动进程">预览启动参数</Button>
-          <Button variant="ghost" size="lg" icon="more" onClick={onChoose}>切换实例</Button>
+          <div className="hero-more">
+            <Button
+              variant="ghost"
+              size="lg"
+              icon="more"
+              aria-label="更多操作"
+              aria-haspopup="menu"
+              aria-expanded={detailMenuOpen}
+              title="更多操作"
+              onClick={() => setDetailMenuOpen((open) => !open)}
+            />
+            {detailMenuOpen ? (
+              <div className="hero-more__menu" role="menu">
+                {DETAIL_LINKS.map((entry) => (
+                  <button
+                    key={entry.section}
+                    type="button"
+                    role="menuitem"
+                    className="hero-more__item"
+                    onClick={() => {
+                      setDetailMenuOpen(false)
+                      navigate(`/instances/${encodeURIComponent(instance.id)}/${entry.section}`)
+                    }}
+                  >
+                    <Icon name={entry.icon} className="ico ico--sm" />
+                    <span>{entry.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
         <div className="nw-launch-account">
           <Icon name="user" />
@@ -497,6 +538,7 @@ export function HomePage() {
     const next = instances.data[(index + 1) % instances.data.length]
     setSelectedId(next.id)
   }
+  void chooseNext
 
   return (
     <>
@@ -527,7 +569,7 @@ export function HomePage() {
               <Skeleton className="skeleton--block" style={{ width: 180, height: 40, marginTop: 20, borderRadius: 7 }} />
             </div>
           ) : selected ? (
-            <Hero key={selected.id} instance={selected} onChoose={chooseNext} />
+            <Hero key={selected.id} instance={selected} />
           ) : pendingInfo ? (
             <PendingHero info={pendingInfo} onRetry={instances.reload} />
           ) : (
@@ -557,13 +599,24 @@ export function HomePage() {
             instances.data.length > 0 ? (
               <div className="instance-grid">
                 {instances.data.slice(0, 6).map((instance) => (
-                  <article className="card instance-card" key={instance.id}>
+                  <article
+                    className={selected?.id === instance.id ? 'card instance-card is-current' : 'card instance-card'}
+                    key={instance.id}
+                    role="button"
+                    tabIndex={0}
+                    title={`切换到「${instance.name}」`}
+                    onClick={() => setSelectedId(instance.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setSelectedId(instance.id)
+                      }
+                    }}
+                  >
                     <div className="instance-card__top">
                       <span className="icon-tile icon-tile--vanilla" aria-hidden="true"><Icon name="cube" className="ico" /></span>
                       <div className="instance-card__title">
-                        <button className="instance-card__name nw-link-button" type="button" onClick={() => navigate(`/instances/${encodeURIComponent(instance.id)}`)}>
-                          {instance.name}
-                        </button>
+                        <span className="instance-card__name">{instance.name}</span>
                         <div className="instance-card__sub">{instance.mcVersion ?? '版本未知'} · {instance.loader.type}</div>
                       </div>
                     </div>

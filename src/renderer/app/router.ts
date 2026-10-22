@@ -12,10 +12,16 @@ export function parseHash(hash: string): Route {
   const parts = raw.split('/').filter(Boolean)
   const [first, second] = parts
   switch (first) {
-    case 'instances':
-      return second
-        ? { path: `#/instances/${second}`, name: 'instance', id: decodeURIComponent(second) }
-        : { path: '#/instances', name: 'instances' }
+    case 'instances': {
+      if (!second) return { path: '#/instances', name: 'instances' }
+      const third = parts[2]
+      return {
+        path: third ? `#/instances/${second}/${third}` : `#/instances/${second}`,
+        name: 'instance',
+        id: decodeURIComponent(second),
+        section: third,
+      }
+    }
     case 'download':
       return { path: '#/download', name: 'download' }
     case 'catalog':

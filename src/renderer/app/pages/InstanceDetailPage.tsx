@@ -24,6 +24,10 @@ const TABS: ReadonlyArray<{ value: DetailTab; label: string }> = [
   { value: 'export', label: '导出' },
 ]
 
+function tabFromSection(section: string | undefined): DetailTab {
+  return TABS.some((tab) => tab.value === section) ? (section as DetailTab) : 'overview'
+}
+
 function loaderTag(instance: InstanceSummary) {
   switch (instance.loader.type) {
     case 'forge': return <Tag variant="forge">Forge {instance.loader.version ?? ''}</Tag>
@@ -232,7 +236,11 @@ export function InstanceDetailPage() {
   const route = useRoute()
   const id = route.id
   const detail = useAsync(() => (id ? backend.instances.get(id) : Promise.reject(new Error('缺少实例 id'))), [id])
-  const [tab, setTab] = useState<DetailTab>('overview')
+  const [tab, setTab] = useState<DetailTab>(() => tabFromSection(route.section))
+
+  useEffect(() => {
+    setTab(tabFromSection(route.section))
+  }, [route.section])
   const pendingInfo = detail.status === 'not-wired' || detail.status === 'error' ? describeError(detail.error) : null
   const instance = detail.data
   const title = useMemo(() => instance?.name ?? '实例详情', [instance])
