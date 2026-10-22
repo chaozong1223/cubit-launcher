@@ -560,6 +560,20 @@ export function HomePage() {
     return () => window.removeEventListener('mcl:select-instance', select)
   }, [])
 
+  /** Move an instance to the recycle bin; it can be restored from 回收站. */
+  const removeInstance = async (instance: InstanceSummary) => {
+    if (!window.confirm(`把「${instance.name}」移入回收站？可在回收站恢复。`)) return
+    try {
+      await backend.instances.removeInstance(instance.id)
+      window.dispatchEvent(new CustomEvent('mcl:instances-changed'))
+      await instances.reload()
+      if (selectedId === instance.id) setSelectedId(null)
+    } catch (cause) {
+      const info = describeError(cause)
+      window.alert(`${info.title}：${info.detail}`)
+    }
+  }
+
   const pendingInfo = instances.status === 'not-wired' || instances.status === 'error'
     ? describeError(instances.error)
     : null
@@ -631,30 +645,44 @@ export function HomePage() {
             instances.data.length > 0 ? (
               <div className="instance-list">
                 {instances.data.slice(0, 12).map((instance) => (
-                  <button
-                    type="button"
+                  <div
                     className={selected?.id === instance.id ? 'instance-row is-current' : 'instance-row'}
                     key={instance.id}
-                    title={`切换到「${instance.name}」`}
-                    onClick={() => setSelectedId(instance.id)}
                   >
-                    <span className="instance-row__icon" aria-hidden="true"><Icon name="cube" className="ico" /></span>
-                    <span className="instance-row__main">
-                      <span className="instance-row__name">{instance.name}</span>
-                      <span className="instance-row__sub">
-                        {instance.mcVersion ?? '版本未知'}
-                        {instance.loader.type !== 'vanilla' ? `, ${instance.loader.type}${instance.loader.version ? ` ${instance.loader.version}` : ''}` : ''}
+                    <button
+                      type="button"
+                      className="instance-row__pick"
+                      title={`切换到「${instance.name}」`}
+                      onClick={() => setSelectedId(instance.id)}
+                    >
+                      <span className="instance-row__icon" aria-hidden="true"><Icon name="cube" className="ico" /></span>
+                      <span className="instance-row__main">
+                        <span className="instance-row__name">{instance.name}</span>
+                        <span className="instance-row__sub">
+                          {instance.mcVersion ?? '版本未知'}
+                          {instance.loader.type !== 'vanilla' ? `, ${instance.loader.type}${instance.loader.version ? ` ${instance.loader.version}` : ''}` : ''}
+                        </span>
                       </span>
-                    </span>
-                    <span className="instance-row__meta">
-                      <InstanceStateBadge state={instance.state} />
-                      <Tag>{instance.isolation === 'isolated' ? '隔离' : '共用'}</Tag>
-                      <span className="instance-row__stat">Java {instance.javaMajor ?? '—'}</span>
-                      <span className="instance-row__stat">
-                        {instance.lastPlayedAt ? new Date(instance.lastPlayedAt).toLocaleDateString('zh-CN') : '尚未游玩'}
+                      <span className="instance-row__meta">
+                        <InstanceStateBadge state={instance.state} />
+                        <Tag>{instance.isolation === 'isolated' ? '隔离' : '共用'}</Tag>
+                        <span className="instance-row__stat">Java {instance.javaMajor ?? '—'}</span>
+                        <span className="instance-row__stat">
+                          {instance.lastPlayedAt ? new Date(instance.lastPlayedAt).toLocaleDateString('zh-CN') : '尚未游玩'}
+                        </span>
                       </span>
-                    </span>
-                  </button>
+                    </button>
+                    <Button
+                      size="xs"
+                      variant="danger-ghost"
+                      icon="trash"
+                      aria-label={`删除实例 ${instance.name}`}
+                      title="移入回收站（可在回收站恢复）"
+                      onClick={() => void removeInstance(instance)}
+                    >
+                      删除
+                    </Button>
+                  </div>
                 ))}
               </div>
             ) : (

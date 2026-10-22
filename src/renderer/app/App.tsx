@@ -30,7 +30,6 @@ import { GlobalDropZone } from './GlobalDropZone'
 const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: string; name: Route['name']; label: string; icon: Parameters<typeof Icon>[0]['name'] }> }> = [
   { label: '游玩', items: [
     { path: '#/home', name: 'home', label: '主页', icon: 'home' },
-    { path: '#/instances', name: 'instances', label: '实例', icon: 'instances' },
     { path: '#/screenshots', name: 'screenshots', label: '截图', icon: 'package' },
   ] },
   { label: '获取', items: [

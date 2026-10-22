@@ -1344,13 +1344,27 @@
 .instance-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 2px 6px 2px 2px;
   border: 0;
   border-radius: 9px;
   background: transparent;
   color: inherit;
+  text-align: left;
+}
+.instance-row__pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   text-align: left;
   cursor: pointer;
 }
