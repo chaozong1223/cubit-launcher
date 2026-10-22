@@ -51,18 +51,18 @@ const TYPE_ICONS: Record<string, Parameters<typeof Icon>[0]['name']> = {
 }
 
 /**
- * Version picker with a controlled popup: it always opens *below* the trigger
- * and animates in, which the native <select> cannot do inside this shell.
+ * Controlled dropdown used by the filter row: it always opens *below* the
+ * trigger and eases in, which the native <select> cannot do inside this shell.
  */
-function VersionSelect({
+function Dropdown({
   value,
-  releases,
-  snapshots,
+  groups,
+  placeholder,
   onChange,
 }: {
   value: string
-  releases: string[]
-  snapshots: string[]
+  groups: ReadonlyArray<{ label?: string; options: ReadonlyArray<{ value: string; label: string }> }>
+  placeholder: string
   onChange: (next: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -84,10 +84,7 @@ function VersionSelect({
     }
   }, [open])
 
-  const pick = (next: string) => {
-    onChange(next)
-    setOpen(false)
-  }
+  const current = groups.flatMap((group) => group.options).find((option) => option.value === value)
 
   return (
     <div className="dropdown" ref={rootRef}>
@@ -98,39 +95,30 @@ function VersionSelect({
         aria-expanded={open}
         onClick={() => setOpen((previous) => !previous)}
       >
-        <span>{value || '全部版本'}</span>
+        <span>{current?.label ?? placeholder}</span>
         <Icon name="chevron-down" className="ico ico--xs" />
       </button>
       {open ? (
         <div className="dropdown__menu" role="listbox">
-          <button type="button" role="option" aria-selected={value === ''} className="dropdown__item" onClick={() => pick('')}>
-            全部版本
-          </button>
-          <div className="dropdown__group">正式版</div>
-          {releases.map((version) => (
-            <button
-              key={version}
-              type="button"
-              role="option"
-              aria-selected={value === version}
-              className="dropdown__item"
-              onClick={() => pick(version)}
-            >
-              {version}
-            </button>
-          ))}
-          {snapshots.length > 0 ? <div className="dropdown__group">快照</div> : null}
-          {snapshots.map((version) => (
-            <button
-              key={version}
-              type="button"
-              role="option"
-              aria-selected={value === version}
-              className="dropdown__item"
-              onClick={() => pick(version)}
-            >
-              {version}
-            </button>
+          {groups.map((group, index) => (
+            <div key={group.label ?? `group-${index}`}>
+              {group.label ? <div className="dropdown__group">{group.label}</div> : null}
+              {group.options.map((option) => (
+                <button
+                  key={option.value || '__all__'}
+                  type="button"
+                  role="option"
+                  aria-selected={value === option.value}
+                  className="dropdown__item"
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       ) : null}
@@ -539,19 +527,32 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
           </Field>
         </div>
         <div className="catalog-filters__row catalog-filters__row--two">
-          <Field label="游戏版本" hint="默认跟随当前实例；点开在下方展开">
-            <VersionSelect
+          <Field label="游戏版本">
+            <Dropdown
               value={gameVersion}
-              releases={versionGroups.releases}
-              snapshots={versionGroups.snapshots}
+              placeholder="全部版本"
               onChange={setGameVersion}
+              groups={[
+                { options: [{ value: '', label: '全部版本' }] },
+                { label: '正式版', options: versionGroups.releases.map((version) => ({ value: version, label: version })) },
+                { label: '快照', options: versionGroups.snapshots.map((version) => ({ value: version, label: version })) },
+              ]}
             />
           </Field>
           <Field label="加载器">
-            <Select value={loader} onChange={(event) => setLoader(event.target.value)}>
-              <option value="">全部加载器</option>
-              {LOADER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </Select>
+            <Dropdown
+              value={loader}
+              placeholder="全部加载器"
+              onChange={setLoader}
+              groups={[
+                {
+                  options: [
+                    { value: '', label: '全部加载器' },
+                    ...LOADER_OPTIONS.map((option) => ({ value: option.value, label: option.label })),
+                  ],
+                },
+              ]}
+            />
           </Field>
         </div>
         <div className="catalog-filters__actions">
