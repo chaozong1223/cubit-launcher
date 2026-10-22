@@ -1396,10 +1396,10 @@
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
-.page { animation: nw-fade-in 320ms var(--ease-out); }
-.hero { animation: nw-fade-in 280ms var(--ease-out); }
-.hero-more__menu { animation: nw-fade-in 200ms var(--ease-out); }
-.instance-row { transition: background 200ms var(--ease), color 200ms var(--ease); }
+.page { animation: nw-fade-in 420ms var(--ease-out); }
+.hero { animation: nw-fade-in 360ms var(--ease-out); }
+.hero-more__menu { animation: nw-fade-in 240ms var(--ease-out); }
+.instance-row { transition: background 240ms var(--ease), color 240ms var(--ease); }
 .setting-group--stack {
   flex-direction: column;
   align-items: stretch;
