@@ -8,6 +8,10 @@ import type {
   InstancePatch,
   RemoveInstanceResult,
   SetGameDirResult,
+  ShareConflictStrategy,
+  ShareContentSelection,
+  ShareExportResult,
+  ShareImportResult,
 } from '@shared/instance'
 import type { VersionSummary } from '@shared/version'
 import type { JavaDetectResult } from '@shared/java'
@@ -357,6 +361,8 @@ const CH = {
   instanceResumeCopy: channelOf('instance', 'resumeCopy'),
   instanceCopyStatus: channelOf('instance', 'copyStatus'),
   instanceCopyResult: channelOf('instance', 'copyResult'),
+  instanceExportSharePack: channelOf('instance', 'exportSharePack'),
+  instanceImportSharePack: channelOf('instance', 'importSharePack'),
   instanceRestore: channelOf('instance', 'restore'),
   instanceDiscover: channelOf('instance', 'discover'),
   instanceSetGameDir: channelOf('instance', 'setGameDir'),
@@ -572,6 +578,16 @@ export interface Backend {
     copyResult(jobId: string): Promise<InstanceCopyFinished | null>
     subscribeCopyProgress(callback: (event: InstanceCopyProgress) => void): () => void
     subscribeCopyFinished(callback: (event: InstanceCopyFinished) => void): () => void
+    exportSharePack(
+      instanceId: string,
+      outPath?: string,
+      include?: Partial<ShareContentSelection>,
+    ): Promise<ShareExportResult>
+    importSharePack(
+      filePath: string,
+      name?: string,
+      conflict?: ShareConflictStrategy,
+    ): Promise<ShareImportResult>
     restoreInstance(trashId: string): Promise<TrashItem>
     discover(): Promise<DiscoverResult>
     setGameDir(path: string): Promise<SetGameDirResult>
@@ -786,6 +802,18 @@ export const ipcBackend: Backend = {
     copyResult: (jobId) => invoke<InstanceCopyFinished | null>('复制任务结果', CH.instanceCopyResult, { jobId }),
     subscribeCopyProgress: (callback) => on('mc:instance:evt:copyProgress', callback),
     subscribeCopyFinished: (callback) => on('mc:instance:evt:copyFinished', callback),
+    exportSharePack: (instanceId, outPath, include) =>
+      invoke<ShareExportResult>('导出实例分享包', CH.instanceExportSharePack, {
+        instanceId,
+        ...(outPath ? { outPath } : {}),
+        ...(include ? { include } : {}),
+      }),
+    importSharePack: (filePath, name, conflict) =>
+      invoke<ShareImportResult>('导入实例分享包', CH.instanceImportSharePack, {
+        filePath,
+        ...(name ? { name } : {}),
+        ...(conflict ? { conflict } : {}),
+      }),
     restoreInstance: (trashId) => invoke<TrashItem>('从回收站恢复实例', CH.instanceRestore, { trashId }),
     discover: () => invoke<DiscoverResult>('发现 Minecraft 目录', CH.instanceDiscover),
     setGameDir: (path) => invoke<SetGameDirResult>('设置 Minecraft 目录', CH.instanceSetGameDir, { path }),

@@ -25,6 +25,16 @@ export function makeHandlers(service: InstanceModuleService) {
     resumeCopy: async (input: { jobId: string }) => service.resumeCopy(input.jobId),
     copyStatus: async (input: { jobId: string }) => service.copyStatus(input.jobId),
     copyResult: async (input: { jobId: string }) => service.copyResult(input.jobId),
+    exportSharePack: async (input: {
+      instanceId: string
+      outPath?: string
+      include?: Parameters<InstanceModuleService['exportSharePack']>[0]['include']
+    }) => service.exportSharePack(input),
+    importSharePack: async (input: {
+      filePath: string
+      name?: string
+      conflict?: Parameters<InstanceModuleService['importSharePack']>[0]['conflict']
+    }) => service.importSharePack(input),
     discover: async () => service.discover(),
     setGameDir: async (input: { path: string }) => service.setGameDir(input),
     import: async (input: { path: string }) => service.importRoot(input),

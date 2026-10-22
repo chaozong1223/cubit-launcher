@@ -12,6 +12,10 @@ import type {
   Loader,
   RemoveInstanceResult,
   SetGameDirResult,
+  ShareExportInput,
+  ShareExportResult,
+  ShareImportInput,
+  ShareImportResult,
 } from '@shared/instance'
 import type { TrashItem } from '@shared/assets'
 import type { ScopedLogger } from '../../kernel/logger'
@@ -35,6 +39,11 @@ import {
   copyTargetName,
   uniqueDirName,
 } from '../../core/instance/copy'
+import {
+  createSharePack,
+  describeShareRedactions,
+  extractSharePack,
+} from '../../core/instance/share'
 import { discoverMinecraftRoots, type DiscoveryOptions } from './discovery'
 import { TrashStore } from '../assets/trash'
 
@@ -485,6 +494,116 @@ export class InstanceModuleService {
   /** Test seam: waits for a copy job to finish and returns its outcome. */
   waitForCopy(jobId: string, timeoutMs?: number): Promise<JobOutcome<InstanceSummary>> {
     return this.copyJobs.waitFor(jobId, timeoutMs)
+  }
+
+  /**
+   * Packs one isolated instance (version profile, mods/configs, optionally
+   * saves) into a single `.cubitpack`. Credential material is stripped before
+   * writing and every redaction is logged as evidence (values never logged).
+   */
+  async exportSharePack(input: ShareExportInput): Promise<ShareExportResult> {
+    const root = this.root()
+    const instance = scanInstances(this.fs, root).find(
+      (item) => item.id === input.instanceId || item.dirName === input.instanceId,
+    )
+    if (!instance) {
+      throw new CoreError('INSTANCE.NOT_FOUND', {
+        message: `instance not found: ${input.instanceId}`,
+        userMessage: '要导出的实例不存在或已被删除。',
+        details: { instanceId: input.instanceId },
+      })
+    }
+    const read = readInstanceSettings(this.fs, instance.dir).settings
+    if (read?.isolation === 'shared' || instance.isolation === 'shared') {
+      throw new AppError(
+        'INSTANCE.SHARE_EXPORT_UNSUPPORTED',
+        '这个实例使用「共享」隔离，没有独立目录可打包；请先把隔离方式改为「隔离」。',
+        { details: { instanceId: instance.id } },
+      )
+    }
+    if (this.options.isInstanceRunning?.(instance.id, instance.dirName)) {
+      throw new AppError('INSTANCE.RUNNING', '实例正在运行，请先结束游戏后再导出分享包', {
+        details: { instanceId: instance.id },
+      })
+    }
+    const settings =
+      read ??
+      defaultInstanceSettings({
+        dirName: instance.dirName,
+        name: instance.name,
+        mcVersion: instance.mcVersion,
+        loader: instance.loader,
+        isolation: 'isolated',
+        source: 'ours',
+      })
+    const result = createSharePack({
+      fs: this.fs,
+      mcRoot: root,
+      dataRoot: this.roots.dataRoot,
+      instanceDir: instance.dir,
+      dirName: instance.dirName,
+      settings,
+      ...(input.include ? { include: input.include } : {}),
+      ...(input.outPath ? { outPath: input.outPath } : {}),
+      now: this.now,
+      log: {
+        info: (message, fields) => this.log.info(message, fields),
+        warn: (message, fields) => this.log.warn(message, fields),
+      },
+    })
+    const redacted = result.redactions.filter((record) => record.action === 'redacted').length
+    const skipped = result.redactions.filter((record) => record.action === 'skipped').length
+    this.log.info('share pack exported', {
+      instanceId: instance.dirName,
+      path: result.path,
+      files: result.files,
+      bytes: result.bytes,
+      redacted,
+      skipped,
+    })
+    if (result.redactions.length > 0) {
+      // Evidence log: paths and field names only, never values.
+      this.log.warn('share pack credentials stripped', {
+        instanceId: instance.dirName,
+        ...describeShareRedactions(result.redactions),
+      })
+    }
+    return result
+  }
+
+  /**
+   * Imports a `.cubitpack` as a new isolated instance. Everything is staged
+   * first; a same-name instance is only moved aside for the final rename and
+   * is restored if anything fails (see `RollbackStack`).
+   */
+  async importSharePack(input: ShareImportInput): Promise<ShareImportResult> {
+    const root = this.root()
+    const result = await extractSharePack({
+      fs: this.fs,
+      mcRoot: root,
+      filePath: input.filePath,
+      ...(input.name ? { name: input.name } : {}),
+      ...(input.conflict ? { conflict: input.conflict } : {}),
+      isTargetRunning: (dirName) => {
+        const item = scanInstances(this.fs, root).find((entry) => entry.dirName === dirName)
+        return item ? Boolean(this.options.isInstanceRunning?.(item.id, item.dirName)) : false
+      },
+      now: this.now,
+      log: {
+        info: (message, fields) => this.log.info(message, fields),
+        warn: (message, fields) => this.log.warn(message, fields),
+      },
+    })
+    if (result.status === 'imported' && result.instanceId) {
+      this.options.onChanged?.(result.instanceId)
+    }
+    this.log.info('share pack import result', {
+      status: result.status,
+      instanceId: result.instanceId,
+      files: result.files,
+      launchable: result.launchable,
+    })
+    return result
   }
 
   async update(id: string, patch: InstancePatch): Promise<InstanceSummary> {

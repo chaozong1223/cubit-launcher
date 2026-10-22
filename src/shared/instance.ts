@@ -162,6 +162,86 @@ export const InstanceCopyFinishedSchema = JobFinishedSchema.extend({
 })
 export type InstanceCopyFinished = z.infer<typeof InstanceCopyFinishedSchema>
 
+/**
+ * Share pack (`.cubitpack`): one instance's version profile, mods, configs and
+ * optionally saves packed into a single zip. Import always creates a new
+ * isolated instance; conflicts are resolved explicitly.
+ */
+export const ShareContentSelectionSchema = z.object({
+  mods: z.boolean(),
+  config: z.boolean(),
+  resourcepacks: z.boolean(),
+  shaderpacks: z.boolean(),
+  saves: z.boolean(),
+  options: z.boolean(),
+})
+export type ShareContentSelection = z.infer<typeof ShareContentSelectionSchema>
+
+export const ShareConflictStrategySchema = z.enum(['overwrite', 'skip', 'rename'])
+export type ShareConflictStrategy = z.infer<typeof ShareConflictStrategySchema>
+
+/** Evidence of a stripped credential; values are never recorded. */
+export const ShareRedactionSchema = z.object({
+  path: z.string(),
+  action: z.enum(['redacted', 'skipped']),
+  fields: z.array(z.string()),
+})
+export type ShareRedaction = z.infer<typeof ShareRedactionSchema>
+
+export const ShareExportInputSchema = z.object({
+  instanceId: z.string().min(1),
+  outPath: z.string().min(1).optional(),
+  include: ShareContentSelectionSchema.partial().optional(),
+})
+export type ShareExportInput = z.infer<typeof ShareExportInputSchema>
+
+export const ShareExportResultSchema = z.object({
+  path: z.string(),
+  format: z.literal('cubitpack'),
+  files: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  content: ShareContentSelectionSchema,
+  redactions: z.array(ShareRedactionSchema),
+  warnings: z.array(z.string()),
+})
+export type ShareExportResult = z.infer<typeof ShareExportResultSchema>
+
+export const ShareImportInputSchema = z.object({
+  filePath: z.string().min(1),
+  /** Overrides the instance name inside the pack. */
+  name: z.string().min(1).max(64).optional(),
+  /**
+   * Omitted → return `status: "conflict"` without writing anything, so the UI
+   * can ask 覆盖/跳过/改名 and call again with the chosen strategy.
+   */
+  conflict: ShareConflictStrategySchema.optional(),
+})
+export type ShareImportInput = z.infer<typeof ShareImportInputSchema>
+
+export const ShareImportResultSchema = z.object({
+  status: z.enum(['imported', 'skipped', 'conflict']),
+  /** Null for skipped/conflict results. */
+  instanceId: z.string().nullable(),
+  /** Target/existing directory name relevant to the result. */
+  dirName: z.string().nullable(),
+  name: z.string(),
+  mcVersion: z.string().nullable(),
+  loader: LoaderSchema,
+  files: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  overwritten: z.boolean(),
+  renamed: z.boolean(),
+  /** The base Minecraft version is missing; install it before launching. */
+  needsBaseInstall: z.boolean(),
+  /** All libraries + client jar resolved: the instance can be launched here. */
+  launchable: z.boolean(),
+  missingLibraries: z.number().int().nonnegative(),
+  warnings: z.array(z.string()),
+  /** Credentials already stripped at export time (manifest evidence). */
+  redactions: z.array(ShareRedactionSchema),
+})
+export type ShareImportResult = z.infer<typeof ShareImportResultSchema>
+
 /** Removing an instance only moves versions/<dir> into dataRoot/trash. */
 export const RemoveInstanceResultSchema = z.object({
   trashId: z.string(),
@@ -222,6 +302,16 @@ export const contract = defineContract({
     copyResult: {
       input: z.object({ jobId: z.string().min(1) }),
       output: InstanceCopyFinishedSchema.nullable(),
+    },
+    /** Pack one isolated instance (profile + selected content) as a `.cubitpack`. */
+    exportSharePack: {
+      input: ShareExportInputSchema,
+      output: ShareExportResultSchema,
+    },
+    /** Import a `.cubitpack` as a new isolated instance (with conflict policy). */
+    importSharePack: {
+      input: ShareImportInputSchema,
+      output: ShareImportResultSchema,
     },
     scan: {
       input: z.object({ mcRoot: z.string().optional() }),

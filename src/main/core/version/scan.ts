@@ -61,6 +61,9 @@ export function scanVersionDirs(fs: FsPort, mcRoot: string): VersionScanEntry[] 
   const versionsDir = versionsDirectory(mcRoot)
   const names = fs
     .readDir(versionsDir)
+    // Hidden directories are launcher-internal (.share-import-…, .share-backup-…)
+    // and must never surface as broken instances.
+    .filter((name) => !name.startsWith('.'))
     .filter((name) => fs.stat(path.join(versionsDir, name))?.isDirectory())
     .sort((a, b) => a.localeCompare(b, 'zh-CN'))
 
