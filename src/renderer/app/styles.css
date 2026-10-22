@@ -407,6 +407,10 @@
   font-weight: 600;
 }
 .catalog-type-chip[aria-selected="true"] .ico { color: var(--accent-text); }
+/* Two-row filter layout: keyword on its own line, version + loader below. */
+.catalog-filters__row--wide { grid-template-columns: minmax(0, 1fr); }
+.catalog-filters__row--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.catalog-filters__row--two .field { min-width: 0; }
 .catalog-row {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;

@@ -328,14 +328,15 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
   const [cfError, setCfError] = useState<UiErrorInfo | null>(null)
   const [allowPrerelease, setAllowPrerelease] = useState(false)
   const search = useAsync(() => backend.catalog.search({ ...filters, limit: PAGE_SIZE }), [filters])
-  // Real version list for the picker: releases first, then snapshots, so the
-  // field can be chosen instead of typed from memory.
+  // Real version list for the picker: releases first, then snapshots. A native
+  // <select> scrolls reliably, unlike <datalist> in this shell.
   const manifest = useAsync(() => backend.downloads.manifest(), [])
-  const gameVersions = useMemo(() => {
+  const versionGroups = useMemo(() => {
     const versions = manifest.data?.versions ?? []
-    const releases = versions.filter((version) => version.type === 'release').map((version) => version.id)
-    const snapshots = versions.filter((version) => version.type === 'snapshot').map((version) => version.id)
-    return [...releases, ...snapshots].slice(0, 300)
+    return {
+      releases: versions.filter((version) => version.type === 'release').map((version) => version.id).slice(0, 160),
+      snapshots: versions.filter((version) => version.type === 'snapshot').map((version) => version.id).slice(0, 120),
+    }
   }, [manifest.data])
 
   // Follow the selected instance by default: searching for mods almost always
@@ -439,7 +440,7 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
         ))}
       </div>
       <Card className="catalog-filters">
-        <div className="catalog-filters__row">
+        <div className="catalog-filters__row catalog-filters__row--wide">
           <Field label="搜索关键词">
             <Input
               value={query}
@@ -448,22 +449,26 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
               placeholder="例如 sodium、fabric api、iris"
             />
           </Field>
+        </div>
+        <div className="catalog-filters__row catalog-filters__row--two">
+          <Field label="游戏版本" hint="默认跟随当前实例；下拉可滚动选择">
+            <Select value={gameVersion} onChange={(event) => setGameVersion(event.target.value)}>
+              <option value="">全部版本</option>
+              <optgroup label="正式版">
+                {versionGroups.releases.map((version) => <option key={version} value={version}>{version}</option>)}
+              </optgroup>
+              {versionGroups.snapshots.length > 0 ? (
+                <optgroup label="快照">
+                  {versionGroups.snapshots.map((version) => <option key={version} value={version}>{version}</option>)}
+                </optgroup>
+              ) : null}
+            </Select>
+          </Field>
           <Field label="加载器">
             <Select value={loader} onChange={(event) => setLoader(event.target.value)}>
               <option value="">全部加载器</option>
               {LOADER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </Select>
-          </Field>
-          <Field label="游戏版本" hint="默认跟随当前实例；可下拉选择或手动填写">
-            <Input
-              list="catalog-game-versions"
-              value={gameVersion}
-              onChange={(event) => setGameVersion(event.target.value)}
-              placeholder="全部版本"
-            />
-            <datalist id="catalog-game-versions">
-              {gameVersions.map((version) => <option key={version} value={version} />)}
-            </datalist>
           </Field>
         </div>
         <div className="catalog-filters__actions">
