@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { InstanceSummary } from '@shared/instance'
 import type { DownloadFinished, DownloadProgress } from '@shared/download'
 import type { LoaderFinished, LoaderProgress, LoaderType } from '@shared/loader'
-import type { ModKind, ModpackImportFinished } from '@shared/mods'
+import type { ModKind, ModpackImportFinished, ModpackImportProgress } from '@shared/mods'
 import { useBackend } from './data/BackendContext'
 import { BackendError, describeError } from './data/backend'
 import { assertJobSucceeded, waitForJob } from './data/waitJob'
@@ -78,6 +78,9 @@ export function GlobalDropZone() {
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [progress, setProgress] = useState<TaskProgress | null>(null)
   const [unknown, setUnknown] = useState<UnknownDrop | null>(null)
+  const [packJobId, setPackJobId] = useState<string | null>(null)
+  const [packProgress, setPackProgress] = useState<ModpackImportProgress | null>(null)
+  const [cancellingPack, setCancellingPack] = useState(false)
   const dragDepth = useRef(0)
   const downloadWaiters = useRef(new Map<string, (result: WaitResult) => void>())
   const loaderWaiters = useRef(new Map<string, (result: WaitResult) => void>())
@@ -140,6 +143,14 @@ export function GlobalDropZone() {
       offLoaderFinished()
     }
   }, [backend])
+
+  useEffect(() => {
+    if (!packJobId) return
+    const off = backend.mods.subscribeImportProgress((event: ModpackImportProgress) => {
+      if (event.jobId === packJobId) setPackProgress(event)
+    })
+    return off
+  }, [backend, packJobId])
 
   const target = useMemo(() => {
     const list = instances.data ?? []
@@ -252,6 +263,8 @@ export function GlobalDropZone() {
         detail: '按清单写入实例、overrides 和模组文件',
       })
       const started = await backend.mods.importModpack(filePath)
+      setPackJobId(started.jobId)
+      setPackProgress(null)
       setProgress({
         phase: 'pack',
         label: `导入整合包 ${started.name}`,
@@ -299,17 +312,43 @@ export function GlobalDropZone() {
         },
       })
     } catch (cause) {
-      setFeedback({
-        tone: 'error',
-        title: '整合包安装失败',
-        detail: describeError(cause).detail,
-        action: { label: '查看实例页', to: '/instances' },
-      })
+      const cancelled = cause instanceof BackendError && cause.code === 'JOB.CANCELLED'
+      setFeedback(cancelled
+        ? {
+            tone: 'warning',
+            title: '整合包导入已取消',
+            detail: '主进程已停止导入，并清理临时下载/解压目录；可以重新拖入同一个包再试。',
+            action: { label: '查看实例页', to: '/instances' },
+          }
+        : {
+            tone: 'error',
+            title: '整合包安装失败',
+            detail: describeError(cause).detail,
+            action: { label: '查看实例页', to: '/instances' },
+          })
     } finally {
       setBusy(false)
+      setPackJobId(null)
+      setPackProgress(null)
       setProgress(null)
     }
   }, [backend, ensureBase, ensureLoader, instances.reload])
+
+  const cancelPackImport = async () => {
+    if (!packJobId) return
+    setCancellingPack(true)
+    try {
+      await backend.mods.cancelImport(packJobId)
+    } catch (cause) {
+      setFeedback({
+        tone: 'error',
+        title: '取消导入失败',
+        detail: describeError(cause).detail,
+      })
+    } finally {
+      setCancellingPack(false)
+    }
+  }
 
   const installLocal = useCallback(async (
     instance: InstanceSummary,
@@ -531,6 +570,14 @@ export function GlobalDropZone() {
     await installLocal(instance, pending.path, kind, pending.evidence.join('；'))
   }
 
+  const packPercent = packProgress
+    ? packProgress.total > 0
+      ? packProgress.done / packProgress.total * 100
+      : packProgress.bytesTotal > 0
+        ? packProgress.bytesDone / packProgress.bytesTotal * 100
+        : null
+    : null
+
   return (
     <>
       {dragging ? (
@@ -562,11 +609,20 @@ export function GlobalDropZone() {
             <span>{progress.phase === 'base' ? 'download' : progress.phase === 'loader' ? 'loader' : progress.phase === 'pack' ? 'modpack' : 'local'}</span>
           </div>
           <Progress
-            value={progress.percent}
+            value={packJobId ? packPercent : progress.percent}
             tone={progress.phase === 'base' ? 'accent' : progress.phase === 'loader' ? 'warning' : 'accent'}
             label={progress.label}
           />
-          <div className="global-drop-task__detail">{progress.detail}</div>
+          <div className="global-drop-task__detail">
+            {packJobId && packProgress
+              ? `${packProgress.stage} · ${packProgress.done}/${packProgress.total} 个文件${packProgress.currentFile ? ` · ${packProgress.currentFile}` : ''}${packProgress.bytesTotal > 0 ? ` · ${Math.round(packProgress.bytesDone / 1024 / 1024)}/${Math.round(packProgress.bytesTotal / 1024 / 1024)} MB` : ''}`
+              : progress.detail}
+          </div>
+          {packJobId ? (
+            <div className="global-drop-task__actions">
+              <Button size="xs" variant="danger-ghost" icon="close" loading={cancellingPack} onClick={() => void cancelPackImport()}>取消导入</Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

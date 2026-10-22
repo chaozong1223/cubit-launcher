@@ -99,6 +99,60 @@ export function Card({ children, className, pad = true, id, style }: { children:
   return <section className={cx('card', pad && 'card--pad', className)} id={id} style={style}>{children}</section>
 }
 
+/**
+ * Shared modal using the existing `.dialog-overlay` / `.dialog` design-system
+ * classes. Backdrop click closes; the footer owns the explicit confirm action.
+ */
+export function Dialog({
+  title,
+  subtitle,
+  icon = 'info',
+  tone = 'warning',
+  wide = false,
+  onClose,
+  footer,
+  children,
+}: {
+  title: ReactNode
+  subtitle?: ReactNode
+  icon?: IconName
+  tone?: 'info' | 'warning' | 'danger'
+  wide?: boolean
+  onClose: () => void
+  footer?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div
+      className="dialog-overlay is-open"
+      role="presentation"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}
+    >
+      <div
+        className={cx('dialog', wide && 'dialog--wide')}
+        role="dialog"
+        aria-modal="true"
+        aria-label={typeof title === 'string' ? title : undefined}
+      >
+        <div className="dialog__head">
+          <span className={cx('dialog__icon', tone === 'danger' && 'dialog__icon--danger')} aria-hidden="true">
+            <Icon name={icon} />
+          </span>
+          <div className="dialog__heading">
+            <div className="dialog__title">{title}</div>
+            {subtitle ? <div className="dialog__sub">{subtitle}</div> : null}
+          </div>
+          <button className="dialog__close" type="button" aria-label="关闭" onClick={onClose}>
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="dialog__body">{children}</div>
+        {footer ? <div className="dialog__footer">{footer}</div> : null}
+      </div>
+    </div>
+  )
+}
+
 export function PageHeader({
   title,
   subtitle,

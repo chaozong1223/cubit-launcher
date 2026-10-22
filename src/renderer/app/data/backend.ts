@@ -10,8 +10,12 @@ import type {
   SetGameDirResult,
   ShareConflictStrategy,
   ShareContentSelection,
-  ShareExportResult,
-  ShareImportResult,
+  ShareExportFinished,
+  ShareExportProgress,
+  ShareExportStart,
+  ShareImportFinished,
+  ShareImportProgress,
+  ShareImportStart,
 } from '@shared/instance'
 import type { VersionSummary } from '@shared/version'
 import type { JavaDetectResult } from '@shared/java'
@@ -97,7 +101,9 @@ import type {
   LogSource,
   RestoreResult,
   SaveConflictStrategy,
-  SaveCopyResult,
+  SaveCopyFinished,
+  SaveCopyProgress,
+  SaveCopyStart,
   SaveEntry,
   ScreenshotEntry,
   TrashItem,
@@ -367,8 +373,14 @@ const CH = {
   instanceResumeCopy: channelOf('instance', 'resumeCopy'),
   instanceCopyStatus: channelOf('instance', 'copyStatus'),
   instanceCopyResult: channelOf('instance', 'copyResult'),
-  instanceExportSharePack: channelOf('instance', 'exportSharePack'),
-  instanceImportSharePack: channelOf('instance', 'importSharePack'),
+  instanceExportSharePackJob: channelOf('instance', 'exportSharePackJob'),
+  instanceCancelShareExport: channelOf('instance', 'cancelShareExport'),
+  instanceShareExportStatus: channelOf('instance', 'shareExportStatus'),
+  instanceShareExportResult: channelOf('instance', 'shareExportResult'),
+  instanceImportSharePackJob: channelOf('instance', 'importSharePackJob'),
+  instanceCancelShareImport: channelOf('instance', 'cancelShareImport'),
+  instanceShareImportStatus: channelOf('instance', 'shareImportStatus'),
+  instanceShareImportResult: channelOf('instance', 'shareImportResult'),
   instanceRestore: channelOf('instance', 'restore'),
   instanceDiscover: channelOf('instance', 'discover'),
   instanceSetGameDir: channelOf('instance', 'setGameDir'),
@@ -425,7 +437,10 @@ const CH = {
   assetsListSaves: channelOf('assets', 'listSaves'),
   assetsBackupSave: channelOf('assets', 'backupSave'),
   assetsDeleteSaves: channelOf('assets', 'deleteSaves'),
-  assetsCopySave: channelOf('assets', 'copySave'),
+  assetsCopySaveJob: channelOf('assets', 'copySaveJob'),
+  assetsCancelCopySave: channelOf('assets', 'cancelCopySave'),
+  assetsCopySaveStatus: channelOf('assets', 'copySaveStatus'),
+  assetsCopySaveResult: channelOf('assets', 'copySaveResult'),
   assetsListScreenshots: channelOf('assets', 'listScreenshots'),
   assetsPreviewScreenshot: channelOf('assets', 'previewScreenshot'),
   assetsDeleteScreenshots: channelOf('assets', 'deleteScreenshots'),
@@ -597,16 +612,26 @@ export interface Backend {
     copyResult(jobId: string): Promise<InstanceCopyFinished | null>
     subscribeCopyProgress(callback: (event: InstanceCopyProgress) => void): () => void
     subscribeCopyFinished(callback: (event: InstanceCopyFinished) => void): () => void
-    exportSharePack(
+    exportSharePackJob(
       instanceId: string,
       outPath?: string,
       include?: Partial<ShareContentSelection>,
-    ): Promise<ShareExportResult>
-    importSharePack(
+    ): Promise<ShareExportStart>
+    cancelShareExport(jobId: string): Promise<{ cancelled: boolean }>
+    shareExportStatus(jobId: string): Promise<ShareExportProgress | null>
+    shareExportResult(jobId: string): Promise<ShareExportFinished | null>
+    importSharePackJob(
       filePath: string,
       name?: string,
       conflict?: ShareConflictStrategy,
-    ): Promise<ShareImportResult>
+    ): Promise<ShareImportStart>
+    cancelShareImport(jobId: string): Promise<{ cancelled: boolean }>
+    shareImportStatus(jobId: string): Promise<ShareImportProgress | null>
+    shareImportResult(jobId: string): Promise<ShareImportFinished | null>
+    subscribeShareExportProgress(callback: (event: ShareExportProgress) => void): () => void
+    subscribeShareExportFinished(callback: (event: ShareExportFinished) => void): () => void
+    subscribeShareImportProgress(callback: (event: ShareImportProgress) => void): () => void
+    subscribeShareImportFinished(callback: (event: ShareImportFinished) => void): () => void
     restoreInstance(trashId: string): Promise<TrashItem>
     discover(): Promise<DiscoverResult>
     setGameDir(path: string): Promise<SetGameDirResult>
@@ -689,13 +714,18 @@ export interface Backend {
     listSaves(instanceId: string): Promise<{ gameDir: string; saves: SaveEntry[] }>
     backupSave(instanceId: string, name: string, outPath?: string): Promise<BackupResult>
     deleteSaves(instanceId: string, names: string[]): Promise<BatchTrashResult>
-    copySave(
+    copySaveJob(
       instanceId: string,
       name: string,
       targetInstanceId: string,
       targetName?: string,
       conflict?: SaveConflictStrategy,
-    ): Promise<SaveCopyResult>
+    ): Promise<SaveCopyStart>
+    cancelCopySave(jobId: string): Promise<{ cancelled: boolean }>
+    copySaveStatus(jobId: string): Promise<SaveCopyProgress | null>
+    copySaveResult(jobId: string): Promise<SaveCopyFinished | null>
+    subscribeCopySaveProgress(callback: (event: SaveCopyProgress) => void): () => void
+    subscribeCopySaveFinished(callback: (event: SaveCopyFinished) => void): () => void
     listScreenshots(instanceId: string): Promise<{ gameDir: string; screenshots: ScreenshotEntry[] }>
     previewScreenshot(instanceId: string, name: string): Promise<{ dataUrl: string; mime: string; size: number }>
     deleteScreenshots(instanceId: string, names: string[]): Promise<BatchTrashResult>
@@ -833,18 +863,34 @@ export const ipcBackend: Backend = {
     copyResult: (jobId) => invoke<InstanceCopyFinished | null>('复制任务结果', CH.instanceCopyResult, { jobId }),
     subscribeCopyProgress: (callback) => on('mc:instance:evt:copyProgress', callback),
     subscribeCopyFinished: (callback) => on('mc:instance:evt:copyFinished', callback),
-    exportSharePack: (instanceId, outPath, include) =>
-      invoke<ShareExportResult>('导出实例分享包', CH.instanceExportSharePack, {
+    exportSharePackJob: (instanceId, outPath, include) =>
+      invoke<ShareExportStart>('导出实例分享包', CH.instanceExportSharePackJob, {
         instanceId,
         ...(outPath ? { outPath } : {}),
         ...(include ? { include } : {}),
       }),
-    importSharePack: (filePath, name, conflict) =>
-      invoke<ShareImportResult>('导入实例分享包', CH.instanceImportSharePack, {
+    cancelShareExport: (jobId) =>
+      invoke<{ cancelled: boolean }>('取消导出分享包', CH.instanceCancelShareExport, { jobId }),
+    shareExportStatus: (jobId) =>
+      invoke<ShareExportProgress | null>('分享包导出状态', CH.instanceShareExportStatus, { jobId }),
+    shareExportResult: (jobId) =>
+      invoke<ShareExportFinished | null>('分享包导出结果', CH.instanceShareExportResult, { jobId }),
+    importSharePackJob: (filePath, name, conflict) =>
+      invoke<ShareImportStart>('导入实例分享包', CH.instanceImportSharePackJob, {
         filePath,
         ...(name ? { name } : {}),
         ...(conflict ? { conflict } : {}),
       }),
+    cancelShareImport: (jobId) =>
+      invoke<{ cancelled: boolean }>('取消导入分享包', CH.instanceCancelShareImport, { jobId }),
+    shareImportStatus: (jobId) =>
+      invoke<ShareImportProgress | null>('分享包导入状态', CH.instanceShareImportStatus, { jobId }),
+    shareImportResult: (jobId) =>
+      invoke<ShareImportFinished | null>('分享包导入结果', CH.instanceShareImportResult, { jobId }),
+    subscribeShareExportProgress: (callback) => on('mc:instance:evt:shareExportProgress', callback),
+    subscribeShareExportFinished: (callback) => on('mc:instance:evt:shareExportFinished', callback),
+    subscribeShareImportProgress: (callback) => on('mc:instance:evt:shareImportProgress', callback),
+    subscribeShareImportFinished: (callback) => on('mc:instance:evt:shareImportFinished', callback),
     restoreInstance: (trashId) => invoke<TrashItem>('从回收站恢复实例', CH.instanceRestore, { trashId }),
     discover: () => invoke<DiscoverResult>('发现 Minecraft 目录', CH.instanceDiscover),
     setGameDir: (path) => invoke<SetGameDirResult>('设置 Minecraft 目录', CH.instanceSetGameDir, { path }),
@@ -957,14 +1003,22 @@ export const ipcBackend: Backend = {
       invoke<BackupResult>('备份存档', CH.assetsBackupSave, { instanceId, name, ...(outPath ? { outPath } : {}) }),
     deleteSaves: (instanceId, names) =>
       invoke<BatchTrashResult>('删除存档到回收站', CH.assetsDeleteSaves, { instanceId, names }),
-    copySave: (instanceId, name, targetInstanceId, targetName, conflict) =>
-      invoke<SaveCopyResult>('复制存档到其他版本', CH.assetsCopySave, {
+    copySaveJob: (instanceId, name, targetInstanceId, targetName, conflict) =>
+      invoke<SaveCopyStart>('复制存档到其他版本', CH.assetsCopySaveJob, {
         instanceId,
         name,
         targetInstanceId,
         ...(targetName ? { targetName } : {}),
         ...(conflict ? { conflict } : {}),
       }),
+    cancelCopySave: (jobId) =>
+      invoke<{ cancelled: boolean }>('取消复制存档', CH.assetsCancelCopySave, { jobId }),
+    copySaveStatus: (jobId) =>
+      invoke<SaveCopyProgress | null>('存档复制状态', CH.assetsCopySaveStatus, { jobId }),
+    copySaveResult: (jobId) =>
+      invoke<SaveCopyFinished | null>('存档复制结果', CH.assetsCopySaveResult, { jobId }),
+    subscribeCopySaveProgress: (callback) => on('mc:assets:evt:copySaveProgress', callback),
+    subscribeCopySaveFinished: (callback) => on('mc:assets:evt:copySaveFinished', callback),
     listScreenshots: (instanceId) =>
       invoke<{ gameDir: string; screenshots: ScreenshotEntry[] }>('进入「局域网世界」（LAN 世界）列表', CH.assetsListScreenshots, { instanceId }),
     previewScreenshot: (instanceId, name) =>

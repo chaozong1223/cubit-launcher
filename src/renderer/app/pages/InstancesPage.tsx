@@ -6,6 +6,7 @@ import { assertJobSucceeded, waitForJob } from '../data/waitJob'
 import { useAsync } from '../data/useAsync'
 import { useInstanceRunning } from '../data/useInstanceRunning'
 import { DeleteInstanceDialog } from './DeleteInstanceDialog'
+import { ImportPackDialog } from './ImportPackDialog'
 import { MinecraftDirectoryPanel } from './MinecraftDirectoryPanel'
 import { useSystem } from '../system'
 import { navigate } from '../router'
@@ -113,6 +114,7 @@ export function InstancesPage() {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<UiErrorInfo | null>(null)
   const [flash, setFlash] = useState<string | null>(() => sessionStorage.getItem('mcl.instances.flash'))
+  const [importOpen, setImportOpen] = useState(false)
   const deleteRunning = useInstanceRunning(deleteTarget?.id ?? null)
 
   useEffect(() => {
@@ -200,7 +202,7 @@ export function InstancesPage() {
           : '读取真实实例目录；未接入时显示明确的等待状态。'}
         actions={(
           <>
-            <Button variant="secondary" icon="package" onClick={() => navigate('/download')}>导入整合包</Button>
+            <Button variant="secondary" icon="package" onClick={() => setImportOpen(true)}>导入整合包</Button>
             <Button variant="primary" icon="plus" onClick={() => navigate('/download')}>新建实例</Button>
           </>
         )}
@@ -333,6 +335,19 @@ export function InstancesPage() {
           <div style={{ padding: 14 }}><EmptyState icon="download" title="版本目录为空" description="download 模块安装原版后会出现在这里。" actions={<Button size="sm" variant="secondary" onClick={() => navigate('/download')}>去安装</Button>} /></div>
         )}
       </Card>
+
+      <ImportPackDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(instanceId, name) => {
+          setImportOpen(false)
+          setFlash(`已导入「${name}」，可以直接启动或再改配置。`)
+          void instances.reload()
+          versions.reload()
+          window.dispatchEvent(new CustomEvent('mcl:instances-changed'))
+          navigate(`/instances/${encodeURIComponent(instanceId)}`)
+        }}
+      />
 
       <DeleteInstanceDialog
         instance={deleteTarget}

@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { BatchTrashResult, BackupResult } from '@shared/assets'
+import type { BatchTrashResult, BackupResult, SaveCopyResult } from '@shared/assets'
+import type {
+  InstanceSummary,
+  ShareConflictStrategy,
+  ShareExportFinished,
+  ShareExportResult,
+  ShareImportFinished,
+  ShareImportResult,
+} from '@shared/instance'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
 import { useInstanceSelection } from '../data/useInstanceSelection'
+import { useCurrentAccount } from '../data/useAccount'
+import { assertJobSucceeded, waitForJob } from '../data/waitJob'
 import {
   Badge,
   Banner,
@@ -14,11 +24,13 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  Progress,
   Select,
   Skeleton,
 } from '../ui'
 import { Icon } from '../icons'
 import { InstancePicker } from './InstancePicker'
+import { SaveTransferDialog } from './SaveTransferDialog'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -55,6 +67,18 @@ export function SavesPage() {
   const [error, setError] = useState<UiErrorInfo | null>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<SaveFilter>('all')
+  const [transferMode, setTransferMode] = useState<{ mode: 'copy' | 'launch'; name: string } | null>(null)
+  const [copied, setCopied] = useState<SaveCopyResult | null>(null)
+  const [launched, setLaunched] = useState<{ target: InstanceSummary; sessionId: string; name: string } | null>(null)
+  const [shareExport, setShareExport] = useState<ShareExportResult | null>(null)
+  const [shareImport, setShareImport] = useState<ShareImportResult | null>(null)
+  const [importConflict, setImportConflict] = useState<{ path: string; result: ShareImportResult } | null>(null)
+  const [shareJob, setShareJob] = useState<{ kind: 'export' | 'import'; jobId: string; label: string } | null>(null)
+  const [jobProgress, setJobProgress] = useState<{ phase: string; files: number; totalFiles: number; bytes: number; totalBytes: number; message: string | null } | null>(null)
+  const [cancellingShare, setCancellingShare] = useState(false)
+  const [jobNotice, setJobNotice] = useState<string | null>(null)
+  const accounts = useCurrentAccount()
+  const accountId = accounts.data?.selectedId ?? accounts.data?.accounts[0]?.id ?? null
 
   useEffect(() => {
     setChosen(new Set())
@@ -64,6 +88,15 @@ export function SavesPage() {
     setError(null)
     setQuery('')
     setFilter('all')
+    setTransferMode(null)
+    setCopied(null)
+    setLaunched(null)
+    setShareExport(null)
+    setShareImport(null)
+    setImportConflict(null)
+    setShareJob(null)
+    setJobProgress(null)
+    setJobNotice(null)
   }, [selected?.id])
 
   useEffect(() => {
@@ -132,6 +165,168 @@ export function SavesPage() {
     void backend.assets.openFolder(instanceId, 'saves').catch((cause) => setError(describeError(cause)))
   }
 
+  const others = useMemo(
+    () => (selection.instances.data ?? []).filter((instance) => instance.id !== selected?.id),
+    [selection.instances.data, selected?.id],
+  )
+
+  const openTransfer = (mode: 'copy' | 'launch') => {
+    if (!chosenName) return
+    if (others.length === 0) {
+      setError({
+        kind: 'error',
+        title: '没有其他版本',
+        detail: '跨版本操作至少需要两个实例；先在「实例」页创建或导入另一个版本。',
+        retryable: false,
+      })
+      return
+    }
+    setError(null)
+    setCopied(null)
+    setLaunched(null)
+    setTransferMode({ mode, name: chosenName })
+  }
+
+  useEffect(() => {
+    if (!shareJob) return
+    const onProgress = (event: { jobId: string; phase: string; files: number; totalFiles: number; bytes: number; totalBytes: number; message: string | null }) => {
+      if (event.jobId === shareJob.jobId) setJobProgress(event)
+    }
+    const offExport = backend.instances.subscribeShareExportProgress(onProgress)
+    const offImport = backend.instances.subscribeShareImportProgress(onProgress)
+    return () => {
+      offExport()
+      offImport()
+    }
+  }, [backend, shareJob])
+
+  const handleCopied = (result: SaveCopyResult) => {
+    setTransferMode(null)
+    setCopied(result)
+    if (result.status !== 'skipped') setChosen(new Set())
+  }
+
+  const handleLaunched = (target: InstanceSummary, sessionId: string) => {
+    const name = transferMode?.name ?? ''
+    setTransferMode(null)
+    setLaunched({ target, sessionId, name })
+  }
+
+  const shareInstance = async () => {
+    if (!selected) return
+    setBusy('share')
+    setError(null)
+    setShareExport(null)
+    setJobNotice(null)
+    try {
+      const save = await backend.system.pickSaveFile({
+        title: '导出实例分享包',
+        defaultPath: `${selected.name}.cubitpack`,
+        filters: [{ name: 'Cubit 分享包', extensions: ['cubitpack'] }],
+      })
+      if (save.cancelled || !save.path) return
+      const started = await backend.instances.exportSharePackJob(selected.id, save.path, { saves: true })
+      setShareJob({ kind: 'export', jobId: started.jobId, label: `导出「${started.name}」` })
+      setJobProgress(null)
+      const finished = await waitForJob<ShareExportFinished>({
+        jobId: started.jobId,
+        subscribe: backend.instances.subscribeShareExportFinished,
+        fetchResult: () => backend.instances.shareExportResult(started.jobId),
+      })
+      setShareJob(null)
+      setJobProgress(null)
+      if (finished.state === 'cancelled') {
+        setJobNotice('导出已取消；主进程已清理半成品分享包。')
+        return
+      }
+      assertJobSucceeded(finished, '导出分享包失败')
+      if (finished.result) setShareExport(finished.result)
+      else setJobNotice('导出任务已结束，但没有返回结果；请检查目标路径是否可写。')
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setBusy(null)
+      setShareJob(null)
+    }
+  }
+
+  const importShare = async (strategy?: ShareConflictStrategy, existingPath?: string) => {
+    setError(null)
+    setJobNotice(null)
+    let filePath = existingPath
+    if (!filePath) {
+      try {
+        const picked = await backend.system.pickFiles({
+          title: '选择 Cubit 分享包',
+          filters: [{ name: 'Cubit 分享包', extensions: ['cubitpack'] }],
+        })
+        if (picked.cancelled || picked.paths.length === 0) return
+        filePath = picked.paths[0]
+      } catch (cause) {
+        setError(describeError(cause))
+        return
+      }
+    }
+    setBusy('import-share')
+    try {
+      const started = await backend.instances.importSharePackJob(filePath, undefined, strategy)
+      if (started.kind === 'conflict') {
+        setImportConflict({ path: filePath, result: started.result })
+        return
+      }
+      if (started.kind === 'skipped') {
+        setImportConflict(null)
+        setShareImport(started.result)
+        return
+      }
+      setShareJob({ kind: 'import', jobId: started.jobId, label: `导入 ${started.name ?? filePath.split(/[\\/]/).pop() ?? '分享包'}` })
+      setJobProgress(null)
+      const finished = await waitForJob<ShareImportFinished>({
+        jobId: started.jobId,
+        subscribe: backend.instances.subscribeShareImportFinished,
+        fetchResult: () => backend.instances.shareImportResult(started.jobId),
+      })
+      setShareJob(null)
+      setJobProgress(null)
+      if (finished.state === 'cancelled') {
+        setJobNotice('导入已取消；主进程已清理 staging 目录。')
+        return
+      }
+      assertJobSucceeded(finished, '导入分享包失败')
+      const result = finished.result
+      if (!result) {
+        setJobNotice('导入任务已结束，但没有返回结果。')
+        return
+      }
+      setImportConflict(null)
+      setShareImport(result)
+      if (result.status === 'imported') {
+        selection.instances.reload()
+        window.dispatchEvent(new CustomEvent('mcl:instances-changed'))
+      }
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setBusy(null)
+      setShareJob(null)
+    }
+  }
+
+  const cancelShareJob = async () => {
+    if (!shareJob) return
+    setCancellingShare(true)
+    setError(null)
+    try {
+      if (shareJob.kind === 'export') await backend.instances.cancelShareExport(shareJob.jobId)
+      else await backend.instances.cancelShareImport(shareJob.jobId)
+      setJobNotice('已请求取消任务，等待主进程停止并清理临时文件…')
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setCancellingShare(false)
+    }
+  }
+
   const backupHint = chosen.size === 0
     ? '先勾选 1 个世界再备份'
     : chosen.size > 1
@@ -155,11 +350,19 @@ export function SavesPage() {
       <Card className="asset-toolbar" pad={false}>
         <div className="asset-toolbar__row">
           <div className="asset-toolbar__group" role="group" aria-label="存档操作">
-            <DisabledHint hint="等「用其他版本启动」后端接入后可用（存档按版本启动，t3）">
-              <Button size="sm" variant="secondary" icon="play" disabled>用其他版本启动</Button>
+            <DisabledHint hint={chosen.size !== 1
+              ? '先勾选 1 个世界'
+              : others.length === 0
+                ? '没有其他版本；先在实例页创建或导入另一个版本'
+                : '用另一个实例（版本）启动，并直接进入该世界（1.20+）'}>
+              <Button size="sm" variant="secondary" icon="play" disabled={chosen.size !== 1 || others.length === 0 || busy !== null} onClick={() => openTransfer('launch')}>用其他版本启动</Button>
             </DisabledHint>
-            <DisabledHint hint="等「存档复制到其他版本」后端接入后可用（t3）">
-              <Button size="sm" variant="secondary" icon="copy" disabled>复制到其他版本</Button>
+            <DisabledHint hint={chosen.size !== 1
+              ? '先勾选 1 个世界'
+              : others.length === 0
+                ? '没有其他版本；先在实例页创建或导入另一个版本'
+                : '把存档复制到另一个实例（版本），同名冲突可选覆盖/跳过/改名'}>
+              <Button size="sm" variant="secondary" icon="copy" disabled={chosen.size !== 1 || others.length === 0 || busy !== null} onClick={() => openTransfer('copy')}>复制到其他版本</Button>
             </DisabledHint>
             <DisabledHint hint={backupHint}>
               <Button
@@ -173,8 +376,8 @@ export function SavesPage() {
                 备份
               </Button>
             </DisabledHint>
-            <DisabledHint hint="等「存档分享包」导出通道接入后可用">
-              <Button size="sm" variant="secondary" icon="external" disabled>分享</Button>
+            <DisabledHint hint={!selected ? '先选择实例' : '导出当前实例的分享包（.cubitpack，包含存档）'}>
+              <Button size="sm" variant="secondary" icon="external" disabled={!selected || busy !== null || shareJob !== null} loading={busy === 'share'} onClick={() => void shareInstance()}>分享</Button>
             </DisabledHint>
             <DisabledHint hint={chosen.size === 0 ? '先勾选要移入回收站的世界' : `移入回收站 ${chosen.size} 个世界（可恢复）`}>
               <Button
@@ -215,8 +418,8 @@ export function SavesPage() {
                 <option key={value} value={value}>{FILTER_LABELS[value]}</option>
               ))}
             </Select>
-            <DisabledHint hint="等「分享包导入」对话框接入后可用（t6）">
-              <Button size="sm" variant="secondary" icon="package" disabled>导入分享包</Button>
+            <DisabledHint hint="选择 .cubitpack 分享包；同名实例可选覆盖/跳过/改名">
+              <Button size="sm" variant="secondary" icon="package" disabled={busy !== null || shareJob !== null} loading={busy === 'import-share'} onClick={() => void importShare()}>导入分享包</Button>
             </DisabledHint>
             <DisabledHint hint={selected ? '打开当前实例的 saves/ 目录' : '先选择实例'}>
               <Button size="sm" variant="secondary" icon="folder" disabled={!selected} onClick={openFolder}>打开存档目录</Button>
@@ -225,6 +428,30 @@ export function SavesPage() {
         </div>
       </Card>
 
+      {shareJob ? (
+        <Banner
+          tone="info"
+          title={shareJob.kind === 'export' ? '正在导出分享包' : '正在导入分享包'}
+          actions={(
+            <Button size="sm" variant="danger-ghost" icon="close" loading={cancellingShare} onClick={() => void cancelShareJob()}>取消</Button>
+          )}
+        >
+          <Progress
+            value={jobProgress
+              ? jobProgress.totalFiles > 0
+                ? jobProgress.files / jobProgress.totalFiles * 100
+                : jobProgress.totalBytes > 0 ? jobProgress.bytes / jobProgress.totalBytes * 100 : null
+              : null}
+            label="分享包任务进度"
+          />
+          <div className="muted">
+            {jobProgress
+              ? `${jobProgress.phase} · ${jobProgress.files}/${jobProgress.totalFiles} 个文件 · ${formatBytes(jobProgress.bytes)} / ${formatBytes(jobProgress.totalBytes)}${jobProgress.message ? ` · ${jobProgress.message}` : ''}`
+              : `${shareJob.label}：准备中…`}
+          </div>
+        </Banner>
+      ) : null}
+      {jobNotice ? <Banner tone="warning" title="任务提示">{jobNotice}</Banner> : null}
       {saves.status === 'not-wired' || saves.status === 'error' ? (
         <DataStateNotice info={describeError(saves.error)} onRetry={saves.reload} />
       ) : null}
@@ -252,6 +479,73 @@ export function SavesPage() {
         >
           删除只会把世界目录移入回收站，不提供永久删除；之后可在回收站恢复。
         </Banner>
+      ) : null}
+
+      {copied ? (
+        <Banner
+          tone={copied.status === 'skipped' || copied.warnings.length > 0 ? 'warning' : 'success'}
+          title={copied.status === 'skipped' ? '已跳过同名存档' : '存档已复制到其他版本'}
+        >
+          {copied.status === 'skipped'
+            ? `目标实例已有同名世界「${copied.sourceName}」，源存档保持不动。`
+            : `${copied.sourceName} → ${copied.targetName ?? copied.sourceName}（${copied.files} 个文件，${formatBytes(copied.bytes)}）${copied.renamed ? '，同名已自动改名' : ''}${copied.warnings.length > 0 ? `。${copied.warnings.join('；')}` : ''}`}
+        </Banner>
+      ) : null}
+      {launched ? (
+        <Banner tone="success" title={`已在「${launched.target.name}」启动游戏`}>
+          世界「{launched.name}」将通过 quickPlay 直接进入；会话 <span className="mono">{launched.sessionId}</span>。切换页面不会结束游戏。
+        </Banner>
+      ) : null}
+      {shareExport ? (
+        <Banner
+          tone={shareExport.warnings.length > 0 ? 'warning' : 'success'}
+          title="分享包已导出"
+        >
+          已生成 <span className="mono">{shareExport.path}</span>（{shareExport.files} 个文件，{formatBytes(shareExport.bytes)}；脱敏 {shareExport.redactions.length} 处）。
+          {shareExport.warnings.length > 0 ? ` ${shareExport.warnings.join('；')}` : ''}
+        </Banner>
+      ) : null}
+      {shareImport ? (
+        <Banner
+          tone={shareImport.status === 'skipped' || shareImport.warnings.length > 0 || !shareImport.launchable ? 'warning' : 'success'}
+          title={shareImport.status === 'skipped' ? '已跳过分享包导入' : `分享包已导入：${shareImport.name}`}
+        >
+          {shareImport.status === 'skipped'
+            ? '目标实例已存在，分享包未写入；源包保持不变。'
+            : [
+                `${shareImport.mcVersion ?? '版本未知'} · ${shareImport.loader.type}${shareImport.loader.version ? ` ${shareImport.loader.version}` : ''} · ${shareImport.files} 个文件 / ${formatBytes(shareImport.bytes)}`,
+                shareImport.needsBaseInstall ? '需要先安装基础 Minecraft 版本才能启动' : null,
+                !shareImport.launchable && !shareImport.needsBaseInstall ? `缺少 ${shareImport.missingLibraries} 个库文件，请到实例详情校验` : null,
+                shareImport.warnings.length > 0 ? shareImport.warnings.join('；') : null,
+              ].filter(Boolean).join('；')}
+        </Banner>
+      ) : null}
+      {importConflict ? (
+        <Banner
+          tone="warning"
+          title={`实例「${importConflict.result.name}」已存在`}
+          actions={(
+            <>
+              <Button size="sm" variant="secondary" icon="upload" loading={busy === 'import-share'} onClick={() => void importShare('overwrite', importConflict.path)}>覆盖</Button>
+              <Button size="sm" variant="secondary" icon="edit" loading={busy === 'import-share'} onClick={() => void importShare('rename', importConflict.path)}>改名为副本</Button>
+              <Button size="sm" variant="ghost" loading={busy === 'import-share'} onClick={() => void importShare('skip', importConflict.path)}>跳过</Button>
+            </>
+          )}
+        >
+          覆盖会先备份现有实例再替换；改名为副本会生成 -2/-3 后缀；跳过不写入任何文件。
+        </Banner>
+      ) : null}
+      {transferMode && selected ? (
+        <SaveTransferDialog
+          mode={transferMode.mode}
+          source={selected}
+          saveName={transferMode.name}
+          targets={others}
+          accountId={accountId}
+          onClose={() => setTransferMode(null)}
+          onCopied={handleCopied}
+          onLaunched={handleLaunched}
+        />
       ) : null}
 
       <Card className="asset-table-card" pad={false}>

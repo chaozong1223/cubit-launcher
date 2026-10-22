@@ -1,49 +1,30 @@
+import type {
+  BatchTrashResult,
+  SchematicConflictStrategy,
+  SchematicImportResult,
+  SchematicListResult,
+  SchematicTransferResult,
+} from '@shared/assets'
 import { BackendError, NotWiredError } from './backend'
 import { hasBridge, invokeResult } from '../../lib/ipc'
 
 /**
- * Renderer-side adapter for the schematic manager (`.litematic` / `.nbt` / `.schem`).
+ * Renderer adapter for the schematic manager (`.litematic` / `.nbt` / `.schem`).
  *
- * t10 deliberately lands this before the backend contract: the page must talk to
- * real IPC channels, and when a channel is not registered yet it has to render an
- * explicit "not wired" state instead of sample rows. `t4` owns the main-process
- * contract; `t6` reconciles these channel names and payload types with
- * `shared/assets.ts` (or the new `schematics` contract) when it lands.
+ * The channel names and payloads mirror `shared/assets.ts` (t4). An unregistered
+ * channel becomes a `NotWiredError`, so pages render an explicit "not wired"
+ * state instead of inventing rows.
  */
 export const SCHEMATIC_CHANNELS = {
   list: 'mc:assets:listSchematics',
   import: 'mc:assets:importSchematic',
+  remove: 'mc:assets:deleteSchematics',
+  transfer: 'mc:assets:copySchematic',
+  showInFolder: 'mc:assets:showInFolder',
+  openFile: 'mc:assets:openFile',
+  openFolder: 'mc:assets:openFolder',
 } as const
 
-export interface SchematicDimensions {
-  x: number
-  y: number
-  z: number
-}
-
-export interface SchematicEntry {
-  name: string
-  /** `litematic` / `nbt` / `schem` / `unknown` */
-  format: string
-  /** File size in bytes. */
-  size: number
-  /** Last modification time (epoch ms). */
-  modifiedAt: number
-  /** Parsed from the file header; `null` when the header has no size metadata. */
-  dimensions: SchematicDimensions | null
-}
-
-export interface SchematicListResult {
-  /** Absolute `gameDir/schematics` path reported by the main process. */
-  gameDir: string
-  schematics: SchematicEntry[]
-}
-
-export interface SchematicImportResult {
-  imported: number
-}
-
-/** Mirror of the `invoke` helper in data/backend.ts, kept local to this skeleton module. */
 async function invoke<T>(feature: string, channel: string, payload?: unknown): Promise<T> {
   if (!hasBridge()) {
     throw new NotWiredError(feature, 'window.mc', 'preload 桥未加载；无法读取真实数据。')
@@ -74,6 +55,56 @@ export function listSchematics(instanceId: string): Promise<SchematicListResult>
   return invoke<SchematicListResult>('投影列表', SCHEMATIC_CHANNELS.list, { instanceId })
 }
 
-export function importSchematic(instanceId: string, filePath: string): Promise<SchematicImportResult> {
-  return invoke<SchematicImportResult>('投影导入', SCHEMATIC_CHANNELS.import, { instanceId, filePath })
+export function importSchematic(instanceId: string, filePath: string, targetName?: string): Promise<SchematicImportResult> {
+  return invoke<SchematicImportResult>('投影导入', SCHEMATIC_CHANNELS.import, {
+    instanceId,
+    filePath,
+    ...(targetName ? { targetName } : {}),
+  })
+}
+
+export function deleteSchematics(instanceId: string, names: string[]): Promise<BatchTrashResult> {
+  return invoke<BatchTrashResult>('投影删除', SCHEMATIC_CHANNELS.remove, { instanceId, names })
+}
+
+export function copySchematic(input: {
+  instanceId: string
+  name: string
+  targetInstanceId: string
+  mode: 'copy' | 'move'
+  targetName?: string
+  conflict?: SchematicConflictStrategy
+}): Promise<SchematicTransferResult> {
+  const payload: Record<string, unknown> = {
+    instanceId: input.instanceId,
+    name: input.name,
+    targetInstanceId: input.targetInstanceId,
+    mode: input.mode,
+  }
+  if (input.targetName) payload.targetName = input.targetName
+  if (input.conflict) payload.conflict = input.conflict
+  return invoke<SchematicTransferResult>('投影跨版本复制', SCHEMATIC_CHANNELS.transfer, payload)
+}
+
+export function showSchematicInFolder(instanceId: string, name: string): Promise<{ path: string }> {
+  return invoke<{ path: string }>('在文件夹中显示投影', SCHEMATIC_CHANNELS.showInFolder, {
+    instanceId,
+    kind: 'schematic',
+    name,
+  })
+}
+
+export function openSchematic(instanceId: string, name: string): Promise<{ ok: boolean }> {
+  return invoke<{ ok: boolean }>('打开投影文件', SCHEMATIC_CHANNELS.openFile, {
+    instanceId,
+    kind: 'schematic',
+    name,
+  })
+}
+
+export function openSchematicFolder(instanceId: string): Promise<{ path: string }> {
+  return invoke<{ path: string }>('打开投影目录', SCHEMATIC_CHANNELS.openFolder, {
+    instanceId,
+    area: 'schematics',
+  })
 }
