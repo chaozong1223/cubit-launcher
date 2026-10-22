@@ -411,6 +411,66 @@
 .catalog-filters__row--wide { grid-template-columns: minmax(0, 1fr); }
 .catalog-filters__row--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .catalog-filters__row--two .field { min-width: 0; }
+/* Controlled dropdown: opens below the trigger and eases in. */
+.dropdown { position: relative; }
+.dropdown__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+.dropdown__trigger:hover { border-color: var(--border-strong); }
+.dropdown__trigger:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.dropdown__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-2);
+  animation: dropdown-in 160ms var(--ease-out);
+}
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.dropdown__item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.dropdown__item:hover { background: var(--surface-2); color: var(--text); }
+.dropdown__item[aria-selected="true"] { background: var(--accent-subtle); color: var(--accent-text); font-weight: 600; }
+.dropdown__group {
+  margin: 8px 10px 4px;
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--text-3);
+}
 .catalog-row {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CatalogInstallResult,
   CatalogPageResult,
@@ -48,6 +48,94 @@ const TYPE_ICONS: Record<string, Parameters<typeof Icon>[0]['name']> = {
   modpack: 'cube',
   resourcepack: 'folder',
   shader: 'sun',
+}
+
+/**
+ * Version picker with a controlled popup: it always opens *below* the trigger
+ * and animates in, which the native <select> cannot do inside this shell.
+ */
+function VersionSelect({
+  value,
+  releases,
+  snapshots,
+  onChange,
+}: {
+  value: string
+  releases: string[]
+  snapshots: string[]
+  onChange: (next: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const pick = (next: string) => {
+    onChange(next)
+    setOpen(false)
+  }
+
+  return (
+    <div className="dropdown" ref={rootRef}>
+      <button
+        type="button"
+        className="dropdown__trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((previous) => !previous)}
+      >
+        <span>{value || '全部版本'}</span>
+        <Icon name="chevron-down" className="ico ico--xs" />
+      </button>
+      {open ? (
+        <div className="dropdown__menu" role="listbox">
+          <button type="button" role="option" aria-selected={value === ''} className="dropdown__item" onClick={() => pick('')}>
+            全部版本
+          </button>
+          <div className="dropdown__group">正式版</div>
+          {releases.map((version) => (
+            <button
+              key={version}
+              type="button"
+              role="option"
+              aria-selected={value === version}
+              className="dropdown__item"
+              onClick={() => pick(version)}
+            >
+              {version}
+            </button>
+          ))}
+          {snapshots.length > 0 ? <div className="dropdown__group">快照</div> : null}
+          {snapshots.map((version) => (
+            <button
+              key={version}
+              type="button"
+              role="option"
+              aria-selected={value === version}
+              className="dropdown__item"
+              onClick={() => pick(version)}
+            >
+              {version}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 interface SearchFilters {
@@ -451,18 +539,13 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
           </Field>
         </div>
         <div className="catalog-filters__row catalog-filters__row--two">
-          <Field label="游戏版本" hint="默认跟随当前实例；下拉可滚动选择">
-            <Select value={gameVersion} onChange={(event) => setGameVersion(event.target.value)}>
-              <option value="">全部版本</option>
-              <optgroup label="正式版">
-                {versionGroups.releases.map((version) => <option key={version} value={version}>{version}</option>)}
-              </optgroup>
-              {versionGroups.snapshots.length > 0 ? (
-                <optgroup label="快照">
-                  {versionGroups.snapshots.map((version) => <option key={version} value={version}>{version}</option>)}
-                </optgroup>
-              ) : null}
-            </Select>
+          <Field label="游戏版本" hint="默认跟随当前实例；点开在下方展开">
+            <VersionSelect
+              value={gameVersion}
+              releases={versionGroups.releases}
+              snapshots={versionGroups.snapshots}
+              onChange={setGameVersion}
+            />
           </Field>
           <Field label="加载器">
             <Select value={loader} onChange={(event) => setLoader(event.target.value)}>
