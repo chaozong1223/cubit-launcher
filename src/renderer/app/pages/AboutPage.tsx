@@ -145,6 +145,8 @@ export function AboutPage() {
             <div className="kv"><span className="kv__k">nodeIntegration</span><span className="kv__v">{info ? String(info.security.nodeIntegration) : '—'}</span></div>
             <div className="kv"><span className="kv__k">sandbox</span><span className="kv__v">{info ? String(info.security.sandbox) : '—'}</span></div>
             <div className="kv"><span className="kv__k">白名单外通道</span><span className="kv__v">{system.flags.blockedChannelRejected === true ? '已拒绝' : '—'}</span></div>
+            <div className="kv"><span className="kv__k">window.require</span><span className="kv__v">{system.flags.nodeRequire ? '已暴露（异常）' : '未暴露'}</span></div>
+            <div className="kv"><span className="kv__k">window.process</span><span className="kv__v">{system.flags.nodeProcess ? '已暴露（异常）' : '未暴露'}</span></div>
           </div>
         </Card>
       </div>

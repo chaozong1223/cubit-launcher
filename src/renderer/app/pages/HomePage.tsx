@@ -760,66 +760,6 @@ export function HomePage() {
             </button>
           </div>
         </div>
-
-        <aside className="home__aside" aria-label="系统状态">
-          <Card className="mini-card">
-            <div className="card__head">
-              <h3 className="card__title">系统信息</h3>
-              <Badge tone="outline">真实 IPC</Badge>
-            </div>
-            {system.loading ? (
-              <div className="nw-stack"><Skeleton className="skeleton--text" /><Skeleton className="skeleton--text" style={{ width: '70%' }} /></div>
-            ) : system.info ? (
-              <>
-                <div className="account-row">
-                  <span className="avatar avatar--lg avatar--green" aria-hidden="true">{(currentAccount?.name ?? 'L').slice(0, 1).toUpperCase()}</span>
-                  <div className="account-row__text">
-                    <div className="account-row__name">{currentAccount?.name ?? '本地用户'}</div>
-                    <div className="account-row__sub">{currentAccount ? `${currentAccount.kind} 账户` : '账户未接入'}</div>
-                  </div>
-                  <Badge tone={currentAccount ? 'success' : 'warning'}>{currentAccount ? '已选择' : '未配置'}</Badge>
-                </div>
-                <div className="account-foot"><span>v{system.info.version}</span><span>Electron {system.info.electron}</span></div>
-                <div className="nw-path-line" title={system.info.dataRoot}>{system.info.dataRoot}</div>
-              </>
-            ) : (
-              <p className="muted">系统信息不可用。{system.error ? describeError(system.error).detail : ''}</p>
-            )}
-          </Card>
-
-          <Card className="mini-card">
-            <div className="card__head">
-              <h3 className="card__title">模块状态</h3>
-              <Badge tone={instances.status === 'not-wired' ? 'warning' : 'success'}>
-                {instances.status === 'not-wired' ? '通道未放行' : '已读取'}
-              </Badge>
-            </div>
-            {system.info ? (
-              <div className="chips">
-                {system.info.modules.map((id) => <span className="chip" key={id}>{id}</span>)}
-                {system.info.failedModules.map((id) => <span className="chip chip--bad" key={id}>{id} · 失败</span>)}
-              </div>
-            ) : <p className="muted">等待 system.info。</p>}
-            <p className="hint">模块已注册不等于渲染层通道已放行；本页会显示真实调用结果。</p>
-            <Button size="xs" variant="ghost" icon="info" onClick={() => navigate('/about')}>查看诊断 →</Button>
-          </Card>
-
-          <Card className="mini-card">
-            <div className="card__head">
-              <h3 className="card__title">渲染进程安全</h3>
-              <Badge tone="success">已检查</Badge>
-            </div>
-            <ul className="checks">
-              <li><span className="check check--ok">✓</span>contextIsolation = true</li>
-              <li><span className="check check--ok">✓</span>nodeIntegration = false</li>
-              <li><span className="check check--ok">✓</span>window.require 未暴露</li>
-              <li><span className={system.flags.blockedChannelRejected ? 'check check--ok' : 'check check--bad'}>
-                {system.flags.blockedChannelRejected ? '✓' : '!'}
-              </span>白名单外通道被拒绝</li>
-            </ul>
-            <p className="hint">来自 preload 握手与真实 blocked-channel 探针。</p>
-          </Card>
-        </aside>
       </div>
 
       <DeleteInstanceDialog
