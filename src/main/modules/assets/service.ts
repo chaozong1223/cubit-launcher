@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import fsp from 'node:fs/promises'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type {
@@ -11,6 +12,10 @@ import type {
   RestoreResult,
   SaveCopyResult,
   SaveEntry,
+  SchematicEntry,
+  SchematicImportResult,
+  SchematicListResult,
+  SchematicTransferResult,
   ScreenshotEntry,
   TrashItem,
 } from '@shared/assets'
@@ -19,6 +24,7 @@ import { AppError } from '@shared/errors'
 import type { ScopedLogger } from '../../kernel/logger'
 import type { ModuleRoots } from '../_context'
 import { requireMcRoot } from '../_context'
+import { CoreError } from '../../core/errors'
 import { nodeFsPort, type FsPort } from '../../core/ports'
 import { gameDirectory, readInstanceSettings } from '../../core/instance/settings'
 import { scanInstances, type ScannedInstance } from '../../core/instance/scan'
@@ -26,9 +32,15 @@ import { RollbackStack } from '../../core/fs/rollback'
 import {
   resolvePathConflict,
   sanitizePathName,
+  uniqueFileName,
   uniquePathName,
 } from '../../core/fs/conflict'
 import { copyTree } from '../../core/fs/copy-tree'
+import {
+  isSchematicFileName,
+  readSchematic,
+  type ParsedSchematic,
+} from '../../core/schematic'
 import { TrashStore } from './trash'
 import { createStoredZip, type ZipEntryInput } from './zip'
 import { levelRank, parseLogText, type ParsedLogLine } from './logparse'
@@ -43,6 +55,8 @@ const IMAGE_MIME: Record<string, string> = {
 const MAX_PREVIEW_BYTES = 8 * 1024 * 1024
 const MAX_LOG_READ_BYTES = 8 * 1024 * 1024
 const MAX_EXPORT_FILES = 200
+const MAX_SCHEMATIC_BYTES = 128 * 1024 * 1024
+const MAX_SCHEMATIC_ENTRIES = 5_000
 
 export interface AssetsServiceOptions {
   roots: ModuleRoots
@@ -204,7 +218,10 @@ export class AssetsModuleService {
     }
   }
 
-  private gameSubdir(instanceId: string, name: 'saves' | 'screenshots' | 'logs'): string {
+  private gameSubdir(
+    instanceId: string,
+    name: 'saves' | 'screenshots' | 'schematics' | 'logs',
+  ): string {
     return path.join(this.resolve(instanceId).gameDir, name)
   }
 
@@ -492,6 +509,366 @@ export class AssetsModuleService {
     }
   }
 
+  // -------------------------------------------------------------- schematics
+
+  private schematicsDir(instanceId: string): string {
+    return this.gameSubdir(instanceId, 'schematics')
+  }
+
+  private instanceRunning(instance: ScannedInstance): boolean {
+    return Boolean(this.options.isInstanceRunning?.(instance.id, instance.dirName))
+  }
+
+  private schematicEntryFromParsed(
+    name: string,
+    size: number,
+    modifiedAt: number,
+    parsed: ParsedSchematic,
+  ): SchematicEntry {
+    return {
+      name,
+      format: parsed.format,
+      size,
+      modifiedAt,
+      dimensions: parsed.size,
+      volume: parsed.volume,
+      regionCount: parsed.regionCount,
+      error: null,
+    }
+  }
+
+  /** Parses one projection; a corrupt file is still listed with a readable error. */
+  private schematicEntry(name: string, absolute: string, stat: fs.Stats): SchematicEntry {
+    const base: SchematicEntry = {
+      name,
+      format: 'unknown',
+      size: stat.size,
+      modifiedAt: Math.floor(stat.mtimeMs),
+      dimensions: null,
+      volume: null,
+      regionCount: null,
+      error: null,
+    }
+    try {
+      if (stat.size > MAX_SCHEMATIC_BYTES) {
+        throw new CoreError('SCHEMATIC.LIMIT_EXCEEDED', {
+          message: `投影超过 ${Math.round(MAX_SCHEMATIC_BYTES / (1024 * 1024))} MB 解析上限`,
+        })
+      }
+      const parsed = readSchematic(this.fs.readBytes(absolute))
+      return this.schematicEntryFromParsed(name, stat.size, base.modifiedAt, parsed)
+    } catch (error) {
+      return {
+        ...base,
+        error:
+          error instanceof CoreError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : String(error),
+      }
+    }
+  }
+
+  private validatedSchematicName(input: string, fallbackExtension?: string): string {
+    const trimmed = input.trim()
+    const base = path.basename(trimmed.replaceAll('\\', '/'))
+    if (
+      !base ||
+      base !== trimmed ||
+      base === '.' ||
+      base === '..' ||
+      base.includes('\0') ||
+      sanitizePathName(base, 'schematic') !== base
+    ) {
+      fail('ASSETS.UNSAFE_NAME', `投影文件名不合法: ${input}`)
+    }
+    if (isSchematicFileName(base)) return base
+    if (fallbackExtension && /^\.[a-z]+$/i.test(fallbackExtension)) {
+      const withExtension = `${base}${fallbackExtension.toLowerCase()}`
+      if (isSchematicFileName(withExtension)) return withExtension
+    }
+    fail('ASSETS.UNSUPPORTED_FILE', `不支持的投影扩展名: ${base}`)
+  }
+
+  async listSchematics(input: { instanceId: string }): Promise<SchematicListResult> {
+    const resolved = this.resolve(input.instanceId)
+    const dir = path.join(resolved.gameDir, 'schematics')
+    const schematics: SchematicEntry[] = []
+    let entries: fs.Dirent[] = []
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      entries = []
+    }
+    for (const entry of entries) {
+      if (!entry.isFile() || entry.isSymbolicLink()) continue
+      if (entry.name.startsWith('.')) continue
+      if (!isSchematicFileName(entry.name)) continue
+      if (schematics.length >= MAX_SCHEMATIC_ENTRIES) break
+      const absolute = path.join(dir, entry.name)
+      const stat = safeStat(absolute)
+      if (!stat) continue
+      schematics.push(this.schematicEntry(entry.name, absolute, stat))
+    }
+    schematics.sort(
+      (left, right) => right.modifiedAt - left.modifiedAt || left.name.localeCompare(right.name, 'zh-CN'),
+    )
+    return { gameDir: dir, schematics }
+  }
+
+  async importSchematic(input: {
+    instanceId: string
+    filePath: string
+    targetName?: string
+  }): Promise<SchematicImportResult> {
+    const source = path.resolve(input.filePath)
+    const stat = safeStat(source)
+    if (!stat?.isFile() || isSymlink(source)) {
+      fail('ASSETS.FILE_NOT_FOUND', `找不到投影文件: ${input.filePath}`)
+    }
+    if (!isSchematicFileName(source)) {
+      fail('ASSETS.UNSUPPORTED_FILE', '只支持 .litematic / .nbt / .schem / .schematic 投影')
+    }
+    if (stat.size > MAX_SCHEMATIC_BYTES) {
+      throw new CoreError('SCHEMATIC.LIMIT_EXCEEDED', {
+        message: `投影超过 ${Math.round(MAX_SCHEMATIC_BYTES / (1024 * 1024))} MB 解析上限`,
+      })
+    }
+    // Validate before copying: a corrupt projection must not land in the folder.
+    const parsed = readSchematic(this.fs.readBytes(source))
+    const dir = this.schematicsDir(input.instanceId)
+    this.fs.mkdirp(dir)
+    const requested = input.targetName?.trim() || path.basename(source)
+    const withExtension = this.validatedSchematicName(requested, path.extname(source))
+    const targetName = uniqueFileName(dir, withExtension, (candidate) => this.fs.exists(candidate))
+    const target = path.join(dir, targetName)
+    try {
+      await fsp.copyFile(source, target)
+    } catch (error) {
+      throw new AppError(
+        'ASSETS.SCHEMATIC_IMPORT_FAILED',
+        `复制投影失败: ${error instanceof Error ? error.message : String(error)}`,
+        { details: { source, target } },
+      )
+    }
+    const copiedStat = safeStat(target) ?? stat
+    const entry = this.schematicEntryFromParsed(
+      targetName,
+      copiedStat.size,
+      Math.floor(copiedStat.mtimeMs),
+      parsed,
+    )
+    this.emit('schematics')
+    this.options.log.info('schematic imported', {
+      instanceId: input.instanceId,
+      fileName: targetName,
+      format: entry.format,
+      dimensions: entry.dimensions,
+    })
+    return { imported: 1, fileName: targetName, targetPath: target, entry }
+  }
+
+  async deleteSchematics(input: {
+    instanceId: string
+    names: string[]
+  }): Promise<BatchTrashResult> {
+    const dir = this.schematicsDir(input.instanceId)
+    const result: BatchTrashResult = { items: [], errors: [] }
+    for (const name of [...new Set(input.names)]) {
+      try {
+        if (!isSchematicFileName(name)) {
+          result.errors.push({ name, message: '只支持 .litematic / .nbt / .schem / .schematic 投影' })
+          continue
+        }
+        const target = assertChild(dir, name)
+        const item = this.trash.delete({
+          kind: 'schematic',
+          name,
+          originalPath: target,
+          instanceId: input.instanceId,
+        })
+        result.items.push(item)
+      } catch (error) {
+        result.errors.push({
+          name,
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+    if (result.items.length > 0) this.emit('schematics')
+    return result
+  }
+
+  /**
+   * Copies or moves one projection into another instance's schematics folder.
+   * `move` puts the source into the shared trash only after the copy committed,
+   * so a failure never loses the only copy.
+   */
+  async copySchematic(input: {
+    instanceId: string
+    name: string
+    targetInstanceId: string
+    mode?: 'copy' | 'move'
+    targetName?: string
+    conflict?: 'overwrite' | 'skip' | 'rename'
+  }): Promise<SchematicTransferResult> {
+    const source = this.resolve(input.instanceId)
+    const target = this.resolve(input.targetInstanceId)
+    if (source.instance.dirName === target.instance.dirName) {
+      fail('ASSETS.SAME_INSTANCE', '源版本和目标版本相同，无需复制')
+    }
+    const sourceDir = path.join(source.gameDir, 'schematics')
+    const sourcePath = assertChild(sourceDir, input.name)
+    const stat = safeStat(sourcePath)
+    if (!stat?.isFile() || isSymlink(sourcePath)) {
+      fail('ASSETS.FILE_NOT_FOUND', `投影不存在: ${input.name}`)
+    }
+    if (!isSchematicFileName(input.name)) {
+      fail('ASSETS.UNSUPPORTED_FILE', '只支持 .litematic / .nbt / .schem / .schematic 投影')
+    }
+    const mode = input.mode ?? 'copy'
+    if (mode === 'move' && (this.instanceRunning(source.instance) || this.instanceRunning(target.instance))) {
+      fail('ASSETS.INSTANCE_RUNNING', '移动投影前请先结束正在运行的实例')
+    }
+
+    const targetDir = path.join(target.gameDir, 'schematics')
+    this.fs.mkdirp(targetDir)
+    const requested = input.targetName?.trim() || input.name
+    const withExtension = this.validatedSchematicName(requested)
+    const baseTarget = path.join(targetDir, withExtension)
+    const exists = (candidate: string): boolean => this.fs.exists(candidate)
+    const warnings: string[] = []
+
+    if (exists(baseTarget) && input.conflict === undefined) {
+      return {
+        status: 'conflict',
+        sourceInstanceId: source.instance.dirName,
+        sourceName: input.name,
+        targetInstanceId: target.instance.dirName,
+        targetName: null,
+        size: stat.size,
+        overwritten: false,
+        renamed: false,
+        warnings: [`目标版本已存在同名投影「${withExtension}」；请选择覆盖、跳过或改名。`],
+      }
+    }
+    if (exists(baseTarget) && input.conflict === 'skip') {
+      return {
+        status: 'skipped',
+        sourceInstanceId: source.instance.dirName,
+        sourceName: input.name,
+        targetInstanceId: target.instance.dirName,
+        targetName: null,
+        size: stat.size,
+        overwritten: false,
+        renamed: false,
+        warnings: [`目标版本已存在同名投影「${withExtension}」，已按“跳过”处理。`],
+      }
+    }
+
+    const resolution = resolvePathConflict({
+      target: baseTarget,
+      strategy: input.conflict ?? 'rename',
+      exists,
+      uniqueTarget: () =>
+        path.join(targetDir, uniqueFileName(targetDir, withExtension, exists)),
+    })
+    const targetName = path.basename(resolution.target)
+    const targetPath = resolution.target
+    const overwritten = resolution.strategy === 'overwrite' && exists(targetPath)
+    const staging = path.join(targetDir, `.mcl-schematic-copy-${randomUUID()}`)
+    const backup = path.join(targetDir, `.mcl-schematic-backup-${randomUUID()}`)
+    const rollback = new RollbackStack()
+    try {
+      rollback.push('删除投影复制暂存文件', () => {
+        try {
+          this.fs.remove(staging)
+        } catch {
+          /* best effort */
+        }
+      })
+      await fsp.copyFile(sourcePath, staging)
+      if (overwritten && exists(targetPath)) {
+        this.fs.rename(targetPath, backup)
+        rollback.push('恢复原有投影', () => {
+          try {
+            if (this.fs.exists(backup)) {
+              if (this.fs.exists(targetPath)) this.fs.remove(targetPath)
+              this.fs.rename(backup, targetPath)
+            }
+          } catch {
+            /* best effort */
+          }
+        })
+      }
+      this.fs.rename(staging, targetPath)
+      rollback.push('删除已复制投影', () => {
+        try {
+          this.fs.remove(targetPath)
+        } catch {
+          /* best effort */
+        }
+      })
+      rollback.commit()
+      if (overwritten && this.fs.exists(backup)) {
+        try {
+          this.fs.remove(backup)
+        } catch {
+          warnings.push('旧投影备份未能删除（位于 schematics/ 下的隐藏文件）')
+        }
+      }
+      if (mode === 'move') {
+        try {
+          this.trash.delete({
+            kind: 'schematic',
+            name: input.name,
+            originalPath: sourcePath,
+            instanceId: source.instance.dirName,
+          })
+        } catch (error) {
+          warnings.push(
+            `已复制到目标版本，但源投影移入回收站失败: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          )
+        }
+      }
+      this.emit('schematics')
+      this.options.log.info('schematic transferred', {
+        sourceInstanceId: source.instance.dirName,
+        targetInstanceId: target.instance.dirName,
+        name: input.name,
+        targetName,
+        mode,
+        overwritten,
+        renamed: resolution.renamed,
+      })
+      return {
+        status: mode === 'move' ? 'moved' : 'copied',
+        sourceInstanceId: source.instance.dirName,
+        sourceName: input.name,
+        targetInstanceId: target.instance.dirName,
+        targetName,
+        size: stat.size,
+        overwritten,
+        renamed: resolution.renamed,
+        warnings,
+      }
+    } catch (error) {
+      const failures = await rollback.rollback()
+      if (failures.length > 0) {
+        this.options.log.warn('schematic transfer rollback step failed', { failures })
+      }
+      if (error instanceof AppError) throw error
+      throw new AppError(
+        'ASSETS.SCHEMATIC_TRANSFER_FAILED',
+        `复制投影失败: ${error instanceof Error ? error.message : String(error)}`,
+        { details: { name: input.name, targetInstanceId: input.targetInstanceId } },
+      )
+    }
+  }
+
   async listScreenshots(input: {
     instanceId: string
   }): Promise<{ gameDir: string; screenshots: ScreenshotEntry[] }> {
@@ -772,7 +1149,12 @@ export class AssetsModuleService {
       dir = this.gameSubdir(input.instanceId, 'logs')
     } else {
       if (!input.instanceId) fail('ASSETS.INSTANCE_REQUIRED', '该目录需要实例')
-      dir = input.area === 'saves' ? this.gameSubdir(input.instanceId, 'saves') : this.gameSubdir(input.instanceId, 'screenshots')
+      dir =
+        input.area === 'saves'
+          ? this.gameSubdir(input.instanceId, 'saves')
+          : input.area === 'schematics'
+            ? this.gameSubdir(input.instanceId, 'schematics')
+            : this.gameSubdir(input.instanceId, 'screenshots')
     }
     this.ensureDir(dir)
     if (!this.options.openPath) fail('ASSETS.OPEN_UNAVAILABLE', '当前环境不支持打开目录')
@@ -781,14 +1163,23 @@ export class AssetsModuleService {
     return { path: dir }
   }
 
-  private assetTarget(instanceId: string, kind: 'save' | 'screenshot', name: string): string {
-    const dir = kind === 'save' ? this.gameSubdir(instanceId, 'saves') : this.gameSubdir(instanceId, 'screenshots')
+  private assetTarget(
+    instanceId: string,
+    kind: 'save' | 'screenshot' | 'schematic',
+    name: string,
+  ): string {
+    const dir =
+      kind === 'save'
+        ? this.gameSubdir(instanceId, 'saves')
+        : kind === 'schematic'
+          ? this.gameSubdir(instanceId, 'schematics')
+          : this.gameSubdir(instanceId, 'screenshots')
     return assertChild(dir, name)
   }
 
   async showInFolder(input: {
     instanceId: string
-    kind: 'save' | 'screenshot'
+    kind: 'save' | 'screenshot' | 'schematic'
     name: string
   }): Promise<{ path: string }> {
     const target = this.assetTarget(input.instanceId, input.kind, input.name)
@@ -800,7 +1191,7 @@ export class AssetsModuleService {
 
   async openFile(input: {
     instanceId: string
-    kind: 'save' | 'screenshot'
+    kind: 'save' | 'screenshot' | 'schematic'
     name: string
   }): Promise<{ ok: boolean }> {
     const target = this.assetTarget(input.instanceId, input.kind, input.name)
@@ -817,7 +1208,16 @@ export class AssetsModuleService {
 
   async restoreTrash(input: { ids?: string[] } = {}): Promise<RestoreResult> {
     const result = this.trash.restore(input.ids)
-    if (result.restored.length > 0) this.emit('saves')
+    if (result.restored.length > 0) {
+      const areas = new Set<AssetArea>()
+      for (const item of result.restored) {
+        if (item.kind === 'save') areas.add('saves')
+        else if (item.kind === 'screenshot') areas.add('screenshots')
+        else if (item.kind === 'schematic') areas.add('schematics')
+        else if (item.kind === 'log') areas.add('game-logs')
+      }
+      for (const area of areas) this.emit(area)
+    }
     return result
   }
 }

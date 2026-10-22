@@ -49,6 +49,28 @@ export function uniquePathName(
   return candidate
 }
 
+/**
+ * First free file name, keeping the extension: `Castle-2.litematic` instead of
+ * `Castle.litematic-2` (operating systems still open the former correctly, but
+ * the sibling numbering must not break the extension association).
+ */
+export function uniqueFileName(
+  parentDir: string,
+  base: string,
+  exists: (target: string) => boolean,
+): string {
+  const safe = sanitizePathName(base)
+  const extension = path.extname(safe)
+  const stem = extension ? safe.slice(0, -extension.length) : safe
+  let candidate = safe
+  let counter = 2
+  while (exists(path.join(parentDir, candidate))) {
+    candidate = `${stem}-${counter}${extension}`
+    counter += 1
+  }
+  return candidate
+}
+
 export interface ConflictResolution {
   strategy: ConflictStrategy
   /** Resolved target path (unchanged for overwrite/skip, new for rename). */

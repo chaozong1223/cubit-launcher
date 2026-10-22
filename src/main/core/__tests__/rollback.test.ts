@@ -4,6 +4,7 @@ import { RollbackStack } from '../fs/rollback'
 import {
   resolvePathConflict,
   sanitizePathName,
+  uniqueFileName,
   uniquePathName,
 } from '../fs/conflict'
 
@@ -56,6 +57,15 @@ describe('conflict policy helpers', () => {
     const taken = new Set(['Foo', 'Foo-2'])
     expect(uniquePathName(parent, 'Foo', (target) => taken.has(path.basename(target)))).toBe('Foo-3')
     expect(uniquePathName(parent, 'Bar', () => false)).toBe('Bar')
+  })
+
+  it('keeps the extension when numbering files', () => {
+    const parent = path.join('root', 'schematics')
+    const taken = new Set(['Castle.litematic', 'Castle-2.litematic'])
+    expect(uniqueFileName(parent, 'Castle.litematic', (target) => taken.has(path.basename(target)))).toBe(
+      'Castle-3.litematic',
+    )
+    expect(uniqueFileName(parent, 'plain', () => false)).toBe('plain')
   })
 
   it('resolves overwrite / skip / rename for an occupied target', () => {

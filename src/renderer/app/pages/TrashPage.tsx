@@ -19,6 +19,7 @@ const KIND_LABEL: Record<TrashItem['kind'], string> = {
   save: '存档',
   screenshot: '截图',
   log: '日志',
+  schematic: '投影',
   other: '其它',
 }
 
@@ -172,7 +173,7 @@ export function TrashPage() {
                     />
                   </td>
                   <td><Badge tone={item.kind === 'save' || isInstanceItem(item) ? 'accent' : item.kind === 'screenshot' ? 'outline' : 'neutral'}>{itemKindLabel(item)}</Badge></td>
-                  <td><div className="asset-name"><span className="asset-name__icon"><Icon name={isInstanceItem(item) ? 'cube' : item.kind === 'save' ? 'cube' : item.kind === 'screenshot' ? 'package' : 'terminal'} /></span><strong>{item.name}</strong></div></td>
+                  <td><div className="asset-name"><span className="asset-name__icon"><Icon name={isInstanceItem(item) ? 'cube' : item.kind === 'save' ? 'cube' : item.kind === 'screenshot' || item.kind === 'schematic' ? 'package' : 'terminal'} /></span><strong>{item.name}</strong></div></td>
                   <td className="mono asset-trash-path" title={item.originalPath}>{item.originalPath}</td>
                   <td>{item.instanceId ?? '全局'}</td>
                   <td>{formatTime(item.deletedAt)}</td>

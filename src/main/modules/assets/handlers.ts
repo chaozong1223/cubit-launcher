@@ -1,4 +1,9 @@
-import type { AssetArea, LogLevel, SaveConflictStrategy } from '@shared/assets'
+import type {
+  AssetArea,
+  LogLevel,
+  SaveConflictStrategy,
+  SchematicConflictStrategy,
+} from '@shared/assets'
 import type { AssetsModuleService } from './service'
 
 export function makeHandlers(service: AssetsModuleService) {
@@ -14,6 +19,22 @@ export function makeHandlers(service: AssetsModuleService) {
       targetName?: string
       conflict?: SaveConflictStrategy
     }) => service.copySave(input),
+    listSchematics: (input: { instanceId: string }) => service.listSchematics(input),
+    importSchematic: (input: {
+      instanceId: string
+      filePath: string
+      targetName?: string
+    }) => service.importSchematic(input),
+    deleteSchematics: (input: { instanceId: string; names: string[] }) =>
+      service.deleteSchematics(input),
+    copySchematic: (input: {
+      instanceId: string
+      name: string
+      targetInstanceId: string
+      mode?: 'copy' | 'move'
+      targetName?: string
+      conflict?: SchematicConflictStrategy
+    }) => service.copySchematic(input),
     listScreenshots: (input: { instanceId: string }) => service.listScreenshots(input),
     previewScreenshot: (input: { instanceId: string; name: string }) =>
       service.previewScreenshot(input),
@@ -36,12 +57,12 @@ export function makeHandlers(service: AssetsModuleService) {
     openFolder: (input: { instanceId?: string; area: AssetArea }) => service.openFolder(input),
     showInFolder: (input: {
       instanceId: string
-      kind: 'save' | 'screenshot'
+      kind: 'save' | 'screenshot' | 'schematic'
       name: string
     }) => service.showInFolder(input),
     openFile: (input: {
       instanceId: string
-      kind: 'save' | 'screenshot'
+      kind: 'save' | 'screenshot' | 'schematic'
       name: string
     }) => service.openFile(input),
     listTrash: () => service.listTrash(),

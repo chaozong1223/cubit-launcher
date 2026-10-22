@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { defineContract } from './kernel'
 
-export const AssetArea = z.enum(['saves', 'screenshots', 'game-logs', 'launcher-logs'])
+export const AssetArea = z.enum(['saves', 'screenshots', 'schematics', 'game-logs', 'launcher-logs'])
 export type AssetArea = z.infer<typeof AssetArea>
 
 export const LogLevel = z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'])
@@ -42,7 +42,7 @@ export type LogEntry = z.infer<typeof LogEntrySchema>
 
 export const TrashItemSchema = z.object({
   id: z.string(),
-  kind: z.enum(['save', 'screenshot', 'log', 'other']),
+  kind: z.enum(['save', 'screenshot', 'log', 'schematic', 'other']),
   name: z.string(),
   originalPath: z.string(),
   instanceId: z.string().nullable(),
@@ -95,6 +95,72 @@ export const SaveCopyResultSchema = z.object({
 })
 export type SaveCopyResult = z.infer<typeof SaveCopyResultSchema>
 
+/** Projection/schematic formats recognised by the NBT detector. */
+export const SchematicFormatSchema = z.enum([
+  'litematic',
+  'sponge-v1',
+  'sponge-v2',
+  'sponge-v3',
+  'mcedit',
+  'structure',
+  'unknown',
+])
+export type SchematicFormat = z.infer<typeof SchematicFormatSchema>
+
+export const SchematicDimensionsSchema = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+  z: z.number().int(),
+})
+export type SchematicDimensions = z.infer<typeof SchematicDimensionsSchema>
+
+export const SchematicEntrySchema = z.object({
+  /** File name inside `<gameDir>/schematics`. */
+  name: z.string().min(1),
+  format: SchematicFormatSchema,
+  size: z.number().int().nonnegative(),
+  modifiedAt: z.number().int().nonnegative(),
+  /** Header dimensions (EnclosingSize / Width×Height×Length / structure size). */
+  dimensions: SchematicDimensionsSchema.nullable(),
+  /** litematic block count (per-region sum, fallback Metadata.TotalVolume). */
+  volume: z.number().int().nonnegative().nullable(),
+  regionCount: z.number().int().nonnegative().nullable(),
+  /** Human-readable parse error; the row is still listed so it can be deleted. */
+  error: z.string().nullable(),
+})
+export type SchematicEntry = z.infer<typeof SchematicEntrySchema>
+
+export const SchematicListResultSchema = z.object({
+  gameDir: z.string(),
+  schematics: z.array(SchematicEntrySchema),
+})
+export type SchematicListResult = z.infer<typeof SchematicListResultSchema>
+
+export const SchematicImportResultSchema = z.object({
+  imported: z.number().int().nonnegative(),
+  fileName: z.string(),
+  targetPath: z.string(),
+  entry: SchematicEntrySchema,
+})
+export type SchematicImportResult = z.infer<typeof SchematicImportResultSchema>
+
+export const SchematicConflictStrategySchema = z.enum(['overwrite', 'skip', 'rename'])
+export type SchematicConflictStrategy = z.infer<typeof SchematicConflictStrategySchema>
+
+export const SchematicTransferResultSchema = z.object({
+  status: z.enum(['copied', 'moved', 'skipped', 'conflict']),
+  sourceInstanceId: z.string(),
+  sourceName: z.string(),
+  targetInstanceId: z.string(),
+  /** Resolved target file name (null for conflict/skip). */
+  targetName: z.string().nullable(),
+  size: z.number().int().nonnegative(),
+  overwritten: z.boolean(),
+  renamed: z.boolean(),
+  warnings: z.array(z.string()),
+})
+export type SchematicTransferResult = z.infer<typeof SchematicTransferResultSchema>
+
 export const contract = defineContract({
   id: 'assets',
   methods: {
@@ -128,6 +194,36 @@ export const contract = defineContract({
     listScreenshots: {
       input: z.object({ instanceId: z.string().min(1) }),
       output: z.object({ gameDir: z.string(), screenshots: z.array(ScreenshotEntrySchema) }),
+    },
+    /** Projections under the instance's `gameDir/schematics` directory. */
+    listSchematics: {
+      input: z.object({ instanceId: z.string().min(1) }),
+      output: SchematicListResultSchema,
+    },
+    /** Import one local projection file (drag/drop); collision gets a new name. */
+    importSchematic: {
+      input: z.object({
+        instanceId: z.string().min(1),
+        filePath: z.string().min(1),
+        targetName: z.string().min(1).max(255).optional(),
+      }),
+      output: SchematicImportResultSchema,
+    },
+    deleteSchematics: {
+      input: z.object({ instanceId: z.string().min(1), names: z.array(z.string().min(1)).min(1) }),
+      output: BatchTrashResultSchema,
+    },
+    /** Copy or move a projection to another instance's schematics folder. */
+    copySchematic: {
+      input: z.object({
+        instanceId: z.string().min(1),
+        name: z.string().min(1),
+        targetInstanceId: z.string().min(1),
+        mode: z.enum(['copy', 'move']).default('copy'),
+        targetName: z.string().min(1).max(255).optional(),
+        conflict: SchematicConflictStrategySchema.optional(),
+      }),
+      output: SchematicTransferResultSchema,
     },
     previewScreenshot: {
       input: z.object({ instanceId: z.string().min(1), name: z.string().min(1) }),
@@ -182,7 +278,7 @@ export const contract = defineContract({
     showInFolder: {
       input: z.object({
         instanceId: z.string().min(1),
-        kind: z.enum(['save', 'screenshot']),
+        kind: z.enum(['save', 'screenshot', 'schematic']),
         name: z.string().min(1),
       }),
       output: z.object({ path: z.string() }),
@@ -190,7 +286,7 @@ export const contract = defineContract({
     openFile: {
       input: z.object({
         instanceId: z.string().min(1),
-        kind: z.enum(['save', 'screenshot']),
+        kind: z.enum(['save', 'screenshot', 'schematic']),
         name: z.string().min(1),
       }),
       output: z.object({ ok: z.boolean() }),
