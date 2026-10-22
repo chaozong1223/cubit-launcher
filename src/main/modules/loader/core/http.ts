@@ -77,6 +77,10 @@ const MIRROR_HOSTS = [
   'bmclapi2.bangbang93.com',
   'bmclapi.bangbang93.com',
   'mirrors.cernet.edu.cn',
+  // BMCLAPI mirrors also serve installer jars; without this the mirror source
+  // is rejected as untrusted and every install falls back to a slow official
+  // host that frequently times out.
+  'mirrors.qlu.edu.cn',
 ]
 
 function hostMatches(hostname: string, patterns: string[]): boolean {

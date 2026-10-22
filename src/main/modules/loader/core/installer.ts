@@ -126,10 +126,20 @@ const ENV_KEYS = [
   'JAVA_HOME',
 ] as const
 
-export function installerEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+export function installerEnvironment(
+  env: NodeJS.ProcessEnv = process.env,
+  overrides: { temp?: string } = {},
+): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {}
   for (const key of ENV_KEYS) {
     if (env[key] !== undefined) out[key] = env[key]
+  }
+  // Point the installer's scratch space at our own work dir. On Windows the
+  // system %TEMP% is often locked down (AV/EDR blocks the installer's
+  // unpack step: java.nio.file.AccessDeniedException in %TEMP%\forge_installer*).
+  if (overrides.temp) {
+    out.TEMP = overrides.temp
+    out.TMP = overrides.temp
   }
   return out
 }
@@ -225,7 +235,7 @@ export async function runInstaller(options: InstallerRunOptions): Promise<Instal
   try {
     child = options.ports.spawn(options.javaPath, installerArguments(options.jarPath, options.mcRoot), {
       cwd: options.workDir,
-      env: installerEnvironment(options.env),
+      env: installerEnvironment(options.env, { temp: path.join(options.workDir, 'tmp') }),
       windowsHide: true,
     })
   } catch (error) {

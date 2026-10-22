@@ -708,6 +708,9 @@ export class LoaderService {
     const workDir = path.join(this.options.roots.dataRoot, 'tmp', `loader-${job.id}`)
     this.fs.remove(workDir)
     this.fs.mkdirp(workDir)
+    // The installer writes its scratch files here instead of %TEMP%, which is
+    // frequently blocked by Windows AV/EDR (AccessDeniedException).
+    this.fs.mkdirp(path.join(workDir, 'tmp'))
 
     let installedVersionId: string | null = null
     try {
