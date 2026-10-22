@@ -30,6 +30,21 @@ export const HMCL_OAUTH_ENDPOINTS = {
 /** HMCL uses this scope for the Microsoft/Xbox chain. */
 export const HMCL_MICROSOFT_SCOPE = 'XboxLive.signin offline_access'
 
+/**
+ * Registered redirect port, overridable for tests via MCL_AUTH_CALLBACK_PORTS
+ * (comma separated, "0" means "any free port" - only valid when the caller does
+ * not need Azure to accept the redirect URI).
+ */
+export function defaultCallbackPorts(env: NodeJS.ProcessEnv = process.env): number[] {
+  const raw = env.MCL_AUTH_CALLBACK_PORTS?.trim()
+  if (!raw) return [53117]
+  const parsed = raw
+    .split(',')
+    .map((part) => Number.parseInt(part.trim(), 10))
+    .filter((port) => Number.isInteger(port) && port >= 0 && port <= 65535)
+  return parsed.length > 0 ? parsed : [53117]
+}
+
 export function base64Url(bytes: Buffer): string {
   return bytes.toString('base64').replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
 }
@@ -95,7 +110,9 @@ export class LoopbackOAuthServer {
     // 53117 is the redirect URI registered in our Entra app as
     // `http://localhost:53117/`. Azure validates the port, so we cannot use a
     // random one: a free port here would still be rejected at authorize time.
-    preferredPorts: number[] = [53117],
+    // Tests override it with MCL_AUTH_CALLBACK_PORTS (e.g. "0") because the real
+    // launcher may already hold 53117 on the developer machine.
+    preferredPorts: number[] = defaultCallbackPorts(),
     pkce: PkcePair = createPkce(),
   ): Promise<LoopbackOAuthServer> {
     let lastError: unknown = null

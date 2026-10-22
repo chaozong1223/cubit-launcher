@@ -526,11 +526,16 @@ describe('HMCL OAuth loopback port', () => {
   })
 
   it('completes the loopback flow through the auth service with our client id', async () => {
-    const routes = successRoutes()
-    const service = createService({
-      dataRoot: tempRoot(),
-      http: fakeHttp(routes),
-    }).service
+    // The real launcher may already hold the registered 53117 port on a dev
+    // machine, so let this test grab any free port instead.
+    const previousPorts = process.env.MCL_AUTH_CALLBACK_PORTS
+    process.env.MCL_AUTH_CALLBACK_PORTS = '0'
+    try {
+      const routes = successRoutes()
+      const service = createService({
+        dataRoot: tempRoot(),
+        http: fakeHttp(routes),
+      }).service
     await service.configureMicrosoft({ clientId: 'our-client-id', tenant: 'tenant-id' })
     const opened: string[] = []
     ;(service as unknown as { options: { openExternal?: (url: string) => void } }).options.openExternal =
@@ -549,6 +554,10 @@ describe('HMCL OAuth loopback port', () => {
     if (result.status !== 'ok') throw new Error('expected loopback login')
     expect(result.account.kind).toBe('microsoft')
     expect((await service.list()).selectedId).toBe(result.account.id)
+    } finally {
+      if (previousPorts === undefined) delete process.env.MCL_AUTH_CALLBACK_PORTS
+      else process.env.MCL_AUTH_CALLBACK_PORTS = previousPorts
+    }
   })
 })
 
