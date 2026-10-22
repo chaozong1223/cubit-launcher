@@ -391,7 +391,6 @@ function Hero({ instance }: { instance: InstanceSummary }) {
             </Button>
           ) : null}
           <Button variant="secondary" size="lg" icon="package" onClick={() => navigate('/catalog')} title="打开资源库，按当前实例筛选模组">下载模组</Button>
-          <Button variant="secondary" size="lg" icon="terminal" onClick={() => void preview()} disabled={busy} title="dry-run：生成真实启动参数，不启动进程">预览启动参数</Button>
           <div className="hero-more">
             <Button
               variant="ghost"
@@ -420,6 +419,20 @@ function Hero({ instance }: { instance: InstanceSummary }) {
                     <span>{entry.label}</span>
                   </button>
                 ))}
+                <div className="hero-more__sep" aria-hidden="true" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="hero-more__item"
+                  disabled={busy}
+                  onClick={() => {
+                    setDetailMenuOpen(false)
+                    void preview()
+                  }}
+                >
+                  <Icon name="terminal" className="ico ico--sm" />
+                  <span>预览启动参数</span>
+                </button>
                 <div className="hero-more__sep" aria-hidden="true" />
                 {PAGE_LINKS.map((entry) => (
                   <button
