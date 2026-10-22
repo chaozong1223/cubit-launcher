@@ -99,6 +99,24 @@ function launchStateLabel(state: LaunchUiState): string {
 
 function Hero({ instance }: { instance: InstanceSummary }) {
   const [detailMenuOpen, setDetailMenuOpen] = useState(false)
+
+  // Close the overflow menu on any outside click or Escape, not just the button.
+  useEffect(() => {
+    if (!detailMenuOpen) return
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target?.closest('.hero-more')) setDetailMenuOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDetailMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [detailMenuOpen])
   const backend = useBackend()
   const status = useAsync(() => backend.launch.status(instance.id), [instance.id])
   const accounts = useAsync(() => backend.auth.list(), [])
