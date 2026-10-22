@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { Children, isValidElement, useEffect, useRef, useState } from 'react'
 import type {
   ButtonHTMLAttributes,
+  ChangeEvent,
   CSSProperties,
   InputHTMLAttributes,
   KeyboardEvent as ReactKeyboardEvent,
+  ReactElement,
   ReactNode,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
@@ -450,16 +452,152 @@ export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLText
   return <textarea className={cx('textarea', className)} {...rest} />
 }
 
+export interface DropdownGroup {
+  label?: string
+  options: ReadonlyArray<{ value: string; label: string }>
+}
+
+/**
+ * Controlled dropdown with a popup that always opens below the trigger and
+ * eases in. Used by every select-like control in the app so they behave the
+ * same; the native <select> popup cannot be positioned or animated here.
+ */
+export function Dropdown({
+  value,
+  groups,
+  placeholder,
+  onChange,
+  disabled,
+  label,
+  className,
+}: {
+  value: string
+  groups: ReadonlyArray<DropdownGroup>
+  placeholder: string
+  onChange: (next: string) => void
+  disabled?: boolean
+  label?: string
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const current = groups.flatMap((group) => group.options).find((option) => option.value === value)
+
+  return (
+    <div className={cx('dropdown', className)} ref={rootRef}>
+      <button
+        type="button"
+        className="dropdown__trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => setOpen((previous) => !previous)}
+      >
+        <span>{current?.label ?? placeholder}</span>
+        <Icon name="chevron-down" className="ico ico--xs" />
+      </button>
+      {open ? (
+        <div className="dropdown__menu" role="listbox" aria-label={label}>
+          {groups.map((group, index) => (
+            <div key={group.label ?? `group-${index}`}>
+              {group.label ? <div className="dropdown__group">{group.label}</div> : null}
+              {group.options.map((option) => (
+                <button
+                  key={option.value || '__all__'}
+                  type="button"
+                  role="option"
+                  aria-selected={value === option.value}
+                  className="dropdown__item"
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function nodeText(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(nodeText).join('')
+  return ''
+}
+
+/** Reads <option>/<optgroup> children into the dropdown's data shape. */
+function optionsFromChildren(children: ReactNode): DropdownGroup[] {
+  const groups: DropdownGroup[] = []
+  const unlabeled: DropdownGroup = { options: [] }
+  const addOption = (target: DropdownGroup, element: ReactElement<{ value?: string | number; children?: ReactNode; disabled?: boolean }>) => {
+    if (element.props.disabled) return
+    const text = nodeText(element.props.children)
+    const nextValue = element.props.value === undefined ? text : String(element.props.value)
+    ;(target.options as Array<{ value: string; label: string }>).push({ value: nextValue, label: text })
+  }
+
+  for (const child of Children.toArray(children)) {
+    if (!isValidElement(child)) continue
+    if (child.type === 'optgroup') {
+      const props = child.props as { label?: string; children?: ReactNode }
+      const group: DropdownGroup = { label: props.label, options: [] }
+      for (const inner of Children.toArray(props.children)) {
+        if (isValidElement(inner) && inner.type === 'option') addOption(group, inner as never)
+      }
+      groups.push(group)
+      continue
+    }
+    if (child.type === 'option') addOption(unlabeled, child as never)
+  }
+  if (unlabeled.options.length > 0) groups.unshift(unlabeled)
+  return groups
+}
+
 export function Select({
   className,
   children,
+  onChange,
+  value,
+  disabled,
   ...rest
 }: SelectHTMLAttributes<HTMLSelectElement> & { children?: ReactNode }) {
+  const groups = optionsFromChildren(children)
+  const current = value === undefined || value === null ? '' : String(value)
   return (
-    <div className="select-wrap">
-      <select className={cx('select', className)} {...rest}>{children}</select>
-      <Icon name="chevron-down" />
-    </div>
+    <Dropdown
+      className={className}
+      value={current}
+      groups={groups}
+      placeholder={groups[0]?.options[0]?.label ?? '请选择'}
+      disabled={disabled}
+      label={rest['aria-label'] ?? rest.id}
+      onChange={(next) => {
+        onChange?.({ target: { value: next } } as unknown as ChangeEvent<HTMLSelectElement>)
+      }}
+    />
   )
 }
 

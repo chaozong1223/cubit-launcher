@@ -18,6 +18,7 @@ import {
   DataStateNotice,
   EmptyState,
   Field,
+  Dropdown,
   Input,
   Progress,
   ProjectIcon,
@@ -50,81 +51,7 @@ const TYPE_ICONS: Record<string, Parameters<typeof Icon>[0]['name']> = {
   shader: 'sun',
 }
 
-/**
- * Controlled dropdown used by the filter row: it always opens *below* the
- * trigger and eases in, which the native <select> cannot do inside this shell.
- */
-function Dropdown({
-  value,
-  groups,
-  placeholder,
-  onChange,
-}: {
-  value: string
-  groups: ReadonlyArray<{ label?: string; options: ReadonlyArray<{ value: string; label: string }> }>
-  placeholder: string
-  onChange: (next: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
-  const current = groups.flatMap((group) => group.options).find((option) => option.value === value)
-
-  return (
-    <div className="dropdown" ref={rootRef}>
-      <button
-        type="button"
-        className="dropdown__trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((previous) => !previous)}
-      >
-        <span>{current?.label ?? placeholder}</span>
-        <Icon name="chevron-down" className="ico ico--xs" />
-      </button>
-      {open ? (
-        <div className="dropdown__menu" role="listbox">
-          {groups.map((group, index) => (
-            <div key={group.label ?? `group-${index}`}>
-              {group.label ? <div className="dropdown__group">{group.label}</div> : null}
-              {group.options.map((option) => (
-                <button
-                  key={option.value || '__all__'}
-                  type="button"
-                  role="option"
-                  aria-selected={value === option.value}
-                  className="dropdown__item"
-                  onClick={() => {
-                    onChange(option.value)
-                    setOpen(false)
-                  }}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )
-}
 
 interface SearchFilters {
   query: string
