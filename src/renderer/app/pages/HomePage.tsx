@@ -251,6 +251,16 @@ function Hero({ instance }: { instance: InstanceSummary }) {
         throw new BackendError('JAVA.NOT_FOUND', '没有找到可用的 Java；请安装 Java 或在设置中指定路径', true)
       }
       setStage('生成启动参数…')
+      // Optional pre-launch cleanup (settings → 启动 → 内存分配). Only touches
+      // the whitelisted cache categories; failures never block the launch.
+      try {
+        if (window.localStorage.getItem('mcl.pref.optimizeBeforeLaunch') === '1') {
+          setStage('启动前清理缓存…')
+          await backend.perf.cleanCache({}).catch(() => undefined)
+        }
+      } catch {
+        /* storage unavailable: skip the optimisation */
+      }
       const result = await backend.launch.start(instance.id, accountId)
       setSessionId(result.sessionId)
       // Do not overwrite a `running` event that may arrive before start()

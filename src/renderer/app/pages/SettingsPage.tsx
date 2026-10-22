@@ -36,6 +36,13 @@ type Section = 'account' | 'launch' | 'java' | 'download' | 'link' | 'appearance
 function MemoryBar({ draft }: { draft: ReturnType<typeof useInstanceSettingsDraft> }) {
   const backend = useBackend()
   const hardware = useAsync(() => backend.perf.hardware(), [])
+  const [optimizeBeforeLaunch, setOptimizeBeforeLaunch] = useState(() => {
+    try {
+      return window.localStorage.getItem('mcl.pref.optimizeBeforeLaunch') === '1'
+    } catch {
+      return false
+    }
+  })
   if (!draft) return null
   const totalGb = hardware.data?.totalMemBytes ? hardware.data.totalMemBytes / 1024 ** 3 : null
   const freeGb = hardware.data?.freeMemBytes ? hardware.data.freeMemBytes / 1024 ** 3 : null
@@ -65,6 +72,21 @@ function MemoryBar({ draft }: { draft: ReturnType<typeof useInstanceSettingsDraf
         <span>已使用 <b>{usedGb?.toFixed(1) ?? '—'} GB</b> / {totalGb.toFixed(1)} GB</span>
         <span>游戏分配 <b>{assignedGb?.toFixed(1) ?? '—'} GB</b></span>
       </div>
+      <label className="memory-bar__opt">
+        <input
+          type="checkbox"
+          checked={optimizeBeforeLaunch}
+          onChange={(event) => {
+            setOptimizeBeforeLaunch(event.target.checked)
+            try {
+              window.localStorage.setItem('mcl.pref.optimizeBeforeLaunch', event.target.checked ? '1' : '0')
+            } catch {
+              /* storage unavailable: the choice still applies to this session */
+            }
+          }}
+        />
+        <span>启动游戏前进行内存优化（清理启动器缓存与崩溃转储，白名单内目录）</span>
+      </label>
     </div>
   )
 }

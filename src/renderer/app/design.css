@@ -852,7 +852,9 @@ svg { display: block; }
   display: flex; gap: 16px;
   min-height: 196px;
   padding: 20px;
-  overflow: hidden;
+  /* Visible so the overflow menu can escape the card; the decorative layers are
+     inset on their own and do not bleed outside the rounded box. */
+  overflow: visible;
   background: linear-gradient(132deg, #F2FBF7 0%, #F7FAFC 55%, #F3F6FA 100%);
   border-color: #D9EAE3;
   box-shadow: var(--shadow-1);
