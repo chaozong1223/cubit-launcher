@@ -78,8 +78,108 @@ function AuthlibAvatar({ account }: { account: Account }) {
   return <span className="avatar avatar--sm" aria-hidden="true">{account.name.slice(0, 1).toUpperCase()}</span>
 }
 
-function deviceFailure(message: string, hint?: string): UiErrorInfo {
-  return {
+function LocalSkinBlock({ account }: { account: Account }) {
+  const backend = useBackend()
+  const skin = useAsync(() => backend.skin.get(account.id), [account.id])
+  const [url, setUrl] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [error, setError] = useState<UiErrorInfo | null>(null)
+
+  const run = async (action: string, task: () => Promise<unknown>) => {
+    setBusy(action)
+    setError(null)
+    setNotice(null)
+    try {
+      await task()
+      skin.reload()
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const importFile = async () => {
+    const picked = await backend.system.pickFiles({
+      title: '选择 PNG 皮肤（64×64 或 64×32）',
+      filters: [{ name: 'PNG 皮肤', extensions: ['png'] }],
+    })
+    if (picked.cancelled || picked.paths.length === 0) return
+    await run('file', async () => {
+      await backend.skin.importFile(account.id, picked.paths[0])
+      setNotice('已从文件导入本地皮肤。')
+    })
+  }
+
+  return (
+    <section className="settings-auth-block" style={{ marginTop: 12 }}>
+      <h3><Icon name="user" />本地皮肤</h3>
+      <p className="muted" style={{ marginTop: 0 }}>
+        只保存在本机，不上传/修改微软或皮肤站上的官方皮肤；每个账户独立缓存，切换账户不会串。
+      </p>
+      {error ? <div className="nw-inline-error" role="alert">{error.title}：{error.detail}</div> : null}
+      {notice ? <Banner tone="success">{notice}</Banner> : null}
+      <div className="row gap-8" style={{ marginBottom: 10 }}>
+        <span
+          className="avatar avatar--sm"
+          style={{ overflow: 'hidden', imageRendering: 'pixelated' }}
+          aria-hidden="true"
+        >
+          {skin.data?.dataUrl
+            ? <img src={skin.data.dataUrl} alt="" style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }} />
+            : account.name.slice(0, 1).toUpperCase()}
+        </span>
+        <Badge tone={skin.data?.source === 'default' ? 'neutral' : 'accent'}>
+          {skin.data?.source === 'local' ? '本地文件' : skin.data?.source === 'remote' ? '在线导入（已缓存）' : '默认'}
+        </Badge>
+        {skin.data?.width && skin.data?.height ? <span className="muted">{skin.data.width}×{skin.data.height}</span> : null}
+      </div>
+      <div className="row gap-8" style={{ flexWrap: 'wrap' }}>
+        <Button size="sm" variant="secondary" icon="upload" loading={busy === 'file'} onClick={() => void importFile()}>
+          从文件导入
+        </Button>
+        <Button size="sm" variant="secondary" icon="refresh" loading={busy === 'account'} onClick={() => void run('account', async () => {
+          await backend.skin.importFromAccount(account.id)
+          setNotice('已从当前账户的皮肤站导入并缓存。')
+        })}>
+          从皮肤站导入
+        </Button>
+        <Button size="sm" variant="secondary" icon="trash" loading={busy === 'restore'} onClick={() => void run('restore', async () => {
+          await backend.skin.restore(account.id)
+          setNotice('已恢复默认（删除本地缓存）。')
+        })}>
+          恢复默认
+        </Button>
+      </div>
+      <div className="row gap-8" style={{ marginTop: 10 }}>
+        <Input
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder="https://…/skin.png"
+          aria-label="皮肤图片链接"
+          style={{ flex: 1 }}
+        />
+        <Button
+          size="sm"
+          variant="primary"
+          icon="link"
+          loading={busy === 'url'}
+          disabled={!url.trim()}
+          onClick={() => void run('url', async () => {
+            await backend.skin.importUrl(account.id, url.trim())
+            setUrl('')
+            setNotice('已从链接导入并缓存到本机。')
+          })}
+        >
+          从链接导入
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+function deviceFailure(message: string, hint?: string): UiErrorInfo {  return {
     kind: 'error',
     title: message,
     detail: hint ? `${message} — ${hint}` : message,
@@ -317,6 +417,8 @@ export function AccountSettingsPanel() {
       ) : auth.status === 'ready' ? (
         <EmptyState icon="user" title="还没有账户" description="创建离线账户即可启动；微软账户需要 client id 与 MCE 审批。" />
       ) : null}
+
+      {selected ? <LocalSkinBlock key={selected.id} account={selected} /> : null}
 
       <div className="settings-auth-grid">
         <section className="settings-auth-block">

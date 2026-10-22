@@ -19,6 +19,7 @@ import { SchematicsPage } from './pages/SchematicsPage'
 import { ScreenshotsPage } from './pages/ScreenshotsPage'
 import { TrashPage } from './pages/TrashPage'
 import { LinkPage } from './pages/LinkPage'
+import { SdkPage } from './pages/SdkPage'
 import { LogsPage } from './pages/LogsPage'
 import { PerfPage } from './pages/PerfPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -39,7 +40,10 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: st
     { path: '#/catalog', name: 'catalog', label: '资源库', icon: 'package' },
     { path: '#/updates', name: 'updates', label: '模组更新', icon: 'refresh' },
   ] },
-  { label: '一起玩', items: [{ path: '#/link', name: 'link', label: '联机', icon: 'link' }] },
+  { label: '一起玩', items: [
+    { path: '#/link', name: 'link', label: '联机', icon: 'link' },
+    { path: '#/sdk', name: 'sdk', label: '联机 SDK', icon: 'network' },
+  ] },
   { label: '系统', items: [
     { path: '#/logs', name: 'logs', label: '日志', icon: 'terminal' },
     { path: '#/perf', name: 'perf', label: '内存与性能', icon: 'activity' },
@@ -211,6 +215,7 @@ function Page({ route }: { route: Route }) {
     case 'screenshots': return <ScreenshotsPage />
     case 'trash': return <TrashPage />
     case 'link': return <LinkPage />
+    case 'sdk': return <SdkPage />
     case 'logs': return <LogsPage />
     case 'perf': return <PerfPage />
     case 'settings': return <SettingsPage />

@@ -1,4 +1,6 @@
 import type { AppInfo } from '@shared/system'
+import type { SkinInfo } from '@shared/skin'
+import type { SdkList, SdkStartResult, SdkStopResult } from '@shared/sdk'
 import type {
   MemoryRecommendation,
   PerfApplyResult,
@@ -96,7 +98,10 @@ import type {
   CatalogVersionsInput,
   CurseForgeConfigPatch,
   CurseForgeConfigView,
-  LinkImportStart,
+  LinkDownloadProgress,
+  LinkImportFinished,
+  LinkImportJobStart,
+  LinkImportProgress,
   PackLinkPlan,
 } from '@shared/catalog'
 import type { RendererReadyReport } from '@shared/channels'
@@ -409,6 +414,15 @@ const CH = {
   authProfile: channelOf('auth', 'profile'),
   authSignoutAuthlib: channelOf('auth', 'signoutAuthlib'),
   authSelect: channelOf('auth', 'select'),
+  skinGet: channelOf('skin', 'get'),
+  skinImportFile: channelOf('skin', 'importFile'),
+  skinImportUrl: channelOf('skin', 'importUrl'),
+  skinImportFromAccount: channelOf('skin', 'importFromAccount'),
+  skinRestore: channelOf('skin', 'restore'),
+  sdkList: channelOf('sdk', 'list'),
+  sdkStart: channelOf('sdk', 'start'),
+  sdkStop: channelOf('sdk', 'stop'),
+  sdkOpenFolder: channelOf('sdk', 'openFolder'),
   authBeginDeviceCode: channelOf('auth', 'beginDeviceCode'),
   authPollDeviceCode: channelOf('auth', 'pollDeviceCode'),
   authLogout: channelOf('auth', 'logout'),
@@ -441,6 +455,9 @@ const CH = {
   catalogCurseForgeConfig: channelOf('catalog', 'getCurseForgeConfig'),  catalogUpdateCurseForgeConfig: channelOf('catalog', 'updateCurseForgeConfig'),
   catalogPlanLinkImport: channelOf('catalog', 'planLinkImport'),
   catalogStartLinkImport: channelOf('catalog', 'startLinkImport'),
+  catalogCancelLinkImport: channelOf('catalog', 'cancelLinkImport'),
+  catalogLinkImportStatus: channelOf('catalog', 'linkImportStatus'),
+  catalogLinkImportResult: channelOf('catalog', 'linkImportResult'),
   perfHardware: channelOf('perf', 'hardware'),
   perfRecommend: channelOf('perf', 'recommend'),
   perfApply: channelOf('perf', 'apply'),
@@ -572,13 +589,8 @@ export type CatalogUpdatedEvent = {
   recycledPath: string | null
 }
 
-export type CatalogLinkProgressEvent = {
-  planId: string
-  provider: 'modrinth' | 'curseforge'
-  phase: 'downloading' | 'verifying' | 'importing'
-  bytes: number
-  totalBytes: number | null
-}
+export type CatalogLinkProgressEvent = LinkDownloadProgress
+export type CatalogLinkFinishedEvent = LinkImportFinished
 
 export type AssetsChangedEvent = { area: AssetArea }
 export type CrashChangedEvent = { instanceId: string | null }
@@ -677,6 +689,19 @@ export interface Backend {
     ensureAuthlib(): Promise<AuthlibInfo>
     subscribeChanged(callback: () => void): () => void
   }
+  skin: {
+    get(accountId: string): Promise<SkinInfo>
+    importFile(accountId: string, filePath: string): Promise<SkinInfo>
+    importUrl(accountId: string, url: string): Promise<SkinInfo>
+    importFromAccount(accountId: string): Promise<SkinInfo>
+    restore(accountId: string): Promise<SkinInfo>
+  }
+  sdk: {
+    list(): Promise<SdkList>
+    start(id: string, args?: string[]): Promise<SdkStartResult>
+    stop(id: string): Promise<SdkStopResult>
+    openFolder(): Promise<{ path: string; opened: boolean }>
+  }
   launch: {
     status(instanceId: string): Promise<LaunchStatus>
     plan(instanceId: string, accountId?: string | null, world?: string | null): Promise<LaunchPlan>
@@ -717,11 +742,15 @@ export interface Backend {
     getCurseForgeConfig(): Promise<CurseForgeConfigView>
     updateCurseForgeConfig(input: CurseForgeConfigPatch): Promise<CurseForgeConfigView>
     planLinkImport(link: string): Promise<PackLinkPlan>
-    startLinkImport(planId: string): Promise<LinkImportStart>
+    startLinkImport(planId: string): Promise<LinkImportJobStart>
+    cancelLinkImport(jobId: string): Promise<{ cancelled: boolean }>
+    linkImportStatus(jobId: string): Promise<LinkImportProgress | null>
+    linkImportResult(jobId: string): Promise<LinkImportFinished | null>
     subscribeCheckProgress(callback: (event: CatalogCheckProgressEvent) => void): () => void
     subscribeInstallProgress(callback: (event: CatalogInstallProgressEvent) => void): () => void
     subscribeUpdated(callback: (event: CatalogUpdatedEvent) => void): () => void
     subscribeLinkProgress(callback: (event: CatalogLinkProgressEvent) => void): () => void
+    subscribeLinkFinished(callback: (event: CatalogLinkFinishedEvent) => void): () => void
   }
   assets: {
     listSaves(instanceId: string): Promise<{ gameDir: string; saves: SaveEntry[] }>
@@ -946,6 +975,23 @@ export const ipcBackend: Backend = {
     ensureAuthlib: () => invoke<AuthlibInfo>('准备 Authlib', CH.authEnsureAuthlib),
     subscribeChanged: (callback) => on('mc:auth:evt:changed', callback),
   },
+  skin: {
+    get: (accountId) => invoke<SkinInfo>('读取本地皮肤', CH.skinGet, { accountId }),
+    importFile: (accountId, filePath) =>
+      invoke<SkinInfo>('导入本地皮肤文件', CH.skinImportFile, { accountId, filePath }),
+    importUrl: (accountId, url) =>
+      invoke<SkinInfo>('从链接导入皮肤', CH.skinImportUrl, { accountId, url }),
+    importFromAccount: (accountId) =>
+      invoke<SkinInfo>('导入账户皮肤站皮肤', CH.skinImportFromAccount, { accountId }),
+    restore: (accountId) => invoke<SkinInfo>('恢复默认皮肤', CH.skinRestore, { accountId }),
+  },
+  sdk: {
+    list: () => invoke<SdkList>('第三方联机 SDK 清单', CH.sdkList),
+    start: (id, args) =>
+      invoke<SdkStartResult>('启动第三方联机 SDK', CH.sdkStart, { id, ...(args ? { args } : {}) }),
+    stop: (id) => invoke<SdkStopResult>('停止第三方联机 SDK', CH.sdkStop, { id }),
+    openFolder: () => invoke<{ path: string; opened: boolean }>('打开第三方联机 SDK 目录', CH.sdkOpenFolder),
+  },
   launch: {
     status: (instanceId) => invoke<LaunchStatus>('启动状态', CH.launchStatus, { instanceId }),
     plan: (instanceId, accountId = null, world = null) =>
@@ -1011,11 +1057,18 @@ export const ipcBackend: Backend = {
     planLinkImport: (link) =>
       invoke<PackLinkPlan>('解析整合包链接', CH.catalogPlanLinkImport, { link }),
     startLinkImport: (planId) =>
-      invoke<LinkImportStart>('确认导入整合包', CH.catalogStartLinkImport, { planId, confirm: true }),
+      invoke<LinkImportJobStart>('确认导入整合包', CH.catalogStartLinkImport, { planId, confirm: true }),
+    cancelLinkImport: (jobId) =>
+      invoke<{ cancelled: boolean }>('取消链接导入', CH.catalogCancelLinkImport, { jobId }),
+    linkImportStatus: (jobId) =>
+      invoke<LinkImportProgress | null>('链接导入状态', CH.catalogLinkImportStatus, { jobId }),
+    linkImportResult: (jobId) =>
+      invoke<LinkImportFinished | null>('链接导入结果', CH.catalogLinkImportResult, { jobId }),
     subscribeCheckProgress: (callback) => on('mc:catalog:evt:checkProgress', callback),
     subscribeInstallProgress: (callback) => on('mc:catalog:evt:installProgress', callback),
     subscribeUpdated: (callback) => on('mc:catalog:evt:updated', callback),
     subscribeLinkProgress: (callback) => on('mc:catalog:evt:linkDownloadProgress', callback),
+    subscribeLinkFinished: (callback) => on('mc:catalog:evt:linkImportFinished', callback),
   },
   assets: {
     listSaves: (instanceId) =>
