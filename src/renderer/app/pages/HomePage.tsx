@@ -17,6 +17,7 @@ import {
   Card,
   DataStateNotice,
   EmptyState,
+  Input,
   LaunchButton,
   PageHeader,
   SectionHead,
@@ -101,8 +102,32 @@ function launchStateLabel(state: LaunchUiState): string {
   return '就绪'
 }
 
-function Hero({ instance }: { instance: InstanceSummary }) {
+function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: () => void }) {
   const [detailMenuOpen, setDetailMenuOpen] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [renameValue, setRenameValue] = useState(instance.name)
+  const [renameBusy, setRenameBusy] = useState(false)
+  const [renameError, setRenameError] = useState<string | null>(null)
+
+  const submitRename = async () => {
+    const next = renameValue.trim()
+    if (!next) {
+      setRenameError('名称不能为空')
+      return
+    }
+    setRenameBusy(true)
+    setRenameError(null)
+    try {
+      await backend.instances.update(instance.id, { name: next })
+      setRenameOpen(false)
+      onChanged?.()
+    } catch (cause) {
+      const info = describeError(cause)
+      setRenameError(`${info.title}：${info.detail}`)
+    } finally {
+      setRenameBusy(false)
+    }
+  }
 
   // Close the overflow menu on any outside click or Escape, not just the button.
   useEffect(() => {
@@ -428,6 +453,21 @@ function Hero({ instance }: { instance: InstanceSummary }) {
                   type="button"
                   role="menuitem"
                   className="hero-more__item"
+                  onClick={() => {
+                    setDetailMenuOpen(false)
+                    setRenameValue(instance.name)
+                    setRenameError(null)
+                    setRenameOpen(true)
+                  }}
+                >
+                  <Icon name="edit" className="ico ico--sm" />
+                  <span>重命名</span>
+                </button>
+                <div className="hero-more__sep" aria-hidden="true" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="hero-more__item"
                   disabled={busy}
                   onClick={() => {
                     setDetailMenuOpen(false)
@@ -524,6 +564,40 @@ function Hero({ instance }: { instance: InstanceSummary }) {
           </div>
         ) : null}
       </div>
+
+      {renameOpen ? (
+        <div className="rename-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setRenameOpen(false)
+        }}>
+          <div className="rename-dialog" role="dialog" aria-modal="true" aria-labelledby="rename-title">
+            <div className="rename-dialog__head">
+              <span className="rename-dialog__icon"><Icon name="edit" /></span>
+              <div>
+                <div className="eyebrow">重命名实例</div>
+                <h2 id="rename-title">{instance.name}</h2>
+              </div>
+            </div>
+            <label className="rename-dialog__field">
+              <span>新名称</span>
+              <Input
+                value={renameValue}
+                maxLength={64}
+                autoFocus
+                onChange={(event) => setRenameValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void submitRename()
+                  if (event.key === 'Escape') setRenameOpen(false)
+                }}
+              />
+            </label>
+            {renameError ? <p className="rename-dialog__error">{renameError}</p> : null}
+            <div className="rename-dialog__actions">
+              <Button variant="secondary" onClick={() => setRenameOpen(false)}>取消</Button>
+              <Button variant="primary" loading={renameBusy} onClick={() => void submitRename()}>保存</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   )
 }
@@ -657,7 +731,7 @@ export function HomePage() {
               <Skeleton className="skeleton--block" style={{ width: 180, height: 40, marginTop: 20, borderRadius: 7 }} />
             </div>
           ) : selected ? (
-            <Hero key={selected.id} instance={selected} />
+            <Hero key={selected.id} instance={selected} onChanged={instances.reload} />
           ) : pendingInfo ? (
             <PendingHero info={pendingInfo} onRetry={instances.reload} />
           ) : (

@@ -1473,6 +1473,39 @@
   color: var(--text-3);
 }
 .instance-row__stat { white-space: nowrap; }
+/* Rename dialog: same shape as the delete dialog, smaller. */
+.rename-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(8 12 15 / 55%);
+  animation: nw-fade-in 160ms var(--ease-out);
+}
+.rename-dialog {
+  width: min(420px, 100%);
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+.rename-dialog__head { display: flex; gap: 12px; align-items: flex-start; }
+.rename-dialog__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+.rename-dialog__head h2 { margin: 2px 0 0; font-size: 15px; color: var(--text); }
+.rename-dialog__field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; font-size: 11.5px; color: var(--text-3); }
+.rename-dialog__error { margin: 10px 0 0; font-size: 11.5px; color: var(--danger-text, #E5484D); }
+.rename-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 /* Softer transitions: page switches and instance switches fade in instead of
    snapping, and row selection eases between states. */
 @keyframes nw-fade-in {
