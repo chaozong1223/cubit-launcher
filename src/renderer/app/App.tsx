@@ -145,22 +145,20 @@ function Rail({ route }: { route: Route }) {
 
 /**
  * Secondary column, modelled after StarCloud Launcher: a context card on top and
- * the items of the active section underneath. The icon rail keeps the app-wide
- * navigation; this column carries the labels so the rail can stay icon-only.
+ * the full navigation menu underneath (all sections, grouped), so the icon rail
+ * can stay icon-only while labels live here.
  */
 function SubNav({ route }: { route: Route }) {
   const system = useSystem()
   const accounts = useCurrentAccount()
   const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
-  const group =
-    NAV_GROUPS.find((candidate) => candidate.items.some((item) => item.name === navActive)) ?? NAV_GROUPS[0]
   const current =
     accounts.data?.accounts.find((account) => account.id === accounts.data?.selectedId) ??
     accounts.data?.accounts[0] ??
     null
 
   return (
-    <aside className="subnav" aria-label={`${group.label}导航`}>
+    <aside className="subnav" aria-label="主导航">
       <div className="subnav__card">
         <div className="subnav__card-kicker">本地运行</div>
         <div className="subnav__card-value">{current ? current.name : '本地用户'}</div>
@@ -168,19 +166,29 @@ function SubNav({ route }: { route: Route }) {
           {current ? `${current.kind} 账户` : '账户未接入'} · v{system.version ?? '0.1.0'}
         </div>
       </div>
-      <div className="subnav__title">{group.label}</div>
-      <div className="subnav__list">
-        {group.items.map((item) => (
-          <a
-            className="subnav__item"
-            href={item.path}
-            key={item.path}
-            aria-current={navActive === item.name ? 'page' : undefined}
-          >
-            <Icon name={item.icon} className="ico ico--sm" />
-            <span>{item.label}</span>
-          </a>
-        ))}
+      {NAV_GROUPS.map((group) => (
+        <div className="subnav__group" key={group.label}>
+          <div className="subnav__title">{group.label}</div>
+          <div className="subnav__list">
+            {group.items.map((item) => (
+              <a
+                className="subnav__item"
+                href={item.path}
+                key={item.path}
+                aria-current={navActive === item.name ? 'page' : undefined}
+              >
+                <Icon name={item.icon} className="ico ico--sm" />
+                <span>{item.label}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="subnav__footer">
+        <button className="subnav__item subnav__item--button" type="button" onClick={() => navigate('/components')}>
+          <Icon name="flask" className="ico ico--sm" />
+          <span>界面规范</span>
+        </button>
       </div>
     </aside>
   )

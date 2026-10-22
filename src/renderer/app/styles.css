@@ -1058,6 +1058,25 @@
 .subnav__item[aria-current="page"] .ico {
   color: var(--accent-text);
 }
+.subnav__group {
+  display: flex;
+  flex-direction: column;
+}
+.subnav__group .subnav__title {
+  margin: 12px 6px 4px;
+}
+.subnav__item--button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.subnav__footer {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
 
 /* ==========================================================================
    StarCloud-style version picker (Download page)
