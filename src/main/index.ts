@@ -240,6 +240,18 @@ function handleRendererReady(report: RendererReadyReport): void {
   }, 250)
 }
 
+/**
+ * Window chrome colour for the frames before the renderer paints.
+ *
+ * It follows the *saved app theme*, not the OS: when the desktop is light and
+ * the app is dark, using `nativeTheme` produced a light flash on every launch.
+ */
+function windowBackgroundColor(): string {
+  const mode = loaded.config.app.theme
+  const dark = mode === 'dark' || (mode === 'system' && nativeTheme.shouldUseDarkColors)
+  return dark ? '#0F1316' : '#F4F6F8'
+}
+
 function createMainWindow(): void {
   const win = new BrowserWindow({
     width: loaded.config.app.window.width,
@@ -248,7 +260,7 @@ function createMainWindow(): void {
     minHeight: 700,
     frame: false,
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0F1316' : '#F4F6F8',
+    backgroundColor: windowBackgroundColor(),
     title: 'mc-launcher',
     autoHideMenuBar: true,
     webPreferences: {

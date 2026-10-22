@@ -15,8 +15,8 @@
         background: #0f1316;
       }
       @media (prefers-color-scheme: light) {
-        html,
-        body {
+        html:not([data-theme="dark"]),
+        body:not([data-theme="dark"]) {
           background: #f4f6f8;
         }
       }
@@ -36,6 +36,25 @@
         }
       }
     </style>
+    <script>
+      // Resolve the saved theme before the first paint: the OS may be light
+      // while the app is dark, and that mismatch is what looked like a flash.
+      (function () {
+        try {
+          var mode = localStorage.getItem('mc-launcher.theme-mode')
+          var dark =
+            mode === 'dark' ||
+            ((!mode || mode === 'system') &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          var color = dark ? '#0f1316' : '#f4f6f8'
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+          document.documentElement.style.background = color
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        } catch (error) {
+          /* keep the CSS defaults */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
