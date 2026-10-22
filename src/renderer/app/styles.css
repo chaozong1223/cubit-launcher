@@ -1144,9 +1144,11 @@
   width: var(--subnav-w);
   display: flex;
   flex-direction: column;
-  padding: 14px 12px;
+  margin: 10px 8px 10px 0;
+  padding: 12px 10px;
   background: var(--surface);
-  border-right: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
   overflow-y: auto;
 }
 .subnav__card {

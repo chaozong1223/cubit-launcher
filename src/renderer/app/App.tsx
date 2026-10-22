@@ -168,23 +168,10 @@ function Rail({ route, collapsed, onToggle }: { route: Route; collapsed: boolean
  * can stay icon-only while labels live here.
  */
 function SubNav({ route }: { route: Route }) {
-  const system = useSystem()
-  const accounts = useCurrentAccount()
   const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
-  const current =
-    accounts.data?.accounts.find((account) => account.id === accounts.data?.selectedId) ??
-    accounts.data?.accounts[0] ??
-    null
 
   return (
     <aside className="subnav" id="subnav" aria-label="主导航">
-      <div className="subnav__card">
-        <div className="subnav__card-kicker">本地运行</div>
-        <div className="subnav__card-value">{current ? current.name : '本地用户'}</div>
-        <div className="subnav__card-meta">
-          {current ? `${current.kind} 账户` : '账户未接入'} · v{system.version ?? '0.1.0'}
-        </div>
-      </div>
       {NAV_GROUPS.map((group) => (
         <div className="subnav__group" key={group.label}>
           <div className="subnav__title">{group.label}</div>
