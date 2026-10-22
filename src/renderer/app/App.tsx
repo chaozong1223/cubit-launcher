@@ -35,7 +35,6 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: st
   { label: '获取', items: [
     { path: '#/download', name: 'download', label: '安装与下载', icon: 'download' },
     { path: '#/catalog', name: 'catalog', label: '资源库', icon: 'package' },
-    { path: '#/updates', name: 'updates', label: '模组更新', icon: 'refresh' },
   ] },
   { label: '一起玩', items: [
     { path: '#/link', name: 'link', label: '联机', icon: 'link' },

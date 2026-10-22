@@ -50,6 +50,7 @@ const DETAIL_LINKS: ReadonlyArray<{ section: string; label: string; icon: Parame
 
 /** Page-level destinations that used to live in the sidebar. */
 const PAGE_LINKS: ReadonlyArray<{ path: string; label: string; icon: Parameters<typeof Icon>[0]['name'] }> = [
+  { path: '#/updates', label: '模组更新', icon: 'refresh' },
   { path: '#/saves', label: '存档', icon: 'cube' },
   { path: '#/schematics', label: '投影管理', icon: 'schematic' },
 ]
