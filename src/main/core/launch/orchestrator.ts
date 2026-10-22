@@ -54,9 +54,45 @@ export interface LaunchRequestInput {
   instanceId: string
   accountId?: string | null
   server?: { host: string; port: number } | null
+  /** Folder name under `<gameDir>/saves` to open directly (1.20+). */
+  world?: string | null
   dryRun?: boolean
   /** Persisted launcher language setting; null means follow the game. */
   gameLanguage?: string | null
+}
+
+/**
+ * Validates a quick-play world request: the name must be one folder segment and
+ * the world must exist below `<gameDir>/saves`. Returns null when none was asked
+ * for. Pure apart from the injected `fs`, which keeps it unit-testable.
+ */
+export function resolveQuickPlayWorld(
+  fs: FsPort,
+  gameDir: string,
+  world: string | null | undefined,
+): string | null {
+  const requested = typeof world === 'string' ? world.trim() : ''
+  if (requested.length === 0) return null
+  if (
+    requested === '.' ||
+    requested === '..' ||
+    requested.includes('/') ||
+    requested.includes('\\') ||
+    requested.includes('\0')
+  ) {
+    throw new CoreError('LAUNCH.WORLD_UNSAFE', {
+      message: `unsafe world name: ${requested}`,
+      details: { world: requested },
+    })
+  }
+  const worldDir = path.join(gameDir, 'saves', requested)
+  if (!fs.stat(worldDir)?.isDirectory()) {
+    throw new CoreError('LAUNCH.WORLD_NOT_FOUND', {
+      message: `world not found: ${worldDir}`,
+      details: { world: requested, worldDir },
+    })
+  }
+  return requested
 }
 
 export function commandLineMatchesGameDir(
@@ -375,6 +411,7 @@ export class LaunchOrchestrator extends EventEmitter {
 
     const paths = this.buildPaths(resolved, settings)
     assertPathBudget(paths.nativesDir, 'natives 目录')
+    const quickPlayWorld = resolveQuickPlayWorld(this.fs, paths.gameDir, input.world)
 
     // The game runs with the launcher's integrity level. Under a low-integrity
     // fallback (Chromium sandbox unavailable) mods cannot write to the system
@@ -414,6 +451,7 @@ export class LaunchOrchestrator extends EventEmitter {
         fullscreen: window.fullscreen,
         extraJvmArgs: settings.jvmArgs,
         server: input.server ?? settings.autoJoin,
+        quickPlayWorld,
         authlib,
         codePage,
         launcherName: 'mc-launcher',

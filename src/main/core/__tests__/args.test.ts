@@ -339,6 +339,54 @@ describe('buildLaunchPlan — custom JVM args and Authlib', () => {
   })
 })
 
+describe('buildLaunchPlan — quick-play singleplayer (direct world launch)', () => {
+  function worldLaunchVersion() {
+    const version = structuredClone(vanillaVersion())
+    const game = version.arguments?.game
+    if (game) {
+      game.push({
+        rules: [{ action: 'allow', features: { is_quick_play_singleplayer: true } }],
+        value: ['--quickPlaySingleplayer', '${quickPlaySingleplayer}'],
+      })
+    }
+    return version
+  }
+
+  it('adds --quickPlaySingleplayer with the world folder name', () => {
+    const plan = build({
+      version: flattened(worldLaunchVersion()),
+      settings: settings({ quickPlayWorld: 'World One' }),
+    })
+    expect(valueAfter(plan.argv, '--quickPlaySingleplayer')).toBe('World One')
+    expect(plan.argv).not.toContain('${quickPlaySingleplayer}')
+    expect(plan.warnings).toEqual([])
+  })
+
+  it('warns and launches normally when the version does not support quick play', () => {
+    const plan = build({
+      version: flattened(legacyVanillaVersion()),
+      mcVersion: '1.7.10',
+      settings: settings({ quickPlayWorld: 'World One' }),
+    })
+    expect(plan.argv).not.toContain('--quickPlaySingleplayer')
+    expect(plan.warnings.some((warning) => warning.includes('不支持快速进入存档'))).toBe(true)
+  })
+
+  it('prefers the world over an auto-join server', () => {
+    const plan = build({
+      version: flattened(worldLaunchVersion()),
+      settings: settings({
+        quickPlayWorld: 'World One',
+        server: { host: 'play.example.com', port: 25565 },
+      }),
+    })
+    expect(plan.argv).not.toContain('--server')
+    expect(plan.argv).not.toContain('--quickPlayMultiplayer')
+    expect(valueAfter(plan.argv, '--quickPlaySingleplayer')).toBe('World One')
+    expect(plan.warnings.some((warning) => warning.includes('优先直接进入存档'))).toBe(true)
+  })
+})
+
 describe('substitutePlaceholders', () => {
   it('drops null placeholders together with their flag', () => {
     expect(

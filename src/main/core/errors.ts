@@ -114,6 +114,16 @@ export const CORE_ERRORS = {
     userMessage: 'natives 目录被占用，无法准备启动文件',
     retryable: true,
   },
+  'LAUNCH.WORLD_NOT_FOUND': {
+    category: 'version',
+    userMessage: '要直接进入的存档不存在',
+    retryable: false,
+  },
+  'LAUNCH.WORLD_UNSAFE': {
+    category: 'version',
+    userMessage: '存档名称不合法，无法直接进入',
+    retryable: false,
+  },
   'LAUNCH.START_FAILED': {
     category: 'process',
     userMessage: '启动游戏失败',
@@ -152,6 +162,16 @@ export const CORE_ERRORS = {
   'ARCHIVE.UNSAFE_PATH': {
     category: 'fs',
     userMessage: '压缩包包含非法路径，已拒绝解压',
+    retryable: false,
+  },
+  'SCHEMATIC.INVALID': {
+    category: 'fs',
+    userMessage: '投影文件已损坏或格式不受支持',
+    retryable: false,
+  },
+  'SCHEMATIC.LIMIT_EXCEEDED': {
+    category: 'fs',
+    userMessage: '投影文件超出安全解析限制',
     retryable: false,
   },
 } as const satisfies Record<string, ErrorSpec>

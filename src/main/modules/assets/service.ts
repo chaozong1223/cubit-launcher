@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type {
   AssetArea,
   BackupResult,
@@ -8,6 +9,7 @@ import type {
   LogLevel,
   LogSource,
   RestoreResult,
+  SaveCopyResult,
   SaveEntry,
   ScreenshotEntry,
   TrashItem,
@@ -20,6 +22,13 @@ import { requireMcRoot } from '../_context'
 import { nodeFsPort, type FsPort } from '../../core/ports'
 import { gameDirectory, readInstanceSettings } from '../../core/instance/settings'
 import { scanInstances, type ScannedInstance } from '../../core/instance/scan'
+import { RollbackStack } from '../../core/fs/rollback'
+import {
+  resolvePathConflict,
+  sanitizePathName,
+  uniquePathName,
+} from '../../core/fs/conflict'
+import { copyTree } from '../../core/fs/copy-tree'
 import { TrashStore } from './trash'
 import { createStoredZip, type ZipEntryInput } from './zip'
 import { levelRank, parseLogText, type ParsedLogLine } from './logparse'
@@ -43,6 +52,8 @@ export interface AssetsServiceOptions {
   showItemInFolder?: (target: string) => void
   appVersion?: string
   now?: () => number
+  /** Rejects copy operations while either instance is running. */
+  isInstanceRunning?: (instanceId: string, dirName: string) => boolean
 }
 
 interface ResolvedInstance {
@@ -213,6 +224,8 @@ export class AssetsModuleService {
     }
     for (const entry of entries) {
       if (!entry.isDirectory() || entry.isSymbolicLink()) continue
+      // Hidden dirs are launcher-internal copy staging/backup folders.
+      if (entry.name.startsWith('.')) continue
       const target = path.join(dir, entry.name)
       const stat = safeStat(target)
       if (!stat) continue
@@ -287,6 +300,196 @@ export class AssetsModuleService {
     }
     if (result.items.length > 0) this.emit('saves')
     return result
+  }
+
+  /**
+   * Copies one world into another instance's `saves/` directory.
+   *
+   * Conflicts follow the shared policy: omit `conflict` → return
+   * `status:"conflict"` without writing, then overwrite/skip/rename. An
+   * overwrite first moves the existing world aside and a failure restores it
+   * through `RollbackStack` (never leaves a half-copied world behind).
+   */
+  async copySave(input: {
+    instanceId: string
+    name: string
+    targetInstanceId: string
+    targetName?: string
+    conflict?: 'overwrite' | 'skip' | 'rename'
+  }): Promise<SaveCopyResult> {
+    const source = this.resolve(input.instanceId)
+    const target = this.resolve(input.targetInstanceId)
+    const sourceSaves = path.join(source.gameDir, 'saves')
+    const sourceDir = assertChild(sourceSaves, input.name)
+    const sourceStat = safeStat(sourceDir)
+    if (!sourceStat?.isDirectory() || isSymlink(sourceDir)) {
+      fail('ASSETS.FILE_NOT_FOUND', `存档不存在: ${input.name}`)
+    }
+    if (this.options.isInstanceRunning?.(source.instance.id, source.instance.dirName)) {
+      fail('ASSETS.INSTANCE_RUNNING', '源实例正在运行，请先结束游戏再复制存档')
+    }
+    if (this.options.isInstanceRunning?.(target.instance.id, target.instance.dirName)) {
+      fail('ASSETS.INSTANCE_RUNNING', '目标实例正在运行，请先结束游戏再复制存档')
+    }
+
+    const targetSaves = path.join(target.gameDir, 'saves')
+    this.fs.mkdirp(targetSaves)
+    const requestedName = input.targetName?.trim() || input.name
+    const safeBase = sanitizePathName(requestedName, 'save')
+    if (safeBase !== requestedName) {
+      fail('ASSETS.UNSAFE_NAME', `存档文件夹名包含非法字符: ${requestedName}`)
+    }
+
+    const sourceMc = source.instance.mcVersion ?? null
+    const targetMc = target.instance.mcVersion ?? null
+    const crossVersion = sourceMc !== targetMc
+    const sourceLoader = source.instance.loader
+    const targetLoader = target.instance.loader
+    const loaderChanged =
+      sourceLoader.type !== targetLoader.type || sourceLoader.version !== targetLoader.version
+    const warnings: string[] = []
+    if (crossVersion) {
+      warnings.push(
+        `跨版本复制：源实例为 Minecraft ${sourceMc ?? '未知'}，目标实例为 ${targetMc ?? '未知'}；模组方块、实体、数据包和区块格式可能不兼容，可能丢失或导致存档损坏，建议先备份目标存档。`,
+      )
+    }
+    if (loaderChanged) {
+      warnings.push(
+        `加载器不同（${sourceLoader.type} → ${targetLoader.type}）；仅由某一侧模组提供的方块/物品会变成“未知方块”。`,
+      )
+    }
+
+    const baseTarget = path.join(targetSaves, safeBase)
+    const exists = (candidate: string): boolean => this.fs.exists(candidate)
+    if (exists(baseTarget) && input.conflict === undefined) {
+      return {
+        status: 'conflict',
+        sourceInstanceId: source.instance.dirName,
+        sourceName: input.name,
+        targetInstanceId: target.instance.dirName,
+        targetName: null,
+        files: 0,
+        bytes: 0,
+        overwritten: false,
+        renamed: false,
+        crossVersion,
+        warnings: [...warnings, `目标实例已存在同名存档「${safeBase}」；请选择覆盖、跳过或改名。`],
+      }
+    }
+    if (exists(baseTarget) && input.conflict === 'skip') {
+      return {
+        status: 'skipped',
+        sourceInstanceId: source.instance.dirName,
+        sourceName: input.name,
+        targetInstanceId: target.instance.dirName,
+        targetName: null,
+        files: 0,
+        bytes: 0,
+        overwritten: false,
+        renamed: false,
+        crossVersion,
+        warnings: [...warnings, `目标实例已存在同名存档「${safeBase}」，已按“跳过”处理。`],
+      }
+    }
+
+    const resolution = resolvePathConflict({
+      target: baseTarget,
+      strategy: input.conflict ?? 'rename',
+      exists,
+      uniqueTarget: () =>
+        path.join(targetSaves, uniquePathName(targetSaves, safeBase, exists)),
+    })
+    const targetName = path.basename(resolution.target)
+    const targetDir = resolution.target
+    const overwritten = resolution.strategy === 'overwrite' && exists(targetDir)
+    const renamed = resolution.renamed
+    if (path.resolve(sourceDir) === path.resolve(targetDir)) {
+      fail('ASSETS.SAVE_SELF_OVERWRITE', '不能把存档覆盖复制到它自己；请选择改名。')
+    }
+
+    const staging = path.join(targetSaves, `.mcl-save-copy-${randomUUID()}`)
+    const backup = path.join(targetSaves, `.mcl-save-backup-${randomUUID()}`)
+    const rollback = new RollbackStack()
+    try {
+      rollback.push('删除存档复制暂存目录', () => {
+        try {
+          this.fs.remove(staging)
+        } catch {
+          /* best effort */
+        }
+      })
+      this.fs.mkdirp(staging)
+      const copied = await copyTree(sourceDir, staging, {
+        skip: (relative) => relative.toLowerCase() === 'session.lock',
+      })
+
+      if (overwritten && exists(targetDir)) {
+        this.fs.rename(targetDir, backup)
+        rollback.push('恢复原有存档', () => {
+          try {
+            if (this.fs.exists(backup)) {
+              if (this.fs.exists(targetDir)) this.fs.remove(targetDir)
+              this.fs.rename(backup, targetDir)
+            }
+          } catch {
+            /* best effort */
+          }
+        })
+      }
+      this.fs.rename(staging, targetDir)
+      rollback.push('删除已复制存档', () => {
+        try {
+          this.fs.remove(targetDir)
+        } catch {
+          /* best effort */
+        }
+      })
+      rollback.commit()
+      if (overwritten && this.fs.exists(backup)) {
+        try {
+          this.fs.remove(backup)
+        } catch {
+          warnings.push('旧存档备份未能删除（位于 saves/ 下的隐藏目录）')
+        }
+      }
+
+      this.emit('saves')
+      this.options.log.info('save copied across instances', {
+        sourceInstanceId: source.instance.dirName,
+        targetInstanceId: target.instance.dirName,
+        name: input.name,
+        targetName,
+        files: copied.files,
+        bytes: copied.bytes,
+        overwritten,
+        renamed,
+        crossVersion,
+      })
+      return {
+        status: 'copied',
+        sourceInstanceId: source.instance.dirName,
+        sourceName: input.name,
+        targetInstanceId: target.instance.dirName,
+        targetName,
+        files: copied.files,
+        bytes: copied.bytes,
+        overwritten,
+        renamed,
+        crossVersion,
+        warnings,
+      }
+    } catch (error) {
+      const failures = await rollback.rollback()
+      if (failures.length > 0) {
+        this.options.log.warn('save copy rollback step failed', { failures })
+      }
+      if (error instanceof AppError) throw error
+      throw new AppError(
+        'ASSETS.SAVE_COPY_FAILED',
+        `复制存档失败: ${error instanceof Error ? error.message : String(error)}`,
+        { details: { name: input.name, targetInstanceId: input.targetInstanceId } },
+      )
+    }
   }
 
   async listScreenshots(input: {

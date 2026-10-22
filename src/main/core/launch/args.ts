@@ -47,6 +47,8 @@ export interface LaunchSettings {
   fullscreen: boolean
   extraJvmArgs: string[]
   server: { host: string; port: number } | null
+  /** World folder name under `<gameDir>/saves` to open on start (1.20+). */
+  quickPlayWorld?: string | null
   authlib: AuthlibInjection | null
   /** Windows ANSI code page; 936 on the local acceptance machine. */
   codePage: number
@@ -134,6 +136,7 @@ export const MANAGED_GAME_FLAGS = [
   '--server',
   '--port',
   '--quickPlayMultiplayer',
+  '--quickPlaySingleplayer',
 ] as const
 
 const G1_DEFAULTS = [
@@ -284,7 +287,7 @@ function buildPlaceholders(input: BuildLaunchPlanInput, classpath: string, clien
       // Client jar placeholder appears in a few Forge variants.
       client_jar: clientJar,
       quickPlayPath: null,
-      quickPlaySingleplayer: null,
+      quickPlaySingleplayer: settings.quickPlayWorld?.trim() || null,
       quickPlayMultiplayer: server ? `${server.host}:${server.port}` : null,
       quickPlayRealms: null,
     },
@@ -464,9 +467,15 @@ export function buildLaunchPlan(input: BuildLaunchPlanInput): LaunchPlanCore {
     has_custom_resolution: true,
     ...(input.features ?? {}),
   }
-  const server = settings.server
-  const quickPlay = server !== null && supportsQuickPlay(version, input.mcVersion ?? null)
+  // A requested world wins over an auto-join server: quickPlaySingleplayer and
+  // quickPlayMultiplayer are mutually exclusive in the game.
+  const requestedWorld = settings.quickPlayWorld?.trim() || null
+  const server = requestedWorld ? null : settings.server
+  const quickPlaySupported = supportsQuickPlay(version, input.mcVersion ?? null)
+  const quickPlay = server !== null && quickPlaySupported
+  const quickPlaySingleplayer = requestedWorld !== null && quickPlaySupported
   if (quickPlay) features.is_quick_play_multiplayer = true
+  if (quickPlaySingleplayer) features.is_quick_play_singleplayer = true
 
   const ruleContext = createRuleContext(platform, arch, features)
 
@@ -481,6 +490,14 @@ export function buildLaunchPlan(input: BuildLaunchPlanInput): LaunchPlanCore {
   const classpath = joinClasspath(libraries.classpath, platform)
 
   const warnings: string[] = []
+  if (requestedWorld && !quickPlaySupported) {
+    warnings.push(
+      `该版本不支持快速进入存档（需要 1.20+）；已正常启动，请在游戏内选择「${requestedWorld}」。`,
+    )
+  }
+  if (requestedWorld && settings.server) {
+    warnings.push('同时指定了自动加入服务器与存档，已优先直接进入存档。')
+  }
   if (libraries.missing.length > 0) {
     warnings.push(
       `${libraries.missing.length} file(s) missing (include ${path.basename(libraries.missing[0])})`,

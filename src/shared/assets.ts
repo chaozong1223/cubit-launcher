@@ -71,6 +71,30 @@ export const RestoreResultSchema = z.object({
 })
 export type RestoreResult = z.infer<typeof RestoreResultSchema>
 
+export const SaveConflictStrategySchema = z.enum(['overwrite', 'skip', 'rename'])
+export type SaveConflictStrategy = z.infer<typeof SaveConflictStrategySchema>
+
+/**
+ * Cross-version save copy. The source stays untouched; the target instance's
+ * `saves/<name>` is written after an explicit conflict decision.
+ */
+export const SaveCopyResultSchema = z.object({
+  status: z.enum(['copied', 'skipped', 'conflict']),
+  sourceInstanceId: z.string(),
+  sourceName: z.string(),
+  targetInstanceId: z.string(),
+  /** Resolved target world folder name (null for conflict/skip). */
+  targetName: z.string().nullable(),
+  files: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  overwritten: z.boolean(),
+  renamed: z.boolean(),
+  /** Source and target instances run different Minecraft/loader versions. */
+  crossVersion: z.boolean(),
+  warnings: z.array(z.string()),
+})
+export type SaveCopyResult = z.infer<typeof SaveCopyResultSchema>
+
 export const contract = defineContract({
   id: 'assets',
   methods: {
@@ -89,6 +113,17 @@ export const contract = defineContract({
     deleteSaves: {
       input: z.object({ instanceId: z.string().min(1), names: z.array(z.string().min(1)).min(1) }),
       output: BatchTrashResultSchema,
+    },
+    /** Copy `saves/<name>` into another instance (cross-version aware). */
+    copySave: {
+      input: z.object({
+        instanceId: z.string().min(1),
+        name: z.string().min(1),
+        targetInstanceId: z.string().min(1),
+        targetName: z.string().min(1).max(128).optional(),
+        conflict: SaveConflictStrategySchema.optional(),
+      }),
+      output: SaveCopyResultSchema,
     },
     listScreenshots: {
       input: z.object({ instanceId: z.string().min(1) }),

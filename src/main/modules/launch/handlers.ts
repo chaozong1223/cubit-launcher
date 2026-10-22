@@ -6,12 +6,14 @@ export function makeHandlers(service: LaunchModuleService) {
       instanceId: string
       accountId: string | null
       server: { host: string; port: number } | null
+      world: string | null
       dryRun?: boolean
     }) => service.plan(input),
     start: async (input: {
       instanceId: string
       accountId: string | null
       server: { host: string; port: number } | null
+      world: string | null
     }) => service.start(input),
     stop: async (input: { sessionId: string }) => service.stop(input.sessionId),
     status: async (input: { instanceId: string }) => service.status(input.instanceId),

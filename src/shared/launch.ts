@@ -99,6 +99,8 @@ export const LaunchRequestSchema = z.object({
     .object({ host: z.string(), port: z.number().int().min(1).max(65535) })
     .nullable()
     .default(null),
+  /** Open this world directly on start (`saves/<world>`, Minecraft 1.20+). */
+  world: z.string().min(1).max(128).nullable().default(null),
 })
 
 export const contract = defineContract({

@@ -1,4 +1,4 @@
-import type { AssetArea, LogLevel } from '@shared/assets'
+import type { AssetArea, LogLevel, SaveConflictStrategy } from '@shared/assets'
 import type { AssetsModuleService } from './service'
 
 export function makeHandlers(service: AssetsModuleService) {
@@ -7,6 +7,13 @@ export function makeHandlers(service: AssetsModuleService) {
     backupSave: (input: { instanceId: string; name: string; outPath?: string }) =>
       service.backupSave(input),
     deleteSaves: (input: { instanceId: string; names: string[] }) => service.deleteSaves(input),
+    copySave: (input: {
+      instanceId: string
+      name: string
+      targetInstanceId: string
+      targetName?: string
+      conflict?: SaveConflictStrategy
+    }) => service.copySave(input),
     listScreenshots: (input: { instanceId: string }) => service.listScreenshots(input),
     previewScreenshot: (input: { instanceId: string; name: string }) =>
       service.previewScreenshot(input),
