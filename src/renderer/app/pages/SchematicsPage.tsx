@@ -15,6 +15,7 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  PageNav,
   Select,
   SectionHead,
   Skeleton,
@@ -56,6 +57,7 @@ export function SchematicsPage() {
     [selected?.id],
   )
   const [query, setQuery] = useState('')
+  const [format, setFormat] = useState('all')
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [targetId, setTargetId] = useState('')
   const [busy, setBusy] = useState(false)
@@ -71,15 +73,24 @@ export function SchematicsPage() {
   const selectedRow = rows.find((row) => row.name === selectedName) ?? null
   const visibleRows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) => `${row.name} ${row.format} ${selected?.mcVersion ?? ''}`.toLowerCase().includes(q))
-  }, [rows, query, selected?.mcVersion])
+    return rows.filter((row) => {
+      if (format !== 'all' && row.format !== format) return false
+      if (!q) return true
+      return `${row.name} ${row.format} ${selected?.mcVersion ?? ''}`.toLowerCase().includes(q)
+    })
+  }, [rows, query, format, selected?.mcVersion])
+  const formatCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const row of rows) counts.set(row.format, (counts.get(row.format) ?? 0) + 1)
+    return counts
+  }, [rows])
 
   useEffect(() => {
     setSelectedName(null)
     setPickError(null)
     setNotice(null)
     setQuery('')
+    setFormat('all')
   }, [selected?.id])
 
   useEffect(() => {
@@ -166,7 +177,19 @@ export function SchematicsPage() {
       {pickError ? <DataStateNotice info={pickError} /> : null}
       {notice ? <Banner tone={notice.tone} title={notice.title}>{notice.detail}</Banner> : null}
 
-      <div className="schematic-layout">
+      <div className="page-split">
+        <PageNav
+          label="投影分类"
+          active={format}
+          onChange={setFormat}
+          items={[
+            { key: 'all', label: '全部投影', icon: 'schematic', count: rows.length },
+            ...Array.from(formatCounts.entries())
+              .sort((a, b) => a[0].localeCompare(b[0]))
+              .map(([name, count]) => ({ key: name, label: `.${name}`, count })),
+          ]}
+        />
+        <div className="schematic-layout">
         <Card className="schematic-list" pad={false}>
           <div className="asset-table-card__head">
             <div>
@@ -331,6 +354,7 @@ export function SchematicsPage() {
             </span>
           </div>
         </Card>
+        </div>
       </div>
     </>
   )

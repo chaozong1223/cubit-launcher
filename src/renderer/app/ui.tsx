@@ -128,6 +128,48 @@ export function SectionHead({ title, action }: { title: ReactNode; action?: Reac
   )
 }
 
+export interface PageNavItem {
+  key: string
+  label: ReactNode
+  icon?: IconName
+  count?: number
+}
+
+/**
+ * Secondary navigation inside a page (the reference launcher keeps these
+ * sub-menus inside the page instead of the global sidebar). Counts are
+ * rendered only when the caller has a real number to show.
+ */
+export function PageNav({
+  items,
+  active,
+  onChange,
+  label = '页面导航',
+}: {
+  items: PageNavItem[]
+  active: string
+  onChange: (key: string) => void
+  label?: string
+}) {
+  return (
+    <nav className="page-nav" aria-label={label}>
+      {items.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          className={cx('page-nav__item', item.key === active && 'is-active')}
+          aria-current={item.key === active ? 'page' : undefined}
+          onClick={() => onChange(item.key)}
+        >
+          {item.icon ? <Icon name={item.icon} /> : null}
+          <span className="page-nav__label">{item.label}</span>
+          {typeof item.count === 'number' ? <span className="page-nav__count">{item.count}</span> : null}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 export function Banner({
   tone = 'info',
   title,

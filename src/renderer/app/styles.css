@@ -580,6 +580,8 @@
 .asset-toolbar__row { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .asset-toolbar__group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .asset-toolbar__group--end { margin-left: auto; }
+/* One row of pill-shaped actions, like the reference launcher's asset toolbars. */
+.asset-toolbar .btn { border-radius: 999px; padding-inline: 12px; }
 .asset-toolbar .input,
 .asset-toolbar .select { height: 28px; font-size: 12px; }
 .asset-toolbar__search { width: 200px; }
@@ -591,6 +593,28 @@
 
 /* Schematic manager (t10 skeleton): list on the left, target-version actions on the right. */
 .schematic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 292px; gap: 12px; align-items: start; }
+/* Page-level secondary menu: a slim rail inside the page, not the global sidebar. */
+.page-split { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 14px; align-items: start; }
+.page-nav { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 8px; }
+.page-nav__item {
+  display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text-2);
+  font: inherit; font-size: 12.5px; text-align: left;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.page-nav__item:hover { background: var(--surface-2); color: var(--text); }
+.page-nav__item.is-active { background: var(--accent-subtle); color: var(--accent-text); font-weight: 600; }
+.page-nav__item .ico { width: 15px; height: 15px; flex: none; }
+.page-nav__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-nav__count { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
+.page-nav__item.is-active .page-nav__count { color: var(--accent-text); }
+/* Anchor targets of the link page's secondary menu. */
+#link-room, #link-lan, #link-info { scroll-margin-top: 12px; }
+@media (max-width: 1120px) {
+  .page-split { grid-template-columns: minmax(0, 1fr); }
+  .page-nav { flex-direction: row; flex-wrap: wrap; position: static; }
+  .page-nav__item { width: auto; }
+}
 .schematic-list { overflow: hidden; }
 .schematic-search { width: 180px; }
 .schematic-search .input { height: 28px; font-size: 12px; }
@@ -1140,31 +1164,37 @@
 .ver-pills {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 20px;
   flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-subtle);
 }
+/* Version-type switch as underline tabs (好友/联机 style in the reference). */
 .ver-pill {
-  height: 34px;
-  padding: 0 18px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
+  height: 36px;
+  padding: 0;
+  margin-bottom: -1px;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--text-2);
+  color: var(--text-3);
   font-size: 13px;
   font-weight: 600;
-  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
 }
 .ver-pill:hover {
-  background: var(--surface-2);
+  background: transparent;
   color: var(--text);
 }
 .ver-pill.is-active {
-  background: #f2e9c9;
-  border-color: #f2e9c9;
-  color: #1c1a12;
+  background: transparent;
+  border-color: transparent;
+  border-bottom-color: var(--accent);
+  color: var(--text);
 }
 .ver-search {
   margin-left: auto;
+  margin-bottom: 6px;
   width: 260px;
   max-width: 100%;
 }

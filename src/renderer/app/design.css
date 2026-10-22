@@ -38,12 +38,6 @@
   --on-accent: #FFFFFF;
   --focus: #0C7A57;
 
-  /* Primary button — gold, matching the reference launcher's "main action" colour */
-  --btn-primary-bg: #E3AC12;
-  --btn-primary-hover: #F0BB1F;
-  --btn-primary-active: #CC9A0C;
-  --on-btn-primary: #241B00;
-
   /* Semantic */
   --success: #157A46;
   --success-bg: #E8F6EE;
@@ -131,12 +125,6 @@
   --accent-ring: rgba(63, 203, 146, .28);
   --on-accent: #06231A;
   --focus: #6FE3B2;
-
-  /* Primary button — gold (dark theme) */
-  --btn-primary-bg: #F5C542;
-  --btn-primary-hover: #FFD75E;
-  --btn-primary-active: #E8B22F;
-  --on-btn-primary: #231A03;
 
   --success: #4ECB8B;
   --success-bg: #12261B;
@@ -385,8 +373,8 @@ svg { display: block; }
 @keyframes viewIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.page-head h1 { font: 600 22px/28px var(--font-display); letter-spacing: -.01em; }
-.page-sub { margin-top: 4px; font-size: 13px; line-height: 20px; color: var(--text-2); max-width: 720px; }
+.page-head h1 { font: 600 26px/32px var(--font-display); letter-spacing: -.015em; }
+.page-sub { margin-top: 6px; font-size: 13px; line-height: 20px; color: var(--text-2); max-width: 720px; }
 .page-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 10px; }
 .section-head h2 { font: 600 15px/22px var(--font-sans); }
@@ -409,9 +397,9 @@ svg { display: block; }
 .btn .ico { width: 16px; height: 16px; }
 .btn:hover { text-decoration: none; }
 .btn:active { transform: translateY(.5px); }
-.btn--primary { background: var(--btn-primary-bg); color: var(--on-btn-primary); box-shadow: 0 1px 1px rgba(0, 0, 0, .08); }
-.btn--primary:hover { background: var(--btn-primary-hover); }
-.btn--primary:active { background: var(--btn-primary-active); }
+.btn--primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 1px 1px rgba(0, 0, 0, .08); }
+.btn--primary:hover { background: var(--accent-hover); }
+.btn--primary:active { background: var(--accent-active); }
 .btn--secondary { background: var(--surface); border-color: var(--border); color: var(--text); }
 .btn--secondary:hover { background: var(--surface-2); border-color: var(--border-strong); }
 .btn--secondary:active { background: var(--surface-3); }
