@@ -4,6 +4,7 @@ import type { LaunchState } from '@shared/launch'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type LaunchStatusEvent, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
+import { SdkPage } from './SdkPage'
 import { useCurrentAccount } from '../data/useAccount'
 import { navigate } from '../router'
 import {
@@ -359,7 +360,7 @@ export function LinkPage() {
   const room = link.data
 
   // Page-level secondary tabs: the two real networking surfaces on this page.
-  const [section, setSection] = useState<'room' | 'lan'>('room')
+  const [section, setSection] = useState<'room' | 'lan' | 'sdk'>('room')
   const pending = link.status === 'not-wired' || link.status === 'error'
   const info = pending ? describeError(link.error) : null
 
@@ -562,13 +563,18 @@ export function LinkPage() {
             variant="tabs"
             label="联机页面导航"
             active={section}
-            onChange={(key) => setSection(key as 'room' | 'lan')}
+            onChange={(key) => setSection(key as 'room' | 'lan' | 'sdk')}
             items={[
               { key: 'room', label: '房间', icon: 'link', count: room?.members.length },
               { key: 'lan', label: '局域网', icon: 'network' },
+              { key: 'sdk', label: '联机 SDK', icon: 'terminal' },
             ]}
           />
-          {room ? (
+          {section === 'sdk' ? (
+            <div className="link-main" id="link-sdk">
+              <SdkPage embedded />
+            </div>
+          ) : room ? (
             <div className="link-grid">
           <div className="link-main">
             {section === 'room' ? (

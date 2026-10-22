@@ -52,7 +52,7 @@ function SdkRow({
   )
 }
 
-export function SdkPage() {
+export function SdkPage({ embedded = false }: { embedded?: boolean } = {}) {
   const backend = useBackend()
   const list = useAsync(() => backend.sdk.list(), [])
   const [busy, setBusy] = useState<string | null>(null)
@@ -107,18 +107,28 @@ export function SdkPage() {
   }
 
   const data: SdkList | null = list.data
+  const actions = (
+    <div className="row gap-8">
+      <Button variant="secondary" icon="folder" onClick={() => void openFolder()}>打开清单目录</Button>
+      <Button variant="primary" icon="refresh" loading={list.status === 'loading'} onClick={() => list.reload()}>重新扫描</Button>
+    </div>
+  )
   return (
     <>
-      <PageHeader
-        title="联机 SDK"
-        subtitle="内置 EasyTier 仍是默认联机通道；这里是可选的第三方 sidecar 清单。清单不通过校验就不会出现在可启动列表里。"
-        actions={
-          <div className="row gap-8">
-            <Button variant="secondary" icon="folder" onClick={() => void openFolder()}>打开清单目录</Button>
-            <Button variant="primary" icon="refresh" loading={list.status === 'loading'} onClick={() => list.reload()}>重新扫描</Button>
-          </div>
-        }
-      />
+      {embedded ? (
+        <>
+          <p className="page-sub">
+            内置 EasyTier 仍是默认联机通道；这里是可选的第三方 sidecar 清单。清单不通过校验就不会出现在可启动列表里。
+          </p>
+          <div className="instance-settings-card__footer">{actions}</div>
+        </>
+      ) : (
+        <PageHeader
+          title="联机 SDK"
+          subtitle="内置 EasyTier 仍是默认联机通道；这里是可选的第三方 sidecar 清单。清单不通过校验就不会出现在可启动列表里。"
+          actions={actions}
+        />
+      )}
 
       {notice ? <Banner tone={notice.tone}>{notice.text}</Banner> : null}
       {error ? <div className="nw-inline-error" role="alert">{error.title}：{error.detail}{error.code ? `（${error.code}）` : ''}</div> : null}

@@ -38,7 +38,6 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: st
   ] },
   { label: '一起玩', items: [
     { path: '#/link', name: 'link', label: '联机', icon: 'link' },
-    { path: '#/sdk', name: 'sdk', label: '联机 SDK', icon: 'network' },
   ] },
   { label: '系统', items: [
     { path: '#/logs', name: 'logs', label: '日志', icon: 'terminal' },
