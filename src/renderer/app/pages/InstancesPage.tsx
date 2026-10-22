@@ -42,7 +42,7 @@ function loaderBadge(instance: InstanceSummary) {
   }
 }
 
-function InstanceRow({ instance, onDelete }: { instance: InstanceSummary; onDelete: (instance: InstanceSummary) => void }) {
+function InstanceRow({ instance, onDelete, onCopy }: { instance: InstanceSummary; onDelete: (instance: InstanceSummary) => void; onCopy: (instance: InstanceSummary) => void }) {
   const broken = instance.state !== 'ready'
   const running = useInstanceRunning(instance.id)
   return (
@@ -69,6 +69,21 @@ function InstanceRow({ instance, onDelete }: { instance: InstanceSummary; onDele
       <td className="row-actions">
         {running ? <Badge tone="success" dot>运行中 · 禁删</Badge> : null}
         <Button size="xs" variant="secondary" disabled title="启动按钮将在实例/启动通道接入后启用">启动</Button>
+        <Button
+          size="xs"
+          variant="secondary"
+          icon="copy"
+          disabled={running || instance.isolation === 'shared'}
+          title={
+            instance.isolation === 'shared'
+              ? '共享隔离的实例没有独立目录，无法复制'
+              : '复制成一个新实例（含 mods 与配置）'
+          }
+          aria-label={`复制实例 ${instance.name}`}
+          onClick={() => onCopy(instance)}
+        >
+          复制
+        </Button>
         <Button
           size="xs"
           variant="danger-ghost"
@@ -102,6 +117,22 @@ export function InstancesPage() {
   useEffect(() => {
     if (flash) sessionStorage.removeItem('mcl.instances.flash')
   }, [flash])
+
+  const copyInstance = async (instance: InstanceSummary) => {
+    const suggestion = `${instance.name} 副本`
+    const input = window.prompt('把实例复制成一个新实例（包含 mods 与配置）', suggestion)
+    const name = input?.trim()
+    if (!name) return
+    try {
+      const created = await backend.instances.copyInstance(instance.id, name)
+      await instances.reload()
+      versions.reload()
+      window.dispatchEvent(new CustomEvent('mcl:instances-changed'))
+      setFlash(`已创建副本「${created.name}」，可以直接启动或再改配置。`)
+    } catch (cause) {
+      setFlash(`复制失败：${describeError(cause).title ?? '未知错误'}`)
+    }
+  }
 
   const confirmDelete = async () => {
     if (!deleteTarget) return
@@ -239,7 +270,7 @@ export function InstancesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length > 0 ? filtered.map((instance) => <InstanceRow instance={instance} key={instance.id} onDelete={setDeleteTarget} />) : (
+              {filtered.length > 0 ? filtered.map((instance) => <InstanceRow instance={instance} key={instance.id} onDelete={setDeleteTarget} onCopy={(target) => void copyInstance(target)} />) : (
                 <tr><td colSpan={8}>
                   <EmptyState
                     icon="search"
