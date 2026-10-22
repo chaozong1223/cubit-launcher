@@ -338,6 +338,13 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
     return [...releases, ...snapshots].slice(0, 300)
   }, [manifest.data])
 
+  // Follow the selected instance by default: searching for mods almost always
+  // targets that instance's version, and typing it by hand invites typos.
+  useEffect(() => {
+    if (!instance?.mcVersion) return
+    setGameVersion((current) => (current.trim() === '' ? instance.mcVersion ?? '' : current))
+  }, [instance?.id, instance?.mcVersion])
+
   useEffect(() => {
     setSelectedHit(null)
     setInstalled(null)
@@ -447,7 +454,7 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
               {LOADER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </Select>
           </Field>
-          <Field label="游戏版本" hint="可下拉选择，也可直接填写">
+          <Field label="游戏版本" hint="默认跟随当前实例；可下拉选择或手动填写">
             <Input
               list="catalog-game-versions"
               value={gameVersion}
