@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   CatalogInstallResult,
   CatalogPageResult,
@@ -328,6 +328,15 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
   const [cfError, setCfError] = useState<UiErrorInfo | null>(null)
   const [allowPrerelease, setAllowPrerelease] = useState(false)
   const search = useAsync(() => backend.catalog.search({ ...filters, limit: PAGE_SIZE }), [filters])
+  // Real version list for the picker: releases first, then snapshots, so the
+  // field can be chosen instead of typed from memory.
+  const manifest = useAsync(() => backend.downloads.manifest(), [])
+  const gameVersions = useMemo(() => {
+    const versions = manifest.data?.versions ?? []
+    const releases = versions.filter((version) => version.type === 'release').map((version) => version.id)
+    const snapshots = versions.filter((version) => version.type === 'snapshot').map((version) => version.id)
+    return [...releases, ...snapshots].slice(0, 300)
+  }, [manifest.data])
 
   useEffect(() => {
     setSelectedHit(null)
@@ -438,8 +447,16 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
               {LOADER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </Select>
           </Field>
-          <Field label="游戏版本" hint="可手填，如 1.20.1">
-            <Input value={gameVersion} onChange={(event) => setGameVersion(event.target.value)} placeholder="1.20.1" />
+          <Field label="游戏版本" hint="可下拉选择，也可直接填写">
+            <Input
+              list="catalog-game-versions"
+              value={gameVersion}
+              onChange={(event) => setGameVersion(event.target.value)}
+              placeholder="全部版本"
+            />
+            <datalist id="catalog-game-versions">
+              {gameVersions.map((version) => <option key={version} value={version} />)}
+            </datalist>
           </Field>
         </div>
         <div className="catalog-filters__actions">
