@@ -27,6 +27,47 @@ import { AccountSettingsPanel } from './AccountSettingsPanel'
 
 type Section = 'account' | 'launch' | 'java' | 'download' | 'link' | 'appearance' | 'diagnostics'
 
+/**
+ * Physical memory versus what this instance may take, drawn from perf.hardware
+ * (real numbers) and the draft's -Xmx field. No invented values: when hardware
+ * cannot be read the bar degrades to a plain notice.
+ */
+function MemoryBar({ draft }: { draft: ReturnType<typeof useInstanceSettingsDraft> }) {
+  const backend = useBackend()
+  const hardware = useAsync(() => backend.perf.hardware(), [])
+  if (!draft) return null
+  const totalGb = hardware.data?.totalMemBytes ? hardware.data.totalMemBytes / 1024 ** 3 : null
+  const freeGb = hardware.data?.freeMemBytes ? hardware.data.freeMemBytes / 1024 ** 3 : null
+  const usedGb = totalGb !== null && freeGb !== null ? Math.max(0, totalGb - freeGb) : null
+  const assignedMb = Number(draft.maxMb)
+  const assignedGb = Number.isFinite(assignedMb) && assignedMb > 0 ? assignedMb / 1024 : null
+  if (totalGb === null) {
+    return (
+      <div className="memory-bar memory-bar--unknown">
+        本机物理内存读取失败，无法绘制占用条；下面的内存设置仍然可用。
+      </div>
+    )
+  }
+  const usedPct = usedGb === null ? 0 : Math.min(100, (usedGb / totalGb) * 100)
+  const assignedPct = assignedGb === null ? 0 : Math.min(100, (assignedGb / totalGb) * 100)
+  return (
+    <div className="memory-bar">
+      <div className="memory-bar__head">
+        <strong>内存分配</strong>
+        <span className="memory-bar__mode">自定义 · 由下方「最大内存」决定</span>
+      </div>
+      <div className="memory-bar__track" role="img" aria-label={`已用 ${usedGb?.toFixed(1)} GB / ${totalGb.toFixed(1)} GB，游戏分配 ${assignedGb?.toFixed(1) ?? '—'} GB`}>
+        <span className="memory-bar__used" style={{ width: `${usedPct}%` }} />
+        <span className="memory-bar__game" style={{ width: `${assignedPct}%` }} />
+      </div>
+      <div className="memory-bar__legend">
+        <span>已使用 <b>{usedGb?.toFixed(1) ?? '—'} GB</b> / {totalGb.toFixed(1)} GB</span>
+        <span>游戏分配 <b>{assignedGb?.toFixed(1) ?? '—'} GB</b></span>
+      </div>
+    </div>
+  )
+}
+
 const SECTIONS: ReadonlyArray<{ value: Section; label: string; icon: IconName }> = [
   { value: 'account', label: '账户', icon: 'user' },
   { value: 'launch', label: '启动', icon: 'play' },
@@ -113,6 +154,7 @@ export function SettingsPage() {
                   <div><h2>启动</h2><p>内存、窗口、JVM 参数与 Java 选择均写入实例；下方 dry-run 来自真实 launch.plan。</p></div>
                 </div>
                 <div className="settings-section__body">
+                  {draft ? <MemoryBar draft={draft} /> : null}
                   {draft ? <InstanceSettingsFields draft={draft} mode="all" /> : (
                     <EmptyState icon="instances" title="先选择实例" description="没有实例时不会显示或伪造内存、窗口、JVM 参数。" />
                   )}
