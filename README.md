@@ -1,7 +1,8 @@
 # Cubit Launcher（仓库名 `mc-launcher`）
 
-> **当前发布状态（2026-10-21）**：**P0 未通过，不得对外称“可用”**。
-> 依据 [`docs/05-acceptance-report.md`](docs/05-acceptance-report.md)：9 张 P0 卡中 **P0-0、P0-2 通过**；**P0-1、P0-3、P0-4、P0-5、P0-6、P0-7 存在阻断**；**P0-8 通过但 A8.3/8.4/8.5/8.7 证据不足**；16 步冒烟未达 16/16。
+> **当前发布状态（2026-10-22 更新）**：**P0-6 已闭环，其余阻断见下方清单；对外发布前仍需一次全量回归。**
+> 依据 [`docs/05-acceptance-report.md`](docs/05-acceptance-report.md)：9 张 P0 卡中 **P0-0、P0-2 通过**；**P0-1、P0-3、P0-4、P0-5、P0-7 的阻断已在 10-21 夜间修复并通过复核**（见 `docs/06-review-round3-t54.md`）；**P0-6 的 LAN 世界发现与成员进世界已实测打通**（证据：[`docs/08-p0-6-lan-e2e.md`](docs/08-p0-6-lan-e2e.md)，端口 60321 真实解析、成员通过邀请码进房并进入世界）；P0-8 通过但 A8.3/8.4/8.5/8.7 证据仍不足。
+> 2026-10-22 追加修复：微软登录回调地址对齐已注册 URI（`http://localhost:53117/`，端点 `consumers`）、游戏临时目录重定向修复低完整性下模组写 `%TEMP%` 失败、`npm run pack` 不再清空便携数据目录。
 > 本 README 只写有证据的能力；**P1/P2 与未通过验收的项不会写成“已可用”**。
 
 Cubit Launcher 是一个 **Windows x64、中文优先、clean-room** 的 Minecraft 启动器：Electron + TypeScript + React，目标覆盖实例/版本、安装下载、Java、账户、启动参数、模组/资源包/光影、整合包、日志/崩溃、联机。它**没有复制或移植 PCL2 源码**，只参考 PCL2 的黑盒行为、落盘格式与公开规范；许可证为 **GPL-3.0**（见 [`LICENSE`](LICENSE)、[`NOTICE`](NOTICE)）。
