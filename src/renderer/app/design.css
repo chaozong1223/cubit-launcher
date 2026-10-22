@@ -843,7 +843,7 @@ svg { display: block; }
 /* ==========================================================================
    11. Home
    ========================================================================== */
-.home__grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+.home__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
 .home__main { min-width: 0; }
 .home__aside { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
