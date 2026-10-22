@@ -102,12 +102,23 @@ function TitleBar({ route }: { route: Route }) {
   )
 }
 
-function Rail({ route }: { route: Route }) {
+function Rail({ route, collapsed, onToggle }: { route: Route; collapsed: boolean; onToggle: () => void }) {
   const accounts = useCurrentAccount()
   const current = accounts.data?.accounts.find((account) => account.id === accounts.data?.selectedId) ?? accounts.data?.accounts[0] ?? null
   const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
   return (
     <nav className="rail rail--icons" aria-label="主导航">
+      <button
+        className="rail-btn rail-btn--menu"
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        aria-controls="subnav"
+        aria-label={collapsed ? '展开导航菜单' : '收起导航菜单'}
+        title={collapsed ? '展开导航菜单' : '收起导航菜单'}
+      >
+        <Icon name="menu" />
+      </button>
       <div className="rail__scroll">
         {NAV_GROUPS.map((group, groupIndex) => (
           <div className="rail__group" key={group.label}>
@@ -166,7 +177,7 @@ function SubNav({ route }: { route: Route }) {
     null
 
   return (
-    <aside className="subnav" aria-label="主导航">
+    <aside className="subnav" id="subnav" aria-label="主导航">
       <div className="subnav__card">
         <div className="subnav__card-kicker">本地运行</div>
         <div className="subnav__card-value">{current ? current.name : '本地用户'}</div>
@@ -227,6 +238,24 @@ function Page({ route }: { route: Route }) {
 export default function App() {
   const backend = useBackend()
   const route = useRoute()
+  const [navCollapsed, setNavCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem('cubit.nav.collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+  const toggleNav = useCallback(() => {
+    setNavCollapsed((previous) => {
+      const next = !previous
+      try {
+        window.localStorage.setItem('cubit.nav.collapsed', next ? '1' : '0')
+      } catch {
+        /* storage unavailable: the toggle still works for this session */
+      }
+      return next
+    })
+  }, [])
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [version, setVersion] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -316,8 +345,8 @@ export default function App() {
       <GlobalDropZone />
       <div className="app">
         <TitleBar route={route} />
-        <div className="shell">
-          <Rail route={route} />
+        <div className={navCollapsed ? 'shell shell--nav-collapsed' : 'shell'}>
+          <Rail route={route} collapsed={navCollapsed} onToggle={toggleNav} />
           <SubNav route={route} />
           <main className="content" id="content">
             <div className="page" key={route.path}>

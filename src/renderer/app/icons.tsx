@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 export type IconName =
+  | 'menu'
   | 'home'
   | 'instances'
   | 'download'
@@ -48,6 +49,7 @@ export type IconName =
   | 'window-close'
 
 const ICONS: Record<IconName, ReactNode> = {
+  menu: <><path d="M4 6.8h16M4 12h16M4 17.2h16" /></>,
   home: <><path d="M3 10.7 12 3.2l9 7.5" /><path d="M5.5 9.2V20h13V9.2" /><path d="M9.8 20v-5.4h4.4V20" /></>,
   instances: <><rect x="3.2" y="3.2" width="7.4" height="7.4" rx="1.4" /><rect x="13.4" y="3.2" width="7.4" height="7.4" rx="1.4" /><rect x="3.2" y="13.4" width="7.4" height="7.4" rx="1.4" /><rect x="13.4" y="13.4" width="7.4" height="7.4" rx="1.4" /></>,
   download: <><path d="M12 3.5v11" /><path d="m7.5 10.2 4.5 4.5 4.5-4.5" /><path d="M4 16.5v2.2a1.8 1.8 0 0 0 1.8 1.8h12.4a1.8 1.8 0 0 0 1.8-1.8v-2.2" /></>,

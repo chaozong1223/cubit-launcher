@@ -1096,6 +1096,13 @@
   width: 19px;
   height: 19px;
 }
+.rail-btn--menu {
+  margin-bottom: 6px;
+  color: var(--text-2);
+}
+.shell--nav-collapsed .subnav {
+  display: none;
+}
 .rail-btn:hover {
   background: var(--surface-2);
   color: var(--text);
