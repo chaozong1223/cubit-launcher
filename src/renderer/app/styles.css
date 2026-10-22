@@ -1326,6 +1326,70 @@
   cursor: pointer;
 }
 .memory-bar__opt input { width: 15px; height: 15px; accent-color: var(--accent); }
+/* Compact version rows (StarCloud/PCL style) instead of a card grid. */
+.instance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.instance-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.instance-row:hover { background: var(--surface-2); }
+.instance-row.is-current { background: var(--accent-subtle); }
+.instance-row__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+.instance-row__icon .ico { width: 18px; height: 18px; }
+.instance-row__main { flex: 1; min-width: 0; }
+.instance-row__name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.instance-row__sub {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.instance-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.instance-row__stat { white-space: nowrap; }
 .setting-group--stack {
   flex-direction: column;
   align-items: stretch;

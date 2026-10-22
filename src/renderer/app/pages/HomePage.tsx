@@ -607,38 +607,32 @@ export function HomePage() {
           />
           {instances.status === 'ready' && instances.data ? (
             instances.data.length > 0 ? (
-              <div className="instance-grid">
-                {instances.data.slice(0, 6).map((instance) => (
-                  <article
-                    className={selected?.id === instance.id ? 'card instance-card is-current' : 'card instance-card'}
+              <div className="instance-list">
+                {instances.data.slice(0, 12).map((instance) => (
+                  <button
+                    type="button"
+                    className={selected?.id === instance.id ? 'instance-row is-current' : 'instance-row'}
                     key={instance.id}
-                    role="button"
-                    tabIndex={0}
                     title={`切换到「${instance.name}」`}
                     onClick={() => setSelectedId(instance.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        setSelectedId(instance.id)
-                      }
-                    }}
                   >
-                    <div className="instance-card__top">
-                      <span className="icon-tile icon-tile--vanilla" aria-hidden="true"><Icon name="cube" className="ico" /></span>
-                      <div className="instance-card__title">
-                        <span className="instance-card__name">{instance.name}</span>
-                        <div className="instance-card__sub">{instance.mcVersion ?? '版本未知'} · {instance.loader.type}</div>
-                      </div>
-                    </div>
-                    <div className="instance-card__tags">
+                    <span className="instance-row__icon" aria-hidden="true"><Icon name="cube" className="ico" /></span>
+                    <span className="instance-row__main">
+                      <span className="instance-row__name">{instance.name}</span>
+                      <span className="instance-row__sub">
+                        {instance.mcVersion ?? '版本未知'}
+                        {instance.loader.type !== 'vanilla' ? `, ${instance.loader.type}${instance.loader.version ? ` ${instance.loader.version}` : ''}` : ''}
+                      </span>
+                    </span>
+                    <span className="instance-row__meta">
                       <InstanceStateBadge state={instance.state} />
                       <Tag>{instance.isolation === 'isolated' ? '隔离' : '共用'}</Tag>
-                    </div>
-                    <div className="instance-card__footer">
-                      <span>{instance.lastPlayedAt ? new Date(instance.lastPlayedAt).toLocaleDateString('zh-CN') : '尚未游玩'}</span>
-                      <span>Java {instance.javaMajor ?? '—'}</span>
-                    </div>
-                  </article>
+                      <span className="instance-row__stat">Java {instance.javaMajor ?? '—'}</span>
+                      <span className="instance-row__stat">
+                        {instance.lastPlayedAt ? new Date(instance.lastPlayedAt).toLocaleDateString('zh-CN') : '尚未游玩'}
+                      </span>
+                    </span>
+                  </button>
                 ))}
               </div>
             ) : (
