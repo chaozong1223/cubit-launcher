@@ -102,113 +102,50 @@ function TitleBar({ route }: { route: Route }) {
   )
 }
 
-function Rail({ route, collapsed, onToggle }: { route: Route; collapsed: boolean; onToggle: () => void }) {
-  const accounts = useCurrentAccount()
-  const current = accounts.data?.accounts.find((account) => account.id === accounts.data?.selectedId) ?? accounts.data?.accounts[0] ?? null
+/**
+ * Single-column sidebar, like StarCloud: one list with icon + label. Collapsing
+ * narrows the very same list down to icons (no separate icon rail beside it).
+ */
+function Nav({ route, collapsed, onToggle }: { route: Route; collapsed: boolean; onToggle: () => void }) {
   const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
+  const primary = NAV_GROUPS.filter((group) => group.label !== '系统').flatMap((group) => group.items)
+  const secondary = NAV_GROUPS.filter((group) => group.label === '系统').flatMap((group) => group.items)
+
+  const renderItem = (entry: { path: string; name: Route['name']; label: string; icon: Parameters<typeof Icon>[0]['name'] }) => (
+    <a
+      className="nav__item"
+      href={entry.path}
+      key={entry.path}
+      title={entry.label}
+      aria-current={navActive === entry.name ? 'page' : undefined}
+    >
+      <Icon name={entry.icon} className="ico ico--sm" />
+      <span className="nav__label">{entry.label}</span>
+    </a>
+  )
+
   return (
-    <nav className="rail rail--icons" aria-label="主导航">
+    <nav className={collapsed ? 'nav nav--collapsed' : 'nav'} aria-label="主导航">
       <button
-        className="rail-btn rail-btn--menu"
+        className="nav__toggle"
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        aria-controls="subnav"
         aria-label={collapsed ? '展开导航菜单' : '收起导航菜单'}
         title={collapsed ? '展开导航菜单' : '收起导航菜单'}
       >
         <Icon name="menu" />
       </button>
-      <div className="rail__scroll">
-        {NAV_GROUPS.map((group, groupIndex) => (
-          <div className="rail__group" key={group.label}>
-            {groupIndex > 0 ? <div className="rail__sep" aria-hidden="true" /> : null}
-            {group.items.map((item) => (
-              <a
-                className="rail-btn"
-                href={item.path}
-                key={item.path}
-                title={item.label}
-                aria-label={item.label}
-                aria-current={navActive === item.name ? 'page' : undefined}
-              >
-                <Icon name={item.icon} />
-              </a>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="rail__footer">
-        <button
-          className="rail-avatar"
-          type="button"
-          onClick={() => navigate('/settings/account')}
-          title={current ? `${current.name} · ${current.kind} 账户` : '账户未接入'}
-          aria-label="账户"
-        >
-          <span className="avatar avatar--sm" aria-hidden="true">{(current?.name ?? 'L').slice(0, 1).toUpperCase()}</span>
-        </button>
-        <button
-          className="rail-btn rail-btn--ghost"
-          type="button"
-          aria-label="界面规范"
-          title="界面规范"
-          onClick={() => navigate('/components')}
-        >
-          <Icon name="flask" />
-        </button>
+      <div className="nav__list">{primary.map(renderItem)}</div>
+      <div className="nav__divider" aria-hidden="true" />
+      <div className="nav__list">{secondary.map(renderItem)}</div>
+      <div className="nav__footer">
+        <a className="nav__item" href="#/components" title="界面规范">
+          <Icon name="flask" className="ico ico--sm" />
+          <span className="nav__label">界面规范</span>
+        </a>
       </div>
     </nav>
-  )
-}
-
-/**
- * Secondary column, modelled after StarCloud Launcher: it is the full navigation
- * menu (one primary list, a divider, then the system group). Per-page categories
- * live inside the page, not here — the panel never changes shape between pages.
- */
-function SubNav({ route }: { route: Route }) {
-  const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
-
-  const primary = NAV_GROUPS.filter((group) => group.label !== '系统')
-  const secondary = NAV_GROUPS.filter((group) => group.label === '系统')
-
-  return (
-    <aside className="subnav" id="subnav" aria-label="主导航">
-      <div className="subnav__list">
-        {primary.flatMap((group) => group.items).map((item) => (
-          <a
-            className="subnav__item"
-            href={item.path}
-            key={item.path}
-            aria-current={navActive === item.name ? 'page' : undefined}
-          >
-            <Icon name={item.icon} className="ico ico--sm" />
-            <span className="subnav__item-label">{item.label}</span>
-          </a>
-        ))}
-      </div>
-      <div className="subnav__divider" aria-hidden="true" />
-      <div className="subnav__list">
-        {secondary.flatMap((group) => group.items).map((item) => (
-          <a
-            className="subnav__item"
-            href={item.path}
-            key={item.path}
-            aria-current={navActive === item.name ? 'page' : undefined}
-          >
-            <Icon name={item.icon} className="ico ico--sm" />
-            <span className="subnav__item-label">{item.label}</span>
-          </a>
-        ))}
-      </div>
-      <div className="subnav__footer">
-        <button className="subnav__item subnav__item--button" type="button" onClick={() => navigate('/components')}>
-          <Icon name="flask" className="ico ico--sm" />
-          <span className="subnav__item-label">界面规范</span>
-        </button>
-      </div>
-    </aside>
   )
 }
 
@@ -333,8 +270,7 @@ export default function App() {
       <div className="app">
         <TitleBar route={route} />
         <div className={navCollapsed ? 'shell shell--nav-collapsed' : 'shell'}>
-          <Rail route={route} collapsed={navCollapsed} onToggle={toggleNav} />
-          <SubNav route={route} />
+          <Nav route={route} collapsed={navCollapsed} onToggle={toggleNav} />
           <main className="content" id="content">
             <div className="page" key={route.path}>
               <Page route={route} />
