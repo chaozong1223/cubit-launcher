@@ -345,6 +345,7 @@ function Hero({ instance, onChoose }: { instance: InstanceSummary; onChoose: () 
               {stopping ? '正在结束…' : '结束游戏'}
             </Button>
           ) : null}
+          <Button variant="secondary" size="lg" icon="package" onClick={() => navigate('/catalog')} title="打开资源库，按当前实例筛选模组">下载模组</Button>
           <Button variant="secondary" size="lg" icon="terminal" onClick={() => void preview()} disabled={busy} title="dry-run：生成真实启动参数，不启动进程">预览启动参数</Button>
           <Button variant="ghost" size="lg" icon="more" onClick={onChoose}>切换实例</Button>
         </div>
