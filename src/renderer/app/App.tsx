@@ -99,42 +99,90 @@ function Rail({ route }: { route: Route }) {
   const current = accounts.data?.accounts.find((account) => account.id === accounts.data?.selectedId) ?? accounts.data?.accounts[0] ?? null
   const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
   return (
-    <nav className="rail" aria-label="主导航">
+    <nav className="rail rail--icons" aria-label="主导航">
       <div className="rail__scroll">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label}>
-            <div className="rail__label">{group.label}</div>
+        {NAV_GROUPS.map((group, groupIndex) => (
+          <div className="rail__group" key={group.label}>
+            {groupIndex > 0 ? <div className="rail__sep" aria-hidden="true" /> : null}
             {group.items.map((item) => (
               <a
-                className="nav-item"
+                className="rail-btn"
                 href={item.path}
                 key={item.path}
+                title={item.label}
                 aria-label={item.label}
                 aria-current={navActive === item.name ? 'page' : undefined}
               >
                 <Icon name={item.icon} />
-                <span className="nav-item__label">{item.label}</span>
               </a>
             ))}
           </div>
         ))}
       </div>
       <div className="rail__footer">
-        <button className="account-mini" type="button" onClick={() => navigate('/settings/account')}>
+        <button
+          className="rail-avatar"
+          type="button"
+          onClick={() => navigate('/settings/account')}
+          title={current ? `${current.name} · ${current.kind} 账户` : '账户未接入'}
+          aria-label="账户"
+        >
           <span className="avatar avatar--sm" aria-hidden="true">{(current?.name ?? 'L').slice(0, 1).toUpperCase()}</span>
-          <span className="account-mini__meta">
-            <span className="account-mini__name">{current?.name ?? '本地用户'}</span>
-            <span className="account-mini__sub">{current ? `${current.kind} 账户` : '账户未接入'}</span>
-          </span>
         </button>
-        <div className="rail__meta">
-          <span>v0.1.0 · t22 预览</span>
-          <button type="button" aria-label="界面规范" title="界面规范" onClick={() => navigate('/components')}>
-            <Icon name="flask" className="ico ico--xs" />
-          </button>
-        </div>
+        <button
+          className="rail-btn rail-btn--ghost"
+          type="button"
+          aria-label="界面规范"
+          title="界面规范"
+          onClick={() => navigate('/components')}
+        >
+          <Icon name="flask" />
+        </button>
       </div>
     </nav>
+  )
+}
+
+/**
+ * Secondary column, modelled after StarCloud Launcher: a context card on top and
+ * the items of the active section underneath. The icon rail keeps the app-wide
+ * navigation; this column carries the labels so the rail can stay icon-only.
+ */
+function SubNav({ route }: { route: Route }) {
+  const system = useSystem()
+  const accounts = useCurrentAccount()
+  const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
+  const group =
+    NAV_GROUPS.find((candidate) => candidate.items.some((item) => item.name === navActive)) ?? NAV_GROUPS[0]
+  const current =
+    accounts.data?.accounts.find((account) => account.id === accounts.data?.selectedId) ??
+    accounts.data?.accounts[0] ??
+    null
+
+  return (
+    <aside className="subnav" aria-label={`${group.label}导航`}>
+      <div className="subnav__card">
+        <div className="subnav__card-kicker">本地运行</div>
+        <div className="subnav__card-value">{current ? current.name : '本地用户'}</div>
+        <div className="subnav__card-meta">
+          {current ? `${current.kind} 账户` : '账户未接入'} · v{system.version ?? '0.1.0'}
+        </div>
+      </div>
+      <div className="subnav__title">{group.label}</div>
+      <div className="subnav__list">
+        {group.items.map((item) => (
+          <a
+            className="subnav__item"
+            href={item.path}
+            key={item.path}
+            aria-current={navActive === item.name ? 'page' : undefined}
+          >
+            <Icon name={item.icon} className="ico ico--sm" />
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </div>
+    </aside>
   )
 }
 
@@ -251,6 +299,7 @@ export default function App() {
         <TitleBar route={route} />
         <div className="shell">
           <Rail route={route} />
+          <SubNav route={route} />
           <main className="content" id="content">
             <div className="page" key={route.path}>
               <Page route={route} />

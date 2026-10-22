@@ -73,6 +73,31 @@ function versionLabel(version: ManifestVersion): string {
   return version.type === 'release' ? version.id : `${version.id} · ${version.type}`
 }
 
+type McTab = 'release' | 'snapshot' | 'legacy'
+
+const MC_TABS: ReadonlyArray<{ value: McTab; label: string }> = [
+  { value: 'release', label: '正式版' },
+  { value: 'snapshot', label: '快照版' },
+  { value: 'legacy', label: '远古版本' },
+]
+
+function formatReleaseDate(value: string | null | undefined): string {
+  if (!value) return '日期未知'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '日期未知'
+  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
+function versionTypeLabel(type: string): string {
+  switch (type) {
+    case 'release': return '正式版'
+    case 'snapshot': return '快照'
+    case 'old_beta': return '远古 beta'
+    case 'old_alpha': return '远古 alpha'
+    default: return type
+  }
+}
+
 function TaskCard({ progress, onPause, onResume, onCancel }: {
   progress: DownloadProgress
   onPause: () => void
@@ -128,6 +153,8 @@ export function DownloadPage() {
   const tasks = useAsync(() => backend.downloads.list(), [])
   const [type, setType] = useState<InstallType>('vanilla')
   const [versionId, setVersionId] = useState('')
+  const [mcTab, setMcTab] = useState<McTab>('release')
+  const [mcQuery, setMcQuery] = useState('')
   const [loaderVersion, setLoaderVersion] = useState('')
   const [loaderProgress, setLoaderProgress] = useState<LoaderProgress | null>(null)
   const [loaderLines, setLoaderLines] = useState<string[]>([])
@@ -195,6 +222,25 @@ export function DownloadPage() {
 
   const versions = manifest.data?.versions ?? []
   const selected = versions.find((version) => version.id === versionId) ?? null
+
+  const releaseVersions = versions.filter((version) => version.type === 'release')
+  const snapshotVersions = versions.filter((version) => version.type === 'snapshot')
+  const legacyVersions = versions.filter(
+    (version) => version.type === 'old_beta' || version.type === 'old_alpha',
+  )
+  const latestRelease = releaseVersions[0] ?? null
+  const latestSnapshot = snapshotVersions[0] ?? null
+  const query = mcQuery.trim().toLowerCase()
+  const tabVersions = (
+    mcTab === 'release' ? releaseVersions : mcTab === 'snapshot' ? snapshotVersions : legacyVersions
+  )
+    .filter((version) => (query ? version.id.toLowerCase().includes(query) : true))
+    .slice(0, 60)
+  const pickVersion = (id: string) => {
+    setVersionId(id)
+    setPlan(null)
+    setPlanError(null)
+  }
   const typeInfo = TYPES.find((item) => item.value === type)
   const downloadPending = sources.status === 'not-wired' || sources.status === 'error'
   const downloadInfo = downloadPending ? describeError(sources.error) : null
@@ -297,6 +343,89 @@ export function DownloadPage() {
           {downloadInfo.detail}
         </Banner>
       ) : null}
+
+      <div className="ver-picker">
+        <div className="ver-pills">
+          {MC_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              className={`ver-pill${mcTab === tab.value ? ' is-active' : ''}`}
+              onClick={() => setMcTab(tab.value)}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <input
+            className="input ver-search"
+            placeholder="搜索版本 ID…"
+            value={mcQuery}
+            onChange={(event) => setMcQuery(event.target.value)}
+            aria-label="搜索版本 ID"
+          />
+        </div>
+
+        <div className="ver-heroes">
+          <button
+            type="button"
+            className="ver-hero"
+            disabled={!latestRelease}
+            onClick={() => latestRelease && pickVersion(latestRelease.id)}
+          >
+            <span className="ver-hero__icon" aria-hidden="true" />
+            <span className="ver-hero__text">
+              <span className="ver-hero__kicker">最新正式版</span>
+              <span className="ver-hero__name">{latestRelease?.id ?? '—'}</span>
+              <span className="ver-hero__meta">{latestRelease ? `发布于 ${formatReleaseDate(latestRelease.releaseTime)}` : '清单不可用'}</span>
+            </span>
+            <Icon name="chevron-right" className="ico ico--sm subtle" />
+          </button>
+          <button
+            type="button"
+            className="ver-hero"
+            disabled={!latestSnapshot}
+            onClick={() => latestSnapshot && pickVersion(latestSnapshot.id)}
+          >
+            <span className="ver-hero__icon ver-hero__icon--snap" aria-hidden="true" />
+            <span className="ver-hero__text">
+              <span className="ver-hero__kicker">最新预览版</span>
+              <span className="ver-hero__name">{latestSnapshot?.id ?? '—'}</span>
+              <span className="ver-hero__meta">{latestSnapshot ? `发布于 ${formatReleaseDate(latestSnapshot.releaseTime)}` : '清单不可用'}</span>
+            </span>
+            <Icon name="chevron-right" className="ico ico--sm subtle" />
+          </button>
+        </div>
+
+        <div className="ver-list" role="listbox" aria-label="Minecraft 版本">
+          {tabVersions.length === 0 ? (
+            <div className="ver-list__empty">
+              {manifest.status === 'loading' ? '正在读取版本清单…' : '这个分类下没有可显示的版本'}
+            </div>
+          ) : (
+            tabVersions.map((version) => (
+              <button
+                key={version.id}
+                type="button"
+                role="option"
+                aria-selected={versionId === version.id}
+                className={`ver-row${versionId === version.id ? ' is-active' : ''}`}
+                onClick={() => pickVersion(version.id)}
+              >
+                <span
+                  className={`ver-row__icon${version.type === 'snapshot' ? ' ver-row__icon--snap' : ''}`}
+                  aria-hidden="true"
+                />
+                <span className="ver-row__main">
+                  <span className="ver-row__name">{version.id}</span>
+                  <span className="ver-row__meta">
+                    {formatReleaseDate(version.releaseTime)} · {versionTypeLabel(version.type)}
+                  </span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
 
       <div className="download-grid">
         <Card className="install-card">
