@@ -20,9 +20,11 @@ export function register(ctx: ModuleContext): void {
   publishService(moduleId, service)
   // Self-register so the frozen kernel can bind this contract at registerIpc().
   moduleIpc.handle(modsContract, makeHandlers(service) as unknown as ModuleHandlers)
-  service.onEvent('changed', (payload) => {
-    moduleIpc.emit(moduleId, 'changed', payload)
-  })
+  for (const event of ['changed', 'importProgress', 'importFinished'] as const) {
+    service.onEvent(event, (payload) => {
+      moduleIpc.emit(moduleId, event, payload)
+    })
+  }
 
   ctx.log.info('module registered', { mcRoot: roots.mcRoot ? 'configured' : 'missing' })
 }

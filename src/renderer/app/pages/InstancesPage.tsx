@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { InstanceSummary } from '@shared/instance'
+import type { InstanceCopyFinished, InstanceSummary } from '@shared/instance'
 import { useBackend } from '../data/BackendContext'
-import { describeError, type UiErrorInfo } from '../data/backend'
+import { BackendError, describeError, type UiErrorInfo } from '../data/backend'
+import { assertJobSucceeded, waitForJob } from '../data/waitJob'
 import { useAsync } from '../data/useAsync'
 import { useInstanceRunning } from '../data/useInstanceRunning'
 import { DeleteInstanceDialog } from './DeleteInstanceDialog'
@@ -124,7 +125,16 @@ export function InstancesPage() {
     const name = input?.trim()
     if (!name) return
     try {
-      const created = await backend.instances.copyInstance(instance.id, name)
+      const started = await backend.instances.copyInstance(instance.id, name)
+      setFlash(`正在后台复制「${started.name}」…`)
+      const finished = await waitForJob<InstanceCopyFinished>({
+        jobId: started.jobId,
+        subscribe: backend.instances.subscribeCopyFinished,
+        fetchResult: () => backend.instances.copyResult(started.jobId),
+      })
+      assertJobSucceeded(finished, '复制实例失败')
+      const created = finished.result
+      if (!created) throw new BackendError('INSTANCE.COPY_FAILED', '复制实例没有返回结果', false)
       await instances.reload()
       versions.reload()
       window.dispatchEvent(new CustomEvent('mcl:instances-changed'))

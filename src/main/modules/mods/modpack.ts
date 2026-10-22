@@ -1,5 +1,6 @@
 import path from 'node:path'
 import type { FsPort } from '../../core/ports'
+import { JobCancelledError } from '../../core/job/kernel'
 import type { ZipArchive } from '../../core/zip/reader'
 import { safeEntryPath } from '../../core/zip/reader'
 import type { Loader } from '@shared/instance'
@@ -250,11 +251,31 @@ export interface PackDownloadResult {
   skipped: number
 }
 
+/**
+ * Cancellation + progress hooks for the import job. `parts` collects the
+ * `<target>.part` paths currently on disk so a cancel can delete them even if
+ * the target instance directory is not (yet) owned by the importer.
+ */
+export interface PackDownloadOptions {
+  signal?: AbortSignal
+  /** Pause/cancel gate between files (the job kernel supplies checkpoint()). */
+  checkpoint?: () => Promise<void>
+  onBytes?: (delta: number) => void
+  onFileStart?: (relative: string) => void
+  onFileDone?: (relative: string, outcome: 'downloaded' | 'skipped') => void
+  parts?: Set<string>
+}
+
+function throwIfCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new JobCancelledError()
+}
+
 async function writeIfNeeded(
   fs: FsPort,
   target: string,
   data: Buffer,
   hashes: FileHashes,
+  options: PackDownloadOptions = {},
 ): Promise<boolean> {
   if (fs.exists(target)) {
     const existing = fs.readBytes(target)
@@ -267,8 +288,25 @@ async function writeIfNeeded(
       return false
     }
   }
+  const part = `${target}.part`
+  options.parts?.add(part)
   fs.mkdirp(path.dirname(target))
-  fs.writeBytes(target, data)
+  fs.writeBytes(part, data)
+  try {
+    throwIfCancelled(options.signal)
+  } catch (error) {
+    // The write is synchronous and may have finished just as the user
+    // cancelled; the partial file must not survive.
+    try {
+      fs.remove(part)
+    } catch {
+      /* best effort */
+    }
+    options.parts?.delete(part)
+    throw error
+  }
+  fs.rename(part, target)
+  options.parts?.delete(part)
   return true
 }
 
@@ -288,12 +326,16 @@ export async function downloadMrpackFiles(
   gameDir: string,
   index: MrpackIndex,
   downloader: FileDownloader,
+  options: PackDownloadOptions = {},
 ): Promise<PackDownloadResult> {
   let downloaded = 0
   let skipped = 0
   for (const file of index.files) {
+    if (options.checkpoint) await options.checkpoint()
+    throwIfCancelled(options.signal)
     if (file.env?.client === 'unsupported') {
       skipped += 1
+      options.onFileDone?.(file.path, 'skipped')
       continue
     }
     const target = packTarget(gameDir, file.path)
@@ -301,17 +343,25 @@ export async function downloadMrpackFiles(
     // files without any downloadable URL.
     if (existingMatches(fs, target, file.hashes)) {
       skipped += 1
+      options.onFileDone?.(file.path, 'skipped')
       continue
     }
+    options.onFileStart?.(file.path)
     const result = await downloadVerified(
       downloader,
       file.downloads,
       file.hashes,
       Math.min(file.fileSize ?? MAX_PACK_FILE_BYTES, MAX_PACK_FILE_BYTES),
+      {
+        ...(options.signal ? { signal: options.signal } : {}),
+        ...(options.onBytes ? { onBytes: options.onBytes } : {}),
+      },
     )
-    const wrote = await writeIfNeeded(fs, target, result.data, file.hashes)
+    throwIfCancelled(options.signal)
+    const wrote = await writeIfNeeded(fs, target, result.data, file.hashes, options)
     if (wrote) downloaded += 1
     else skipped += 1
+    options.onFileDone?.(file.path, wrote ? 'downloaded' : 'skipped')
   }
   return { downloaded, skipped }
 }
@@ -325,13 +375,14 @@ export interface CurseForgeFile {
 export type CurseForgeResolver = (
   projectID: number,
   fileID: number,
+  options?: { signal?: AbortSignal },
 ) => Promise<CurseForgeFile>
 
 export function createCurseForgeResolver(
   fetchImpl: typeof fetch = fetch,
   apiKey = process.env.MCL_CF_API_KEY,
 ): CurseForgeResolver {
-  return async (projectID, fileID) => {
+  return async (projectID, fileID, options = {}) => {
     if (!apiKey) {
       throw new AppError(
         'MODS.CF_API_KEY_MISSING',
@@ -343,9 +394,13 @@ export function createCurseForgeResolver(
         },
       )
     }
+    if (options.signal?.aborted) throw new JobCancelledError()
     const response = await fetchImpl(
       `https://api.curseforge.com/v1/mods/${projectID}/files/${fileID}`,
-      { headers: { 'x-api-key': apiKey, Accept: 'application/json' } },
+      {
+        headers: { 'x-api-key': apiKey, Accept: 'application/json' },
+        ...(options.signal ? { signal: options.signal } : {}),
+      },
     )
     if (!response.ok) {
       throw new AppError('MODS.PACK_DOWNLOAD_FAILED', `CurseForge API HTTP ${response.status}`, {
@@ -383,11 +438,15 @@ export async function downloadCurseForgeFiles(
   manifest: CurseManifest,
   downloader: FileDownloader,
   resolver: CurseForgeResolver,
+  options: PackDownloadOptions = {},
 ): Promise<PackDownloadResult & { warnings: string[] }> {
   let downloaded = 0
   let skipped = 0
   const warnings: string[] = []
   for (const file of manifest.files) {
+    if (options.checkpoint) await options.checkpoint()
+    throwIfCancelled(options.signal)
+    const label = `${file.projectID}/${file.fileID}`
     try {
       const info =
         file.fileName && file.downloadUrl
@@ -396,27 +455,40 @@ export async function downloadCurseForgeFiles(
               downloadUrl: file.downloadUrl,
               ...(file.hashes ? { hashes: file.hashes } : {}),
             }
-          : await resolver(file.projectID, file.fileID)
+          : await resolver(file.projectID, file.fileID, {
+              ...(options.signal ? { signal: options.signal } : {}),
+            })
+      throwIfCancelled(options.signal)
       const fileName = path.basename(info.fileName)
       if (!fileName || fileName === '.' || fileName === '..') {
         throw new AppError('MODS.PACK_UNSAFE_PATH', `CurseForge 返回非法文件名: ${info.fileName}`)
       }
+      options.onFileStart?.(`mods/${fileName}`)
       const target = packTarget(gameDir, `mods/${fileName}`)
-      const result = await downloadVerified(downloader, [info.downloadUrl], info.hashes ?? {})
-      const wrote = await writeIfNeeded(fs, target, result.data, info.hashes ?? {})
+      const result = await downloadVerified(downloader, [info.downloadUrl], info.hashes ?? {}, undefined, {
+        ...(options.signal ? { signal: options.signal } : {}),
+        ...(options.onBytes ? { onBytes: options.onBytes } : {}),
+      })
+      throwIfCancelled(options.signal)
+      const wrote = await writeIfNeeded(fs, target, result.data, info.hashes ?? {}, options)
       if (wrote) downloaded += 1
       else skipped += 1
+      options.onFileDone?.(`mods/${fileName}`, wrote ? 'downloaded' : 'skipped')
     } catch (error) {
+      throwIfCancelled(options.signal)
+      if (error instanceof JobCancelledError) throw error
       if (error instanceof AppError && error.code === 'MODS.CF_API_KEY_MISSING') {
         warnings.push(
-          `${error.message}；已跳过 ${file.projectID}/${file.fileID}，overrides 仍会解压`,
+          `${error.message}；已跳过 ${label}，overrides 仍会解压`,
         )
         skipped += 1
+        options.onFileDone?.(label, 'skipped')
         continue
       }
       if (file.required === false) {
-        warnings.push(`跳过可选文件 ${file.projectID}/${file.fileID}: ${error instanceof Error ? error.message : String(error)}`)
+        warnings.push(`跳过可选文件 ${label}: ${error instanceof Error ? error.message : String(error)}`)
         skipped += 1
+        options.onFileDone?.(label, 'skipped')
         continue
       }
       throw error

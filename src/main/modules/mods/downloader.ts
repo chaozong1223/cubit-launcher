@@ -1,10 +1,18 @@
 import crypto from 'node:crypto'
+import { JobCancelledError } from '../../core/job/kernel'
 import { AppError } from '@shared/errors'
 
 export const MAX_PACK_FILE_BYTES = 256 * 1024 * 1024
 
+export interface FileDownloadOptions {
+  /** Aborts the HTTP body read (modpack import job cancellation). */
+  signal?: AbortSignal
+  /** Called with each received chunk so the job can report byte progress. */
+  onBytes?: (delta: number) => void
+}
+
 export interface FileDownloader {
-  download(url: string, maxBytes?: number): Promise<Buffer>
+  download(url: string, maxBytes?: number, options?: FileDownloadOptions): Promise<Buffer>
 }
 
 export interface FileHashes {
@@ -12,9 +20,14 @@ export interface FileHashes {
   sha512?: string
 }
 
+function abortError(): JobCancelledError {
+  return new JobCancelledError('下载已取消')
+}
+
 export function createFetchDownloader(fetchImpl: typeof fetch = fetch): FileDownloader {
   return {
-    async download(url, maxBytes = MAX_PACK_FILE_BYTES) {
+    async download(url, maxBytes = MAX_PACK_FILE_BYTES, options: FileDownloadOptions = {}) {
+      if (options.signal?.aborted) throw abortError()
       let parsed: URL
       try {
         parsed = new URL(url)
@@ -27,7 +40,10 @@ export function createFetchDownloader(fetchImpl: typeof fetch = fetch): FileDown
           details: { url },
         })
       }
-      const response = await fetchImpl(parsed, { redirect: 'follow' })
+      const response = await fetchImpl(parsed, {
+        redirect: 'follow',
+        ...(options.signal ? { signal: options.signal } : {}),
+      })
       if (!response.ok) {
         throw new AppError('MODS.PACK_DOWNLOAD_FAILED', `下载失败 HTTP ${response.status}`, {
           retryable: response.status >= 500,
@@ -40,7 +56,45 @@ export function createFetchDownloader(fetchImpl: typeof fetch = fetch): FileDown
           details: { url, bytes: length, maxBytes },
         })
       }
-      const data = Buffer.from(await response.arrayBuffer())
+
+      const body = response.body
+      if (!body) {
+        const data = Buffer.from(await response.arrayBuffer())
+        if (data.length > maxBytes) {
+          throw new AppError('MODS.PACK_TOO_LARGE', `文件超过大小上限: ${url}`, {
+            details: { url, bytes: data.length, maxBytes },
+          })
+        }
+        options.onBytes?.(data.length)
+        return data
+      }
+
+      const reader = body.getReader()
+      const chunks: Buffer[] = []
+      let total = 0
+      try {
+        for (;;) {
+          if (options.signal?.aborted) throw abortError()
+          const { done, value } = await reader.read()
+          if (done) break
+          if (!value) continue
+          total += value.byteLength
+          if (total > maxBytes) {
+            throw new AppError('MODS.PACK_TOO_LARGE', `文件超过大小上限: ${url}`, {
+              details: { url, bytes: total, maxBytes },
+            })
+          }
+          chunks.push(Buffer.from(value))
+          options.onBytes?.(value.byteLength)
+        }
+      } catch (error) {
+        await reader.cancel().catch(() => undefined)
+        if (options.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+          throw abortError()
+        }
+        throw error
+      }
+      const data = Buffer.concat(chunks, total)
       if (data.length > maxBytes) {
         throw new AppError('MODS.PACK_TOO_LARGE', `文件超过大小上限: ${url}`, {
           details: { url, bytes: data.length, maxBytes },
@@ -68,12 +122,16 @@ function hashMatches(data: Buffer, hashes: FileHashes): boolean {
 /**
  * Try every mirror until one payload matches the declared hash. A hash mismatch
  * is a hard failure (not a reason to silently write an unverified jar).
+ *
+ * Cancellation short-circuits the mirror list: once the import job is aborted
+ * there is no point trying another URL.
  */
 export async function downloadVerified(
   downloader: FileDownloader,
   urls: string[],
   hashes: FileHashes,
   maxBytes = MAX_PACK_FILE_BYTES,
+  options: FileDownloadOptions = {},
 ): Promise<{ data: Buffer; url: string }> {
   const usable = urls.filter((url) => typeof url === 'string' && url.length > 0)
   if (usable.length === 0) {
@@ -81,14 +139,18 @@ export async function downloadVerified(
   }
   const errors: string[] = []
   for (const url of usable) {
+    if (options.signal?.aborted) throw abortError()
     try {
-      const data = await downloader.download(url, maxBytes)
+      const data = await downloader.download(url, maxBytes, options)
       if (!hashMatches(data, hashes)) {
         errors.push(`${url}: 哈希不匹配`)
         continue
       }
       return { data, url }
     } catch (error) {
+      if (options.signal?.aborted || error instanceof JobCancelledError) {
+        throw abortError()
+      }
       errors.push(`${url}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }

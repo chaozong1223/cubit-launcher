@@ -1,5 +1,6 @@
 import path from 'node:path'
 import type { FsPort } from '../../core/ports'
+import { JobCancelledError } from '../../core/job/kernel'
 import {
   assertSafeEntryName,
   crc32,
@@ -102,14 +103,34 @@ export function createStoredZip(entries: ZipWriteEntry[], now = new Date()): Buf
 }
 
 /** Extract only `overrides/` (or `client-overrides/`) from a pack archive. */
-export function extractOverrides(
+export interface ExtractOverridesOptions {
+  /** Cancels between archive entries (zip reads themselves are synchronous). */
+  signal?: AbortSignal
+  /** Pause/cancel gate supplied by the job kernel. */
+  checkpoint?: () => Promise<void>
+  onEntry?: (relative: string, bytes: number) => void
+}
+
+export interface ExtractOverridesResult {
+  written: number
+  bytes: number
+}
+
+export async function extractOverrides(
   fs: FsPort,
   archive: ZipArchive,
   destination: string,
   prefixes: string[] = ['overrides/', 'client-overrides/'],
-): number {
+  options: ExtractOverridesOptions = {},
+): Promise<ExtractOverridesResult> {
   let written = 0
+  let bytes = 0
   for (const entry of archive.entries) {
+    if (options.checkpoint) {
+      await options.checkpoint()
+    } else if (options.signal?.aborted) {
+      throw new JobCancelledError()
+    }
     if (entry.isDirectory || entry.isSymlink) continue
     const prefix = prefixes.find((candidate) => entry.name.startsWith(candidate))
     if (!prefix) continue
@@ -123,11 +144,14 @@ export function extractOverrides(
       continue
     }
     const target = safeEntryPath(destination, relative)
+    const data = archive.readEntry(entry)
     fs.mkdirp(path.dirname(target))
-    fs.writeBytes(target, archive.readEntry(entry))
+    fs.writeBytes(target, data)
     written += 1
+    bytes += data.length
+    options.onEntry?.(relative, data.length)
   }
-  return written
+  return { written, bytes }
 }
 
 export function readJsonEntry<T>(archive: ZipArchive, name: string, maxBytes = 8 * 1024 * 1024): T {

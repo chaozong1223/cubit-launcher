@@ -23,6 +23,11 @@ export function makeHandlers(service: ModsModuleService) {
     }) => service.installLocalFile(input),
     analyzeDependencies: (input: { instanceId: string }) => service.analyzeDependencies(input),
     importModpack: (input: { filePath: string; name?: string }) => service.importModpack(input),
+    cancelImport: (input: { jobId: string }) => service.cancelImport(input.jobId),
+    pauseImport: (input: { jobId: string }) => service.pauseImport(input.jobId),
+    resumeImport: (input: { jobId: string }) => service.resumeImport(input.jobId),
+    importStatus: (input: { jobId: string }) => service.importStatus(input.jobId),
+    importResult: (input: { jobId: string }) => service.importResult(input.jobId),
     exportModpack: (input: { instanceId: string; outPath?: string }) =>
       service.exportModpack(input),
     openFolder: (input: {

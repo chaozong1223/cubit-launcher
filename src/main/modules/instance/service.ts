@@ -1,7 +1,11 @@
 import fsSync from 'node:fs'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type {
   DiscoverResult,
+  InstanceCopyFinished,
+  InstanceCopyProgress,
+  InstanceCopyStart,
   InstancePatch,
   InstanceSettings,
   InstanceSummary,
@@ -17,6 +21,7 @@ import { requireMcRoot } from '../_context'
 import { CoreError } from '../../core/errors'
 import { AppError } from '@shared/errors'
 import { nodeFsPort } from '../../core/ports'
+import { JobRegistry, type JobOutcome } from '../../core/job/kernel'
 import { scanInstances, type ScannedInstance } from '../../core/instance/scan'
 import {
   defaultInstanceSettings,
@@ -25,7 +30,11 @@ import {
   readInstanceSettings,
   writeInstanceSettings,
 } from '../../core/instance/settings'
-import { copyInstanceDirectory } from '../../core/instance/copy'
+import {
+  copyInstanceDirectory,
+  copyTargetName,
+  uniqueDirName,
+} from '../../core/instance/copy'
 import { discoverMinecraftRoots, type DiscoveryOptions } from './discovery'
 import { TrashStore } from '../assets/trash'
 
@@ -54,6 +63,9 @@ export interface InstanceServiceOptions extends DiscoveryOptions {
   isInstanceRunning?: (instanceId: string, dirName: string) => boolean
   /** Emit instance.changed after a destructive mutation. */
   onChanged?: (instanceId: string | null) => void
+  /** Forward asynchronous copy progress to the module IPC layer. */
+  onCopyProgress?: (progress: InstanceCopyProgress) => void
+  onCopyFinished?: (finished: InstanceCopyFinished) => void
   /** Test seam; defaults to the t39 TrashStore layout under dataRoot/trash. */
   trash?: TrashStore
 }
@@ -61,6 +73,7 @@ export interface InstanceServiceOptions extends DiscoveryOptions {
 export class InstanceModuleService {
   private readonly fs = nodeFsPort()
   private readonly now: () => number
+  private readonly copyJobs = new JobRegistry<InstanceSummary>()
 
   constructor(
     private readonly roots: ModuleRoots,
@@ -68,6 +81,24 @@ export class InstanceModuleService {
     private readonly options: InstanceServiceOptions = {},
   ) {
     this.now = options.now ?? Date.now
+    this.copyJobs.onProgress((progress, job) => {
+      this.options.onCopyProgress?.({
+        ...progress,
+        instanceId: job.meta.instanceId ?? '',
+        name: job.meta.name ?? '',
+      })
+    })
+    this.copyJobs.onFinished((outcome, job) => {
+      this.options.onCopyFinished?.({
+        jobId: outcome.jobId,
+        state: outcome.state,
+        ok: outcome.ok,
+        error: outcome.error,
+        durationMs: outcome.durationMs,
+        instanceId: job.meta.instanceId ?? '',
+        result: outcome.result,
+      })
+    })
   }
 
   private root(): string {
@@ -297,14 +328,15 @@ export class InstanceModuleService {
   }
 
   /**
-   * Duplicates an isolated instance into a new directory (version files, mods,
-   * configs and optionally saves). Shared-isolation instances have no dedicated
-   * directory, so they are rejected instead of copying the whole .minecraft.
+   * Starts an asynchronous copy of an isolated instance. The RPC returns the
+   * reserved target directory immediately; the streaming copy runs in the
+   * background so an 8 GB instance never blocks the main process or IPC.
+   * `cancelCopy` aborts the stream and removes the partial target directory.
    */
   async copyInstance(
     id: string,
     input: { newName?: string; includeWorlds?: boolean } = {},
-  ): Promise<InstanceSummary> {
+  ): Promise<InstanceCopyStart> {
     const root = this.root()
     const instance = scanInstances(this.fs, root).find(
       (item) => item.id === id || item.dirName === id,
@@ -337,21 +369,122 @@ export class InstanceModuleService {
         source: 'ours',
       })
 
-    const result = copyInstanceDirectory(this.fs, {
-      sourceDirName: instance.dirName,
-      sourceSettings: settingsForCopy,
-      newName: input.newName,
-      includeWorlds: input.includeWorlds,
-      mcRoot: root,
-      exists: (target) => this.fs.exists(target),
-      now: () => Date.now(),
-    })
-    this.log.info('instance copied', {
-      source: instance.dirName,
-      target: result.dirName,
-      includeWorlds: input.includeWorlds !== false,
-    })
-    return this.get(result.dirName)
+    const versionsDir = path.join(root, 'versions')
+    const displayName = copyTargetName(settingsForCopy, input.newName)
+    const dirName = uniqueDirName(displayName, (target) => this.fs.exists(target), versionsDir)
+    const targetDir = path.join(versionsDir, dirName)
+    const jobId = randomUUID()
+
+    this.copyJobs.start(
+      {
+        id: jobId,
+        stage: 'scan',
+        meta: { instanceId: dirName, name: displayName },
+      },
+      async (ctx) => {
+        const result = await copyInstanceDirectory(
+          this.fs,
+          {
+            sourceDirName: instance.dirName,
+            sourceSettings: settingsForCopy,
+            newName: displayName,
+            includeWorlds: input.includeWorlds,
+            mcRoot: root,
+            exists: (target) => this.fs.exists(target),
+            targetDirName: dirName,
+            now: () => Date.now(),
+          },
+          {
+            signal: ctx.signal,
+            waitWhilePaused: () => ctx.checkpoint(),
+            onStage: (stage) => ctx.setStage(stage),
+            onProgress: (progress) => {
+              ctx.update({
+                stage: progress.stage,
+                done: progress.filesDone,
+                total: progress.filesTotal,
+                bytesDone: progress.bytesDone,
+                bytesTotal: progress.bytesTotal,
+                currentFile: progress.currentFile,
+              })
+            },
+          },
+        )
+        const summary = this.get(result.dirName)
+        this.log.info('instance copied', {
+          source: instance.dirName,
+          target: result.dirName,
+          includeWorlds: input.includeWorlds !== false,
+          files: result.files,
+          bytes: result.bytes,
+        })
+        this.options.onChanged?.(summary.id)
+        return summary
+      },
+      {
+        failureCode: 'INSTANCE.COPY_FAILED',
+        cleanup: () => {
+          try {
+            this.fs.remove(targetDir)
+          } catch {
+            // Best effort; a locked file is reported by the failed job.
+          }
+        },
+        onError: (error) => {
+          this.log.error('instance copy failed', {
+            source: instance.dirName,
+            target: dirName,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        },
+      },
+    )
+
+    this.log.info('instance copy started', { jobId, source: instance.dirName, target: dirName })
+    return { jobId, instanceId: dirName, dirName, name: displayName }
+  }
+
+  cancelCopy(jobId: string): { cancelled: boolean } {
+    return { cancelled: this.copyJobs.cancel(jobId) }
+  }
+
+  pauseCopy(jobId: string): { paused: boolean } {
+    return { paused: this.copyJobs.pause(jobId) }
+  }
+
+  resumeCopy(jobId: string): { resumed: boolean } {
+    return { resumed: this.copyJobs.resume(jobId) }
+  }
+
+  copyStatus(jobId: string): InstanceCopyProgress | null {
+    const progress = this.copyJobs.status(jobId)
+    if (!progress) return null
+    const meta = this.copyJobs.meta(jobId) ?? {}
+    return {
+      ...progress,
+      instanceId: meta.instanceId ?? '',
+      name: meta.name ?? '',
+    }
+  }
+
+  copyResult(jobId: string): InstanceCopyFinished | null {
+    const outcome = this.copyJobs.outcome(jobId)
+    if (!outcome) return null
+    const meta = this.copyJobs.meta(jobId) ?? {}
+    return {
+      jobId: outcome.jobId,
+      state: outcome.state,
+      ok: outcome.ok,
+      error: outcome.error,
+      durationMs: outcome.durationMs,
+      instanceId: meta.instanceId ?? '',
+      result: outcome.result,
+    }
+  }
+
+  /** Test seam: waits for a copy job to finish and returns its outcome. */
+  waitForCopy(jobId: string, timeoutMs?: number): Promise<JobOutcome<InstanceSummary>> {
+    return this.copyJobs.waitFor(jobId, timeoutMs)
   }
 
   async update(id: string, patch: InstancePatch): Promise<InstanceSummary> {

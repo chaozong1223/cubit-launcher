@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type {
   BatchOperationResult,
   DependencyIssue,
@@ -7,13 +8,19 @@ import type {
   ModFile,
   ModKind,
   ModpackExportResult,
+  ModpackImportFinished,
+  ModpackImportProgress,
   ModpackImportResult,
+  ModpackImportStart,
+  ModpackFormat,
   ModScanResult,
 } from '@shared/mods'
 import type { InstanceSettings, Loader } from '@shared/instance'
 import { AppError } from '@shared/errors'
 import type { FsPort } from '../../core/ports'
 import { nodeFsPort } from '../../core/ports'
+import { JobContext, JobRegistry, type JobOutcome } from '../../core/job/kernel'
+import { copyFileStreaming } from '../../core/fs/stream-copy'
 import { defaultInstanceSettings, gameDirectory, readInstanceSettings, writeInstanceSettings } from '../../core/instance/settings'
 import { scanInstances, type ScannedInstance } from '../../core/instance/scan'
 import { openZipFile, safeEntryPath } from '../../core/zip/reader'
@@ -36,6 +43,8 @@ import {
   type CurseForgeResolver,
   type CurseManifest,
   type MrpackIndex,
+  type PackDownloadOptions,
+  type PackManifest,
 } from './modpack'
 
 const KINDS: ModKind[] = ['mods', 'resourcepacks', 'shaderpacks']
@@ -128,7 +137,8 @@ export class ModsModuleService {
   private readonly fs: FsPort
   private readonly downloader: FileDownloader
   private readonly curseResolver: CurseForgeResolver
-  private readonly listeners = new Set<(payload: { instanceId: string }) => void>()
+  private readonly listeners = new Map<string, Set<(payload: unknown) => void>>()
+  private readonly importJobs = new JobRegistry<ModpackImportResult>()
   private readonly now: () => number
 
   constructor(private readonly options: ModsServiceOptions) {
@@ -136,22 +146,55 @@ export class ModsModuleService {
     this.downloader = options.downloader ?? createFetchDownloader()
     this.curseResolver = options.curseResolver ?? createCurseForgeResolver()
     this.now = options.now ?? Date.now
+    this.wireImportEvents()
   }
 
-  onEvent(event: string, listener: (payload: { instanceId: string }) => void): () => void {
-    if (event !== 'changed') return () => undefined
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+  /** Forward job progress/results to the module IPC layer. */
+  private wireImportEvents(): void {
+    this.importJobs.onProgress((progress, job) => {
+      this.emitEvent('importProgress', {
+        ...progress,
+        instanceId: job.meta.instanceId ?? '',
+        format: (job.meta.format as ModpackFormat | undefined) ?? 'modrinth',
+      })
+    })
+    this.importJobs.onFinished((outcome, job) => {
+      this.emitEvent('importFinished', {
+        jobId: outcome.jobId,
+        state: outcome.state,
+        ok: outcome.ok,
+        error: outcome.error,
+        durationMs: outcome.durationMs,
+        instanceId: job.meta.instanceId ?? '',
+        result: outcome.result,
+      })
+    })
   }
 
-  private emitChanged(instanceId: string): void {
-    for (const listener of this.listeners) {
+  onEvent(event: string, listener: (payload: unknown) => void): () => void {
+    let listeners = this.listeners.get(event)
+    if (!listeners) {
+      listeners = new Set()
+      this.listeners.set(event, listeners)
+    }
+    listeners.add(listener)
+    return () => {
+      listeners?.delete(listener)
+    }
+  }
+
+  private emitEvent(event: string, payload: unknown): void {
+    for (const listener of [...(this.listeners.get(event) ?? [])]) {
       try {
-        listener({ instanceId })
+        listener(payload)
       } catch {
         // An observer must never fail a completed file operation.
       }
     }
+  }
+
+  private emitChanged(instanceId: string): void {
+    this.emitEvent('changed', { instanceId })
   }
 
   private mcRoot(): string {
@@ -643,7 +686,237 @@ export class ModsModuleService {
     }
   }
 
-  async importModpack(input: { filePath: string; name?: string }): Promise<ModpackImportResult> {
+  /** One import job's on-disk scratch state, captured by the cleanup hook. */
+  private importScratch(dirName: string, jobId: string): {
+    dirName: string
+    instanceDir: string
+    tempDir: string
+    parts: Set<string>
+  } {
+    return {
+      dirName,
+      instanceDir: path.join(this.mcRoot(), 'versions', dirName),
+      tempDir: path.join(this.options.roots.dataRoot, 'tmp', 'jobs', `mods-import-${jobId}`),
+      parts: new Set<string>(),
+    }
+  }
+
+  private overridePrefixes(manifest: PackManifest): string[] {
+    const prefixes = ['overrides/', 'client-overrides/']
+    if (manifest.format === 'curseforge') {
+      const overrides = (manifest.index as CurseManifest).overrides
+      if (overrides && overrides !== 'overrides') prefixes.unshift(`${overrides}/`)
+    }
+    return prefixes
+  }
+
+  /** Count override entries up-front so progress totals are honest from start. */
+  private countOverrides(
+    archive: ReturnType<typeof openZipFile>,
+    prefixes: string[],
+  ): { files: number; bytes: number } {
+    let files = 0
+    let bytes = 0
+    for (const entry of archive.entries) {
+      if (entry.isDirectory || entry.isSymlink) continue
+      const prefix = prefixes.find((candidate) => entry.name.startsWith(candidate))
+      if (!prefix) continue
+      const relative = entry.name.slice(prefix.length)
+      if (!relative || relative.endsWith('/')) continue
+      if (
+        relative.toLowerCase() === 'instance.json' ||
+        relative.toLowerCase().startsWith('versions/')
+      ) {
+        continue
+      }
+      files += 1
+      bytes += entry.size
+    }
+    return { files, bytes }
+  }
+
+  /** Recursively move extracted overrides from the job's temp dir into place. */
+  private async mergeOverrides(
+    source: string,
+    destination: string,
+    ctx: JobContext,
+  ): Promise<void> {
+    for (const name of this.fs.readDir(source)) {
+      await ctx.checkpoint()
+      const from = path.join(source, name)
+      const to = path.join(destination, name)
+      const stat = this.fs.stat(from)
+      if (!stat) continue
+      if (stat.isDirectory()) {
+        this.fs.mkdirp(to)
+        await this.mergeOverrides(from, to, ctx)
+        continue
+      }
+      if (!stat.isFile()) continue
+      // Never replace launcher-owned metadata or an earlier file; packs are
+      // additive here and extractOverrides already blocked protected paths.
+      if (this.fs.exists(to)) continue
+      await copyFileStreaming(from, to, {
+        signal: ctx.signal,
+        onBytes: (delta) => ctx.addBytes(delta),
+      })
+    }
+  }
+
+  private cleanupImport(scratch: {
+    instanceDir: string
+    tempDir: string
+    parts: Set<string>
+  }): void {
+    for (const part of [...scratch.parts]) {
+      try {
+        this.fs.remove(part)
+      } catch {
+        // Best effort; Windows may still hold the file for a moment.
+      }
+    }
+    scratch.parts.clear()
+    try {
+      this.fs.remove(scratch.tempDir)
+    } catch {
+      // Leftovers are confined to dataRoot/tmp and cleaned on the next run.
+    }
+    try {
+      this.fs.remove(scratch.instanceDir)
+    } catch {
+      // Keep the original error; a partial import is not silently reported.
+    }
+  }
+
+  private async runImport(
+    ctx: JobContext,
+    plan: {
+      archive: ReturnType<typeof openZipFile>
+      manifest: PackManifest
+      dirName: string
+      instanceDir: string
+      gameDir: string
+      loaderProfile: { dirName: string; jsonPath: string; json: Record<string, unknown> } | null
+      settings: InstanceSettings
+      prefixes: string[]
+      scratch: { tempDir: string; parts: Set<string> }
+      warnings: string[]
+    },
+  ): Promise<ModpackImportResult> {
+    const { manifest, archive, dirName, instanceDir, gameDir, loaderProfile, settings, prefixes } =
+      plan
+    const warnings = plan.warnings
+
+    ctx.setStage('prepare')
+    await ctx.checkpoint()
+    this.fs.mkdirp(instanceDir)
+    this.fs.mkdirp(plan.scratch.tempDir)
+    writeInstanceSettings(this.fs, instanceDir, settings)
+
+    const baseReady = this.writePackVersion(manifest.mcVersion, dirName, loaderProfile)
+    if (!baseReady) {
+      warnings.push(
+        `基础版本 ${manifest.mcVersion ?? '未知'} 未安装；导入已完成，但启动前需先安装该版本`,
+      )
+    }
+    if (loaderProfile) {
+      this.options.log.info('modpack loader profile merged', {
+        instanceId: dirName,
+        loader: manifest.loader.type,
+        loaderVersion: manifest.loader.version,
+        loaderDir: loaderProfile.dirName,
+      })
+    }
+
+    // Extract overrides into the job's temp directory first. A cancel therefore
+    // only has to delete that directory (plus the instance dir) and can never
+    // leave half-written pack files inside a version folder.
+    ctx.setStage('overrides')
+    await ctx.checkpoint()
+    const extracted = await extractOverrides(this.fs, archive, plan.scratch.tempDir, prefixes, {
+      signal: ctx.signal,
+      checkpoint: () => ctx.checkpoint(),
+      onEntry: (relative) => {
+        ctx.setCurrent(`overrides/${relative}`)
+        ctx.addDone(1)
+      },
+    })
+    await ctx.checkpoint()
+    await this.mergeOverrides(plan.scratch.tempDir, gameDir, ctx)
+    try {
+      this.fs.remove(plan.scratch.tempDir)
+    } catch {
+      // Non-fatal: the temp dir is inside dataRoot/tmp.
+    }
+
+    ctx.setStage('download')
+    ctx.setCurrent(null)
+    const options: PackDownloadOptions = {
+      signal: ctx.signal,
+      checkpoint: () => ctx.checkpoint(),
+      onBytes: (delta) => ctx.addBytes(delta),
+      onFileStart: (relative) => ctx.setCurrent(relative),
+      onFileDone: () => ctx.addDone(1),
+      parts: plan.scratch.parts,
+    }
+
+    let downloaded = 0
+    let skipped = 0
+    if (manifest.format === 'modrinth') {
+      const result = await downloadMrpackFiles(
+        this.fs,
+        gameDir,
+        manifest.index as MrpackIndex,
+        this.downloader,
+        options,
+      )
+      downloaded += result.downloaded
+      skipped += result.skipped
+    } else {
+      const result = await downloadCurseForgeFiles(
+        this.fs,
+        gameDir,
+        manifest.index as CurseManifest,
+        this.downloader,
+        this.curseResolver,
+        options,
+      )
+      downloaded += result.downloaded
+      skipped += result.skipped
+      warnings.push(...result.warnings)
+    }
+
+    ctx.setStage('finalize')
+    await ctx.checkpoint()
+    ctx.setCurrent(null)
+    this.emitChanged(dirName)
+    this.options.log.info('modpack imported', {
+      instanceId: dirName,
+      format: manifest.format,
+      downloaded,
+      overrides: extracted.written,
+    })
+    return {
+      instanceId: dirName,
+      dirName,
+      name: settings.name,
+      format: manifest.format,
+      mcVersion: manifest.mcVersion,
+      loader: manifest.loader,
+      downloaded,
+      skipped,
+      overrides: extracted.written,
+      needsBaseInstall: !baseReady,
+      warnings,
+    }
+  }
+
+  /**
+   * Starts a modpack import as a background job and returns immediately with
+   * the reserved target directory. Progress arrives as `importProgress`,
+   * the final result as `importFinished`; `cancelImport` rolls everything back.
+   */
+  async importModpack(input: { filePath: string; name?: string }): Promise<ModpackImportStart> {
     const source = path.resolve(input.filePath)
     if (!this.fs.exists(source)) {
       fail('MODS.FILE_NOT_FOUND', `找不到整合包: ${input.filePath}`, { path: source })
@@ -652,8 +925,6 @@ export class ModsModuleService {
     const manifest = readPackManifest(this.fs, archive)
     const dirName = this.uniqueDirName(input.name ?? manifest.name)
     const instanceDir = path.join(this.mcRoot(), 'versions', dirName)
-    const gameDir = instanceDir
-    const warnings: string[] = []
 
     // Resolve the installed loader profile before creating anything. A pack
     // that requires Fabric/Forge must never silently become a vanilla launch.
@@ -687,103 +958,139 @@ export class ModsModuleService {
       }
     }
 
-    this.fs.mkdirp(instanceDir)
-
-    try {
-      const settings: InstanceSettings = {
-        ...defaultInstanceSettings({
-          dirName,
-          id: dirName,
-          name: input.name ?? manifest.name,
-          mcVersion: manifest.mcVersion,
-          loader: manifest.loader,
-        }),
-        source: 'pack',
-        createdAt: this.now(),
-      }
-      writeInstanceSettings(this.fs, instanceDir, settings)
-
-      const baseReady = this.writePackVersion(
-        manifest.mcVersion,
+    const prefixes = this.overridePrefixes(manifest)
+    const overrideStats = this.countOverrides(archive, prefixes)
+    const fileCount =
+      manifest.format === 'modrinth'
+        ? (manifest.index as MrpackIndex).files.length
+        : (manifest.index as CurseManifest).files.length
+    const bytesTotal =
+      overrideStats.bytes +
+      (manifest.format === 'modrinth'
+        ? (manifest.index as MrpackIndex).files.reduce(
+            (total, file) => total + (file.fileSize ?? 0),
+            0,
+          )
+        : 0)
+    const totalFiles = overrideStats.files + fileCount
+    const settings: InstanceSettings = {
+      ...defaultInstanceSettings({
         dirName,
-        loaderProfile,
-      )
-      if (!baseReady) {
-        warnings.push(
-          `基础版本 ${manifest.mcVersion ?? '未知'} 未安装；导入已完成，但启动前需先安装该版本`,
-        )
-      }
-      if (loaderProfile) {
-        this.options.log.info('modpack loader profile merged', {
-          instanceId: dirName,
-          loader: manifest.loader.type,
-          loaderVersion: manifest.loader.version,
-          loaderDir: loaderProfile.dirName,
-        })
-      }
-
-      let downloaded = 0
-      let skipped = 0
-      // Extract overrides first: exported packs carry their jars in overrides so
-      // they can be reproduced without remote URLs; the index files then match
-      // the already-present bytes and are counted as skipped.
-      const prefixes = ['overrides/', 'client-overrides/']
-      if (manifest.format === 'curseforge') {
-        const overrides = (manifest.index as CurseManifest).overrides
-        if (overrides && overrides !== 'overrides') prefixes.unshift(`${overrides}/`)
-      }
-      const overrides = extractOverrides(this.fs, archive, gameDir, prefixes)
-
-      if (manifest.format === 'modrinth') {
-        const result = await downloadMrpackFiles(
-          this.fs,
-          gameDir,
-          manifest.index as MrpackIndex,
-          this.downloader,
-        )
-        downloaded += result.downloaded
-        skipped += result.skipped
-      } else {
-        const result = await downloadCurseForgeFiles(
-          this.fs,
-          gameDir,
-          manifest.index as CurseManifest,
-          this.downloader,
-          this.curseResolver,
-        )
-        downloaded += result.downloaded
-        skipped += result.skipped
-        warnings.push(...result.warnings)
-      }
-
-      this.emitChanged(dirName)
-      this.options.log.info('modpack imported', {
-        instanceId: dirName,
-        format: manifest.format,
-        downloaded,
-        overrides,
-      })
-      return {
-        instanceId: dirName,
-        dirName,
-        name: settings.name,
-        format: manifest.format,
+        id: dirName,
+        name: input.name ?? manifest.name,
         mcVersion: manifest.mcVersion,
         loader: manifest.loader,
-        downloaded,
-        skipped,
-        overrides,
-        needsBaseInstall: !baseReady,
-        warnings,
-      }
-    } catch (error) {
-      try {
-        this.fs.remove(instanceDir)
-      } catch {
-        // Keep the original error; a partial import is not silently reported.
-      }
-      throw error
+        now: this.now(),
+      }),
+      source: 'pack',
+      createdAt: this.now(),
     }
+    const baseJson = manifest.mcVersion
+      ? path.join(this.mcRoot(), 'versions', manifest.mcVersion, `${manifest.mcVersion}.json`)
+      : null
+    const needsBaseInstall = !baseJson || !this.fs.exists(baseJson)
+    const jobId = randomUUID()
+    const scratch = this.importScratch(dirName, jobId)
+    const warnings: string[] = []
+
+    const job = this.importJobs.start(
+      {
+        id: jobId,
+        stage: 'prepare',
+        total: totalFiles,
+        bytesTotal,
+        meta: { instanceId: dirName, format: manifest.format },
+      },
+      (ctx) =>
+        this.runImport(ctx, {
+          archive,
+          manifest,
+          dirName,
+          instanceDir,
+          gameDir: instanceDir,
+          loaderProfile,
+          settings,
+          prefixes,
+          scratch,
+          warnings,
+        }),
+      {
+        failureCode: 'MODS.PACK_IMPORT_FAILED',
+        cleanup: () => this.cleanupImport(scratch),
+        onError: (error) => {
+          this.options.log.error('modpack import failed', {
+            instanceId: dirName,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        },
+      },
+    )
+
+    this.options.log.info('modpack import started', {
+      jobId: job.id,
+      instanceId: dirName,
+      format: manifest.format,
+      files: totalFiles,
+    })
+    return {
+      jobId: job.id,
+      instanceId: dirName,
+      dirName,
+      name: settings.name,
+      format: manifest.format,
+      mcVersion: manifest.mcVersion,
+      loader: manifest.loader,
+      totalFiles,
+      needsBaseInstall,
+    }
+  }
+
+  cancelImport(jobId: string): { cancelled: boolean } {
+    const cancelled = this.importJobs.cancel(jobId)
+    if (cancelled) this.options.log.info('modpack import cancel requested', { jobId })
+    return { cancelled }
+  }
+
+  pauseImport(jobId: string): { paused: boolean } {
+    return { paused: this.importJobs.pause(jobId) }
+  }
+
+  resumeImport(jobId: string): { resumed: boolean } {
+    return { resumed: this.importJobs.resume(jobId) }
+  }
+
+  importStatus(jobId: string): ModpackImportProgress | null {
+    const progress = this.importJobs.status(jobId)
+    if (!progress) return null
+    const meta = this.importJobs.meta(jobId) ?? {}
+    return {
+      ...progress,
+      instanceId: meta.instanceId ?? '',
+      format: (meta.format as ModpackFormat | undefined) ?? 'modrinth',
+    }
+  }
+
+  importResult(jobId: string): ModpackImportFinished | null {
+    const outcome = this.importJobs.outcome(jobId)
+    if (!outcome) return null
+    const meta = this.importJobs.meta(jobId) ?? {}
+    return {
+      jobId: outcome.jobId,
+      state: outcome.state,
+      ok: outcome.ok,
+      error: outcome.error,
+      durationMs: outcome.durationMs,
+      instanceId: meta.instanceId ?? '',
+      result: outcome.result,
+    }
+  }
+
+  /** Test seam: waits for the import job to leave running/paused. */
+  waitForImport(
+    jobId: string,
+    timeoutMs?: number,
+  ): Promise<JobOutcome<ModpackImportResult>> {
+    return this.importJobs.waitFor(jobId, timeoutMs)
   }
 
   private collectOverrides(gameDir: string): ZipWriteEntry[] {

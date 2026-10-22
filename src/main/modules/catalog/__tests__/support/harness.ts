@@ -6,6 +6,9 @@ import type { AddressInfo } from 'node:net'
 import type {
   InstallLocalFileResult,
   ModFile,
+  ModpackImportFinished,
+  ModpackImportProgress,
+  ModpackImportStart,
   ModScanResult,
   ModsService,
 } from '@shared/mods'
@@ -152,7 +155,22 @@ export class FakeModsService implements ModsService {
   async analyzeDependencies(): Promise<{ issues: [] }> {
     return { issues: [] }
   }
-  async importModpack(): Promise<never> {
+  async importModpack(): Promise<ModpackImportStart> {
+    throw new Error('not used')
+  }
+  async cancelImport(): Promise<{ cancelled: boolean }> {
+    throw new Error('not used')
+  }
+  async pauseImport(): Promise<{ paused: boolean }> {
+    throw new Error('not used')
+  }
+  async resumeImport(): Promise<{ resumed: boolean }> {
+    throw new Error('not used')
+  }
+  async importStatus(): Promise<ModpackImportProgress | null> {
+    throw new Error('not used')
+  }
+  async importResult(): Promise<ModpackImportFinished | null> {
     throw new Error('not used')
   }
   async exportModpack(): Promise<never> {

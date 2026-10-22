@@ -44,6 +44,12 @@ export function register(ctx: ModuleContext): void {
     onChanged: (instanceId) => {
       moduleIpc.emit(moduleId, 'changed', { instanceId })
     },
+    onCopyProgress: (progress) => {
+      moduleIpc.emit(moduleId, 'copyProgress', progress)
+    },
+    onCopyFinished: (finished) => {
+      moduleIpc.emit(moduleId, 'copyFinished', finished)
+    },
     isInstanceRunning: (instanceId, dirName) => {
       const launch = getService<{
         status?: (id: string) => { state?: string } | undefined | null

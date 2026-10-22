@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { defineContract } from './kernel'
+import { LoaderSchema } from './instance'
+import { JobFinishedSchema, JobProgressSchema } from './job'
 
 /** Resource directories managed by the mods module. */
 export const ModKind = z.enum(['mods', 'resourcepacks', 'shaderpacks'])
@@ -107,6 +109,38 @@ export const ModpackImportResultSchema = z.object({
 })
 export type ModpackImportResult = z.infer<typeof ModpackImportResultSchema>
 
+/**
+ * `importModpack` is a background job: the RPC returns as soon as the pack has
+ * been validated and the target directory name is reserved. Progress and the
+ * final result are delivered as `importProgress` / `importFinished` events.
+ */
+export const ModpackImportStartSchema = z.object({
+  jobId: z.string().min(1),
+  /** Planned instance id (= target directory name). */
+  instanceId: z.string().min(1),
+  dirName: z.string().min(1),
+  name: z.string().min(1),
+  format: ModpackFormat,
+  mcVersion: z.string().nullable(),
+  loader: LoaderSchema,
+  /** Downloadable files + override entries that will be processed. */
+  totalFiles: z.number().int().nonnegative(),
+  needsBaseInstall: z.boolean(),
+})
+export type ModpackImportStart = z.infer<typeof ModpackImportStartSchema>
+
+export const ModpackImportProgressSchema = JobProgressSchema.extend({
+  instanceId: z.string().min(1),
+  format: ModpackFormat,
+})
+export type ModpackImportProgress = z.infer<typeof ModpackImportProgressSchema>
+
+export const ModpackImportFinishedSchema = JobFinishedSchema.extend({
+  instanceId: z.string().min(1),
+  result: ModpackImportResultSchema.nullable(),
+})
+export type ModpackImportFinished = z.infer<typeof ModpackImportFinishedSchema>
+
 export const ModpackExportResultSchema = z.object({
   path: z.string(),
   format: z.literal('mrpack'),
@@ -159,7 +193,27 @@ export const contract = defineContract({
         filePath: z.string().min(1),
         name: z.string().min(1).max(64).optional(),
       }),
-      output: ModpackImportResultSchema,
+      output: ModpackImportStartSchema,
+    },
+    cancelImport: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ cancelled: z.boolean() }),
+    },
+    pauseImport: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ paused: z.boolean() }),
+    },
+    resumeImport: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ resumed: z.boolean() }),
+    },
+    importStatus: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: ModpackImportProgressSchema.nullable(),
+    },
+    importResult: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: ModpackImportFinishedSchema.nullable(),
     },
     exportModpack: {
       input: z.object({
@@ -178,6 +232,13 @@ export const contract = defineContract({
   },
   events: {
     changed: { payload: z.object({ instanceId: z.string() }) },
+    importProgress: {
+      payload: ModpackImportProgressSchema,
+      throttleMs: 100,
+    },
+    importFinished: {
+      payload: ModpackImportFinishedSchema,
+    },
   },
 })
 
@@ -199,7 +260,12 @@ export interface ModsService {
     kind?: ModKind
   }): Promise<InstallLocalFileResult>
   analyzeDependencies(input: { instanceId: string }): Promise<{ issues: DependencyIssue[] }>
-  importModpack(input: { filePath: string; name?: string }): Promise<ModpackImportResult>
+  importModpack(input: { filePath: string; name?: string }): Promise<ModpackImportStart>
+  cancelImport(jobId: string): Promise<{ cancelled: boolean }>
+  pauseImport(jobId: string): Promise<{ paused: boolean }>
+  resumeImport(jobId: string): Promise<{ resumed: boolean }>
+  importStatus(jobId: string): Promise<ModpackImportProgress | null>
+  importResult(jobId: string): Promise<ModpackImportFinished | null>
   exportModpack(input: { instanceId: string; outPath?: string }): Promise<ModpackExportResult>
   openFolder(input: { instanceId: string; kind: ModKind }): Promise<{ path: string }>
 }

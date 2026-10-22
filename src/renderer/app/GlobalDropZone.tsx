@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { InstanceSummary } from '@shared/instance'
 import type { DownloadFinished, DownloadProgress } from '@shared/download'
 import type { LoaderFinished, LoaderProgress, LoaderType } from '@shared/loader'
-import type { ModKind, ModpackImportResult } from '@shared/mods'
+import type { ModKind, ModpackImportFinished } from '@shared/mods'
 import { useBackend } from './data/BackendContext'
 import { BackendError, describeError } from './data/backend'
+import { assertJobSucceeded, waitForJob } from './data/waitJob'
 import { detectArchive, type ArchiveDetection, type DetectedLoader } from './data/archiveDetect'
 import { useAsync } from './data/useAsync'
 import { navigate, useRoute } from './router'
@@ -250,7 +251,23 @@ export function GlobalDropZone() {
         percent: null,
         detail: '按清单写入实例、overrides 和模组文件',
       })
-      const result: ModpackImportResult = await backend.mods.importModpack(filePath)
+      const started = await backend.mods.importModpack(filePath)
+      setProgress({
+        phase: 'pack',
+        label: `导入整合包 ${started.name}`,
+        percent: null,
+        detail: '后台导入中，可继续使用启动器',
+      })
+      const finished = await waitForJob<ModpackImportFinished>({
+        jobId: started.jobId,
+        subscribe: backend.mods.subscribeImportFinished,
+        fetchResult: () => backend.mods.importResult(started.jobId),
+      })
+      assertJobSucceeded(finished, '整合包导入失败')
+      const result = finished.result
+      if (!result) {
+        throw new BackendError('PACK.IMPORT_FAILED', '整合包导入没有返回结果', false)
+      }
       instances.reload()
       localStorage.setItem('mcl.global.instanceId', result.instanceId)
       window.dispatchEvent(new CustomEvent('mcl:select-instance', { detail: { id: result.instanceId } }))

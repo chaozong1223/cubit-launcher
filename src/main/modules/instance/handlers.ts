@@ -20,6 +20,11 @@ export function makeHandlers(service: InstanceModuleService) {
     }) => service.create(input),
     copyInstance: async (input: { id: string; newName?: string; includeWorlds?: boolean }) =>
       service.copyInstance(input.id, { newName: input.newName, includeWorlds: input.includeWorlds }),
+    cancelCopy: async (input: { jobId: string }) => service.cancelCopy(input.jobId),
+    pauseCopy: async (input: { jobId: string }) => service.pauseCopy(input.jobId),
+    resumeCopy: async (input: { jobId: string }) => service.resumeCopy(input.jobId),
+    copyStatus: async (input: { jobId: string }) => service.copyStatus(input.jobId),
+    copyResult: async (input: { jobId: string }) => service.copyResult(input.jobId),
     discover: async () => service.discover(),
     setGameDir: async (input: { path: string }) => service.setGameDir(input),
     import: async (input: { path: string }) => service.importRoot(input),

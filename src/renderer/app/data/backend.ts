@@ -1,5 +1,14 @@
 import type { AppInfo } from '@shared/system'
-import type { DiscoverResult, InstanceSummary, InstancePatch, RemoveInstanceResult, SetGameDirResult } from '@shared/instance'
+import type {
+  DiscoverResult,
+  InstanceCopyFinished,
+  InstanceCopyProgress,
+  InstanceCopyStart,
+  InstanceSummary,
+  InstancePatch,
+  RemoveInstanceResult,
+  SetGameDirResult,
+} from '@shared/instance'
 import type { VersionSummary } from '@shared/version'
 import type { JavaDetectResult } from '@shared/java'
 import type { LaunchExitReport, LaunchPlan, LaunchState, LaunchStatus } from '@shared/launch'
@@ -17,7 +26,9 @@ import type {
   ModKind,
   ModScanResult,
   ModpackExportResult,
-  ModpackImportResult,
+  ModpackImportFinished,
+  ModpackImportProgress,
+  ModpackImportStart,
 } from '@shared/mods'
 import type {
   LoaderFinished,
@@ -341,6 +352,11 @@ const CH = {
   instanceUpdate: channelOf('instance', 'update'),
   instanceRemove: channelOf('instance', 'remove'),
   instanceCopyInstance: channelOf('instance', 'copyInstance'),
+  instanceCancelCopy: channelOf('instance', 'cancelCopy'),
+  instancePauseCopy: channelOf('instance', 'pauseCopy'),
+  instanceResumeCopy: channelOf('instance', 'resumeCopy'),
+  instanceCopyStatus: channelOf('instance', 'copyStatus'),
+  instanceCopyResult: channelOf('instance', 'copyResult'),
   instanceRestore: channelOf('instance', 'restore'),
   instanceDiscover: channelOf('instance', 'discover'),
   instanceSetGameDir: channelOf('instance', 'setGameDir'),
@@ -375,6 +391,11 @@ const CH = {
   modsInstallLocalFile: channelOf('mods', 'installLocalFile'),
   modsAnalyzeDependencies: channelOf('mods', 'analyzeDependencies'),
   modsImportModpack: channelOf('mods', 'importModpack'),
+  modsCancelImport: channelOf('mods', 'cancelImport'),
+  modsPauseImport: channelOf('mods', 'pauseImport'),
+  modsResumeImport: channelOf('mods', 'resumeImport'),
+  modsImportStatus: channelOf('mods', 'importStatus'),
+  modsImportResult: channelOf('mods', 'importResult'),
   modsExportModpack: channelOf('mods', 'exportModpack'),
   modsOpenFolder: channelOf('mods', 'openFolder'),
   catalogSearch: channelOf('catalog', 'search'),
@@ -543,7 +564,14 @@ export interface Backend {
     get(id: string): Promise<InstanceSummary>
     update(id: string, patch: InstancePatch): Promise<InstanceSummary>
     removeInstance(id: string): Promise<RemoveInstanceResult>
-    copyInstance(id: string, newName?: string, includeWorlds?: boolean): Promise<InstanceSummary>
+    copyInstance(id: string, newName?: string, includeWorlds?: boolean): Promise<InstanceCopyStart>
+    cancelCopy(jobId: string): Promise<{ cancelled: boolean }>
+    pauseCopy(jobId: string): Promise<{ paused: boolean }>
+    resumeCopy(jobId: string): Promise<{ resumed: boolean }>
+    copyStatus(jobId: string): Promise<InstanceCopyProgress | null>
+    copyResult(jobId: string): Promise<InstanceCopyFinished | null>
+    subscribeCopyProgress(callback: (event: InstanceCopyProgress) => void): () => void
+    subscribeCopyFinished(callback: (event: InstanceCopyFinished) => void): () => void
     restoreInstance(trashId: string): Promise<TrashItem>
     discover(): Promise<DiscoverResult>
     setGameDir(path: string): Promise<SetGameDirResult>
@@ -592,10 +620,17 @@ export interface Backend {
     remove(instanceId: string, kind: ModKind, names: string[]): Promise<BatchOperationResult>
     installLocalFile(instanceId: string, path: string, kind?: ModKind): Promise<InstallLocalFileResult>
     analyzeDependencies(instanceId: string): Promise<{ issues: unknown[] }>
-    importModpack(filePath: string, name?: string): Promise<ModpackImportResult>
+    importModpack(filePath: string, name?: string): Promise<ModpackImportStart>
+    cancelImport(jobId: string): Promise<{ cancelled: boolean }>
+    pauseImport(jobId: string): Promise<{ paused: boolean }>
+    resumeImport(jobId: string): Promise<{ resumed: boolean }>
+    importStatus(jobId: string): Promise<ModpackImportProgress | null>
+    importResult(jobId: string): Promise<ModpackImportFinished | null>
     exportModpack(instanceId: string, outPath?: string): Promise<ModpackExportResult>
     openFolder(instanceId: string, kind: ModKind): Promise<{ path: string }>
     subscribeChanged(callback: () => void): () => void
+    subscribeImportProgress(callback: (event: ModpackImportProgress) => void): () => void
+    subscribeImportFinished(callback: (event: ModpackImportFinished) => void): () => void
   }
   catalog: {
     search(input: CatalogSearchInput): Promise<CatalogSearchResult>
@@ -743,7 +778,14 @@ export const ipcBackend: Backend = {
     get: (id) => invoke<InstanceSummary>('实例详情', CH.instanceGet, { id }),
     update: (id, patch) => invoke<InstanceSummary>('更新实例', CH.instanceUpdate, { id, patch }),
     removeInstance: (id) => invoke<RemoveInstanceResult>('删除实例到回收站', CH.instanceRemove, { id }),
-    copyInstance: (id, newName, includeWorlds) => invoke<InstanceSummary>('复制实例', CH.instanceCopyInstance, { id, ...(newName ? { newName } : {}), ...(includeWorlds === undefined ? {} : { includeWorlds }) }),
+    copyInstance: (id, newName, includeWorlds) => invoke<InstanceCopyStart>('复制实例（后台任务）', CH.instanceCopyInstance, { id, ...(newName ? { newName } : {}), ...(includeWorlds === undefined ? {} : { includeWorlds }) }),
+    cancelCopy: (jobId) => invoke<{ cancelled: boolean }>('取消复制实例', CH.instanceCancelCopy, { jobId }),
+    pauseCopy: (jobId) => invoke<{ paused: boolean }>('暂停复制实例', CH.instancePauseCopy, { jobId }),
+    resumeCopy: (jobId) => invoke<{ resumed: boolean }>('继续复制实例', CH.instanceResumeCopy, { jobId }),
+    copyStatus: (jobId) => invoke<InstanceCopyProgress | null>('复制任务状态', CH.instanceCopyStatus, { jobId }),
+    copyResult: (jobId) => invoke<InstanceCopyFinished | null>('复制任务结果', CH.instanceCopyResult, { jobId }),
+    subscribeCopyProgress: (callback) => on('mc:instance:evt:copyProgress', callback),
+    subscribeCopyFinished: (callback) => on('mc:instance:evt:copyFinished', callback),
     restoreInstance: (trashId) => invoke<TrashItem>('从回收站恢复实例', CH.instanceRestore, { trashId }),
     discover: () => invoke<DiscoverResult>('发现 Minecraft 目录', CH.instanceDiscover),
     setGameDir: (path) => invoke<SetGameDirResult>('设置 Minecraft 目录', CH.instanceSetGameDir, { path }),
@@ -811,7 +853,14 @@ export const ipcBackend: Backend = {
     analyzeDependencies: (instanceId) =>
       invoke<{ issues: unknown[] }>('模组依赖分析', CH.modsAnalyzeDependencies, { instanceId }),
     importModpack: (filePath, name) =>
-      invoke<ModpackImportResult>('导入整合。', CH.modsImportModpack, { filePath, ...(name ? { name } : {}) }),
+      invoke<ModpackImportStart>('导入整合包（后台任务）', CH.modsImportModpack, { filePath, ...(name ? { name } : {}) }),
+    cancelImport: (jobId) => invoke<{ cancelled: boolean }>('取消整合包导入', CH.modsCancelImport, { jobId }),
+    pauseImport: (jobId) => invoke<{ paused: boolean }>('暂停整合包导入', CH.modsPauseImport, { jobId }),
+    resumeImport: (jobId) => invoke<{ resumed: boolean }>('继续整合包导入', CH.modsResumeImport, { jobId }),
+    importStatus: (jobId) => invoke<ModpackImportProgress | null>('导入任务状态', CH.modsImportStatus, { jobId }),
+    importResult: (jobId) => invoke<ModpackImportFinished | null>('导入任务结果', CH.modsImportResult, { jobId }),
+    subscribeImportProgress: (callback) => on('mc:mods:evt:importProgress', callback),
+    subscribeImportFinished: (callback) => on('mc:mods:evt:importFinished', callback),
     exportModpack: (instanceId, outPath) =>
       invoke<ModpackExportResult>('导出整合。', CH.modsExportModpack, { instanceId, ...(outPath ? { outPath } : {}) }),
     openFolder: (instanceId, kind) =>

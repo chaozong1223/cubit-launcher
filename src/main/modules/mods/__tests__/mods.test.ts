@@ -10,8 +10,11 @@ import { resolveLibraries } from '../../../core/version/classpath'
 import { openZipFile } from '../../../core/zip/reader'
 import { createStoredZip } from '../archive'
 import { ModsModuleService } from '../service'
+import { makeHandlers } from '../handlers'
 import { compareVersions, satisfiesRange } from '../metadata'
+import type { FileDownloadOptions } from '../downloader'
 import { AppError } from '@shared/errors'
+import { contract as modsContract } from '@shared/mods'
 
 const cleanup: string[] = []
 afterEach(() => {
@@ -190,6 +193,48 @@ function writeFiles(fixture: Fixture): void {
     { name: 'shaders/shader.frag', data: 'void main() {}' },
   ])
 }
+
+/** Runs an import job to completion (the RPC itself only returns a jobId). */
+async function runImport(
+  service: ModsModuleService,
+  input: { filePath: string; name?: string },
+) {
+  const started = await service.importModpack(input)
+  const outcome = await service.waitForImport(started.jobId, 30_000)
+  return { started, outcome }
+}
+
+async function waitUntil(predicate: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const began = Date.now()
+  while (!predicate()) {
+    if (Date.now() - began > timeoutMs) throw new Error('condition not met in time')
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
+function listPartFiles(root: string): string[] {
+  const entries = fs.readdirSync(root, { recursive: true }) as string[]
+  return entries.filter((name) => name.endsWith('.part'))
+}
+
+describe('mods contract wiring', () => {
+  it('exposes one handler per contract method (kernel binding would fail otherwise)', () => {
+    const handlers = makeHandlers({} as unknown as ModsModuleService) as Record<string, unknown>
+    for (const method of Object.keys(modsContract.methods)) {
+      expect(typeof handlers[method]).toBe('function')
+    }
+    expect(Object.keys(modsContract.methods)).toEqual(
+      expect.arrayContaining([
+        'importModpack',
+        'cancelImport',
+        'pauseImport',
+        'resumeImport',
+        'importStatus',
+        'importResult',
+      ]),
+    )
+  })
+})
 
 describe('scan and dependency analysis', () => {
   it('classifies enabled/disabled resources and reports metadata dependency issues', async () => {
@@ -449,7 +494,9 @@ describe('modpack import/export', () => {
       now: () => 1_700_000_000_000,
     })
 
-    const result = await service.importModpack({ filePath: pack })
+    const { outcome } = await runImport(service, { filePath: pack })
+    expect(outcome.ok).toBe(true)
+    const result = outcome.result!
     expect(result).toMatchObject({
       format: 'modrinth',
       name: 'Example Pack',
@@ -533,7 +580,9 @@ describe('modpack import/export', () => {
       },
       now: () => 1_700_000_000_000,
     })
-    const result = await service.importModpack({ filePath: pack })
+    const { outcome } = await runImport(service, { filePath: pack })
+    expect(outcome.ok).toBe(true)
+    const result = outcome.result!
     expect(result).toMatchObject({
       format: 'curseforge',
       mcVersion: '1.20.1',
@@ -581,7 +630,9 @@ describe('modpack import/export', () => {
       downloader: { download: async () => { throw new Error('must not download') } },
       now: () => 1_700_000_000_000,
     })
-    const reimported = await service.importModpack({ filePath: outPath })
+    const { outcome: reimportOutcome } = await runImport(service, { filePath: outPath })
+    expect(reimportOutcome.ok).toBe(true)
+    const reimported = reimportOutcome.result!
     expect(reimported.downloaded).toBe(0)
     expect(reimported.skipped).toBeGreaterThan(0)
     expect(
@@ -612,7 +663,9 @@ describe('modpack import/export', () => {
       },
       now: () => 1_700_000_000_000,
     })
-    const result = await service.importModpack({ filePath: pack })
+    const { outcome } = await runImport(service, { filePath: pack })
+    expect(outcome.ok).toBe(true)
+    const result = outcome.result!
     expect(result.downloaded).toBe(0)
     expect(result.skipped).toBe(1)
     expect(result.warnings.some((warning) => warning.includes('API key'))).toBe(true)
@@ -644,9 +697,251 @@ describe('modpack import/export', () => {
         }),
       },
     ])
-    await expect(
-      fixture.service.importModpack({ filePath: pack }),
-    ).rejects.toMatchObject({ code: 'MODS.PACK_UNSAFE_PATH' })
+    const started = await fixture.service.importModpack({ filePath: pack })
+    const outcome = await fixture.service.waitForImport(started.jobId, 30_000)
+    expect(outcome.ok).toBe(false)
+    expect(outcome.state).toBe('failed')
+    expect(outcome.error?.code).toBe('MODS.PACK_UNSAFE_PATH')
     expect(fs.readdirSync(path.join(fixture.mcRoot, 'versions')).some((name) => name === 'Evil')).toBe(false)
+    expect(listPartFiles(fixture.mcRoot)).toEqual([])
+  })
+})
+
+describe('modpack import job (cancel / pause / progress)', () => {
+  function packFixture(): {
+    fixture: Fixture
+    pack: string
+    jarA: Buffer
+    jarB: Buffer
+  } {
+    const fixture = createFixture()
+    const jarA = fabricMod('job-a', '1.0.0')
+    const jarB = fabricMod('job-b', '2.0.0')
+    const index = {
+      formatVersion: 1,
+      game: 'minecraft',
+      versionId: '1.0.0',
+      name: 'Job Pack',
+      files: [
+        {
+          path: 'mods/a.jar',
+          hashes: { sha1: crypto.createHash('sha1').update(jarA).digest('hex') },
+          downloads: ['https://cdn.example.invalid/a.jar'],
+          fileSize: jarA.length,
+        },
+        {
+          path: 'mods/b.jar',
+          hashes: { sha1: crypto.createHash('sha1').update(jarB).digest('hex') },
+          downloads: ['https://cdn.example.invalid/b.jar'],
+          fileSize: jarB.length,
+        },
+      ],
+      dependencies: { minecraft: '1.20.1', 'fabric-loader': '0.15.0' },
+    }
+    const pack = path.join(fixture.root, 'job.mrpack')
+    makeZip(pack, [
+      { name: 'modrinth.index.json', data: JSON.stringify(index) },
+      { name: 'overrides/config/job.json', data: '{"job":true}' },
+    ])
+    return { fixture, pack, jarA, jarB }
+  }
+
+  it('cancels a slow download within 3 s, removes all residue and can retry', async () => {
+    const { fixture, pack, jarA, jarB } = packFixture()
+    let mode: 'slow' | 'fast' = 'slow'
+    const downloader = {
+      download: async (url: string, _max?: number, options?: FileDownloadOptions) => {
+        if (mode === 'fast') return url.endsWith('a.jar') ? jarA : jarB
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 15_000)
+          options?.signal?.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer)
+              const error = new Error('aborted')
+              error.name = 'AbortError'
+              reject(error)
+            },
+            { once: true },
+          )
+        })
+        return url.endsWith('a.jar') ? jarA : jarB
+      },
+    }
+    const service = new ModsModuleService({
+      roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
+      log: logger,
+      fs: nodeFsPort(),
+      downloader,
+      now: () => 1_700_000_000_000,
+    })
+
+    const started = await service.importModpack({ filePath: pack })
+    expect(started.totalFiles).toBe(3)
+    await waitUntil(() => service.importStatus(started.jobId)?.currentFile === 'mods/a.jar')
+
+    const cancelledAt = Date.now()
+    expect(service.cancelImport(started.jobId)).toEqual({ cancelled: true })
+    const outcome = await service.waitForImport(started.jobId, 10_000)
+    expect(Date.now() - cancelledAt).toBeLessThan(3_000)
+    expect(outcome.state).toBe('cancelled')
+    expect(outcome.ok).toBe(false)
+    expect(outcome.result).toBeNull()
+
+    // No instance, no temp extraction dir, no .part files anywhere.
+    expect(fs.existsSync(path.join(fixture.mcRoot, 'versions', started.dirName))).toBe(false)
+    expect(fs.existsSync(path.join(fixture.dataRoot, 'tmp', 'jobs', `mods-import-${started.jobId}`))).toBe(false)
+    expect(listPartFiles(fixture.mcRoot)).toEqual([])
+    expect(listPartFiles(fixture.dataRoot)).toEqual([])
+
+    // Retry with a fast downloader: the same directory name must be free again.
+    mode = 'fast'
+    const retried = await runImport(service, { filePath: pack })
+    expect(retried.outcome.ok).toBe(true)
+    expect(retried.outcome.result).toMatchObject({ downloaded: 2, skipped: 0, overrides: 1 })
+    expect(retried.started.dirName).toBe(started.dirName)
+    const importedDir = path.join(fixture.mcRoot, 'versions', retried.started.dirName)
+    expect(fs.existsSync(path.join(importedDir, 'mods', 'a.jar'))).toBe(true)
+    expect(fs.existsSync(path.join(importedDir, 'mods', 'b.jar'))).toBe(true)
+    expect(fs.existsSync(path.join(importedDir, 'config', 'job.json'))).toBe(true)
+  })
+
+  it('pauses between files and resumes without downloading the next file early', async () => {
+    const { fixture, pack, jarA, jarB } = packFixture()
+    let calls = 0
+    let releaseFirst: (() => void) | null = null
+    const downloader = {
+      download: async (url: string) => {
+        calls += 1
+        if (calls === 1) {
+          await new Promise<void>((resolve) => {
+            releaseFirst = resolve
+          })
+          return url.endsWith('a.jar') ? jarA : jarB
+        }
+        return url.endsWith('b.jar') ? jarB : jarA
+      },
+    }
+    const service = new ModsModuleService({
+      roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
+      log: logger,
+      fs: nodeFsPort(),
+      downloader,
+      now: () => 1_700_000_000_000,
+    })
+
+    const started = await service.importModpack({ filePath: pack })
+    await waitUntil(() => calls === 1 && releaseFirst !== null)
+    expect(service.pauseImport(started.jobId)).toEqual({ paused: true })
+    expect(service.importStatus(started.jobId)?.state).toBe('paused')
+
+    releaseFirst!()
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    // The first file finished, but the paused job must not start the second.
+    expect(calls).toBe(1)
+    expect(service.importStatus(started.jobId)?.state).toBe('paused')
+
+    expect(service.resumeImport(started.jobId)).toEqual({ resumed: true })
+    const outcome = await service.waitForImport(started.jobId, 30_000)
+    expect(outcome.ok).toBe(true)
+    expect(calls).toBe(2)
+    expect(outcome.result?.downloaded).toBe(2)
+  })
+
+  it('drives start → status → cancel through the contract handlers', async () => {
+    const { fixture, pack, jarA, jarB } = packFixture()
+    const downloader = {
+      download: async (url: string, _max?: number, options?: FileDownloadOptions) => {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 10_000)
+          options?.signal?.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer)
+              const error = new Error('aborted')
+              error.name = 'AbortError'
+              reject(error)
+            },
+            { once: true },
+          )
+        })
+        return url.endsWith('a.jar') ? jarA : jarB
+      },
+    }
+    const service = new ModsModuleService({
+      roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
+      log: logger,
+      fs: nodeFsPort(),
+      downloader,
+    })
+    const handlers = makeHandlers(service)
+
+    const started = await handlers.importModpack({ filePath: pack })
+    expect(started.jobId).toBeTruthy()
+    await waitUntil(() => handlers.importStatus({ jobId: started.jobId })?.stage === 'download')
+    expect(handlers.importStatus({ jobId: started.jobId })).toMatchObject({
+      instanceId: started.instanceId,
+      format: 'modrinth',
+      state: 'running',
+    })
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(handlers.cancelImport({ jobId: started.jobId })).toEqual({ cancelled: true })
+    await waitUntil(() => handlers.importResult({ jobId: started.jobId })?.state === 'cancelled')
+    expect(handlers.importResult({ jobId: started.jobId })).toMatchObject({
+      jobId: started.jobId,
+      ok: false,
+      state: 'cancelled',
+      error: null,
+      result: null,
+    })
+  })
+
+  it('emits staged progress and a finished event with the composed result', async () => {
+    const { fixture, pack, jarA, jarB } = packFixture()
+    const service = new ModsModuleService({
+      roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
+      log: logger,
+      fs: nodeFsPort(),
+      downloader: {
+        download: async (url: string) =>
+          url.endsWith('a.jar') ? jarA : url.endsWith('b.jar') ? jarB : jarA,
+      },
+      now: () => 1_700_000_000_000,
+    })
+    const stages = new Set<string>()
+    const finished: unknown[] = []
+    const offProgress = service.onEvent('importProgress', (payload) => {
+      stages.add((payload as { stage: string }).stage)
+    })
+    const offFinished = service.onEvent('importFinished', (payload) => finished.push(payload))
+
+    const started = await service.importModpack({ filePath: pack })
+    const outcome = await service.waitForImport(started.jobId, 30_000)
+    offProgress()
+    offFinished()
+
+    expect(outcome.ok).toBe(true)
+    expect([...stages]).toEqual(
+      expect.arrayContaining(['prepare', 'overrides', 'download', 'finalize']),
+    )
+    expect(finished).toHaveLength(1)
+    expect(finished[0]).toMatchObject({
+      jobId: started.jobId,
+      ok: true,
+      state: 'done',
+      instanceId: started.instanceId,
+      result: { downloaded: 2, overrides: 1 },
+    })
+    expect(service.importStatus(started.jobId)).toMatchObject({
+      jobId: started.jobId,
+      instanceId: started.instanceId,
+      state: 'done',
+      stage: 'finalize',
+    })
+    expect(service.importResult(started.jobId)?.result?.instanceId).toBe(started.instanceId)
+    const lastProgress = service.importStatus(started.jobId)
+    expect(modsContract.events.importProgress.payload.safeParse(lastProgress).success).toBe(true)
+    expect(modsContract.events.importFinished.payload.safeParse(finished[0]).success).toBe(true)
   })
 })

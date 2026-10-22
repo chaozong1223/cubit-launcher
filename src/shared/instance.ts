@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineContract } from './kernel'
 import { TrashItemSchema, type TrashItem } from './assets'
+import { JobFinishedSchema, JobProgressSchema } from './job'
 
 /** Four-state instance recognition from docs/01 §5.1 / docs/03 §6.1. */
 export const InstanceState = z.enum([
@@ -139,6 +140,28 @@ export const SetGameDirResultSchema = z.object({
 })
 export type SetGameDirResult = z.infer<typeof SetGameDirResultSchema>
 
+/** Immediate acknowledgement of an asynchronous instance copy (jobId + target). */
+export const InstanceCopyStartSchema = z.object({
+  jobId: z.string().min(1),
+  /** Planned directory name / instance id of the new copy. */
+  instanceId: z.string().min(1),
+  dirName: z.string().min(1),
+  name: z.string().min(1),
+})
+export type InstanceCopyStart = z.infer<typeof InstanceCopyStartSchema>
+
+export const InstanceCopyProgressSchema = JobProgressSchema.extend({
+  instanceId: z.string().min(1),
+  name: z.string().min(1),
+})
+export type InstanceCopyProgress = z.infer<typeof InstanceCopyProgressSchema>
+
+export const InstanceCopyFinishedSchema = JobFinishedSchema.extend({
+  instanceId: z.string().min(1),
+  result: InstanceSummarySchema.nullable(),
+})
+export type InstanceCopyFinished = z.infer<typeof InstanceCopyFinishedSchema>
+
 /** Removing an instance only moves versions/<dir> into dataRoot/trash. */
 export const RemoveInstanceResultSchema = z.object({
   trashId: z.string(),
@@ -177,7 +200,28 @@ export const contract = defineContract({
         newName: z.string().min(1).max(64).optional(),
         includeWorlds: z.boolean().optional(),
       }),
-      output: InstanceSummarySchema,
+      output: InstanceCopyStartSchema,
+    },
+    /** Cancel a running copy job; partial target directories are rolled back. */
+    cancelCopy: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ cancelled: z.boolean() }),
+    },
+    pauseCopy: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ paused: z.boolean() }),
+    },
+    resumeCopy: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ resumed: z.boolean() }),
+    },
+    copyStatus: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: InstanceCopyProgressSchema.nullable(),
+    },
+    copyResult: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: InstanceCopyFinishedSchema.nullable(),
     },
     scan: {
       input: z.object({ mcRoot: z.string().optional() }),
@@ -209,6 +253,13 @@ export const contract = defineContract({
   },
   events: {
     changed: { payload: z.object({ instanceId: z.string().nullable() }) },
+    copyProgress: {
+      payload: InstanceCopyProgressSchema,
+      throttleMs: 100,
+    },
+    copyFinished: {
+      payload: InstanceCopyFinishedSchema,
+    },
   },
 })
 

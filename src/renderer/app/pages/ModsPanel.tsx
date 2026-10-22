@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import type { ModFile, ModKind, ModpackImportResult } from '@shared/mods'
+import type { ModFile, ModKind, ModpackImportFinished } from '@shared/mods'
 import { useBackend } from '../data/BackendContext'
-import { describeError, type UiErrorInfo } from '../data/backend'
+import { BackendError, describeError, type UiErrorInfo } from '../data/backend'
+import { assertJobSucceeded, waitForJob } from '../data/waitJob'
 import { useAsync } from '../data/useAsync'
 import { navigate } from '../router'
 import {
@@ -185,7 +186,16 @@ export function ModsPanel({ instanceId, kind }: { instanceId: string; kind: ModK
         ],
       })
       if (pick.cancelled || pick.paths.length === 0) return
-      const result: ModpackImportResult = await backend.mods.importModpack(pick.paths[0])
+      const started = await backend.mods.importModpack(pick.paths[0])
+      setNotice(`已开始后台导入「${started.name}」（${started.totalFiles} 个文件），完成后会自动提示。`)
+      const finished = await waitForJob<ModpackImportFinished>({
+        jobId: started.jobId,
+        subscribe: backend.mods.subscribeImportFinished,
+        fetchResult: () => backend.mods.importResult(started.jobId),
+      })
+      assertJobSucceeded(finished, '整合包导入失败')
+      const result = finished.result
+      if (!result) throw new BackendError('PACK.IMPORT_FAILED', '整合包导入没有返回结果', false)
       setNotice(`已导入 ${result.name}（${result.format}，下载 ${result.downloaded}，跳过 ${result.skipped}）。`)
       if (result.needsBaseInstall) setNotice((prev) => `${prev ?? ''} 还需要安装基础游戏版本。`.trim())
       navigate(`/instances/${encodeURIComponent(result.instanceId)}`)
