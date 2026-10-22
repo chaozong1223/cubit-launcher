@@ -6,12 +6,14 @@ import { describeError, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
 import { useInstanceRunning } from '../data/useInstanceRunning'
 import { navigate, useRoute } from '../router'
+import { useInstanceSettingsDraft } from '../data/useInstanceSettingsDraft'
 import { Badge, Button, Card, DataStateNotice, EmptyState, InstanceStateBadge, Skeleton, Tag, Tabs } from '../ui'
 import { Icon } from '../icons'
 import { ModsPanel } from './ModsPanel'
 import { DeleteInstanceDialog } from './DeleteInstanceDialog'
+import { InstanceSettingsFields } from './InstanceSettingsFields'
 
-type DetailTab = 'overview' | 'mods' | 'resourcepacks' | 'shaders' | 'settings'
+type DetailTab = 'overview' | 'mods' | 'resourcepacks' | 'shaders' | 'settings' | 'export'
 
 const TABS: ReadonlyArray<{ value: DetailTab; label: string }> = [
   { value: 'overview', label: '概览' },
@@ -19,6 +21,7 @@ const TABS: ReadonlyArray<{ value: DetailTab; label: string }> = [
   { value: 'resourcepacks', label: '资源包' },
   { value: 'shaders', label: '光影' },
   { value: 'settings', label: '设置' },
+  { value: 'export', label: '导出' },
 ]
 
 function loaderTag(instance: InstanceSummary) {
@@ -178,6 +181,52 @@ function UnwiredTab({ tab }: { tab: DetailTab }) {
   )
 }
 
+/** Export this instance as a share pack (.cubitpack), with progress polling. */
+function ExportTab({ instance }: { instance: InstanceSummary }) {
+  const backend = useBackend()
+  const [busy, setBusy] = useState(false)
+  const [path, setPath] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const run = async () => {
+    setBusy(true)
+    setError(null)
+    setPath(null)
+    try {
+      const started = await backend.instances.exportSharePackJob(instance.id)
+      for (let attempt = 0; attempt < 2400; attempt += 1) {
+        const finished = await backend.instances.shareExportResult(started.jobId)
+        if (finished) {
+          if (finished.state === 'done' && finished.result) setPath(finished.result.path)
+          else setError(`导出未完成（${finished.state}）`)
+          return
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+      setError('导出超时：20 分钟内没有完成')
+    } catch (cause) {
+      const info = describeError(cause)
+      setError(`${info.title}：${info.detail}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className="instance-settings-card">
+      <h3>导出分享包</h3>
+      <p className="muted">
+        打包版本配置、Mods、资源包、光影与可选存档成单个 .cubitpack 文件。导出前会扫描并剔除账号令牌等凭据，证据写入日志。
+      </p>
+      <div className="instance-settings-card__footer">
+        <Button variant="primary" loading={busy} disabled={busy} onClick={() => void run()}>开始导出</Button>
+        {path ? <span className="instance-settings-card__saved">已导出：<code className="mono">{path}</code></span> : null}
+        {error ? <span className="instance-settings-card__error">{error}</span> : null}
+      </div>
+    </Card>
+  )
+}
+
 export function InstanceDetailPage() {
   const backend = useBackend()
   const route = useRoute()
@@ -188,6 +237,7 @@ export function InstanceDetailPage() {
   const instance = detail.data
   const title = useMemo(() => instance?.name ?? '实例详情', [instance])
   const running = useInstanceRunning(instance?.id ?? null)
+  const settingsDraft = useInstanceSettingsDraft(instance ?? null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<UiErrorInfo | null>(null)
@@ -278,7 +328,23 @@ export function InstanceDetailPage() {
       {tab === 'mods' ? <ModsPanel instanceId={instance.id} kind="mods" /> : null}
       {tab === 'resourcepacks' ? <ModsPanel instanceId={instance.id} kind="resourcepacks" /> : null}
       {tab === 'shaders' ? <ModsPanel instanceId={instance.id} kind="shaderpacks" /> : null}
-      {tab === 'settings' ? <UnwiredTab tab="settings" /> : null}
+      {tab === 'settings' ? (
+        settingsDraft ? (
+          <Card className="instance-settings-card">
+            <InstanceSettingsFields draft={settingsDraft} />
+            <div className="instance-settings-card__footer">
+              <Button variant="primary" loading={settingsDraft.saving} disabled={settingsDraft.saving} onClick={() => void settingsDraft.save()}>
+                保存设置
+              </Button>
+              {settingsDraft.saveError ? <span className="instance-settings-card__error">{settingsDraft.saveError.title}：{settingsDraft.saveError.detail}</span> : null}
+              {settingsDraft.savedAt ? <span className="instance-settings-card__saved">已保存</span> : null}
+            </div>
+          </Card>
+        ) : (
+          <UnwiredTab tab="settings" />
+        )
+      ) : null}
+      {tab === 'export' ? <ExportTab instance={instance} /> : null}
 
       <DeleteInstanceDialog
         instance={deleteOpen ? instance : null}

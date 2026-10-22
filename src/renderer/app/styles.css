@@ -1224,6 +1224,17 @@
   margin-top: auto;
   padding-top: 8px;
 }
+.instance-settings-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.instance-settings-card__saved { color: var(--success-text); font-size: 12px; }
+.instance-settings-card__error { color: var(--danger-text); font-size: 12px; }
 .rail-btn:hover {
   background: var(--surface-2);
   color: var(--text);
