@@ -51,6 +51,14 @@ import { offlineUuid, validOfflineName } from './uuid'
 
 const REFRESH_MARGIN_MS = 5 * 60_000
 const REFRESH_MAX_AGE_MS = 90 * 24 * 3600 * 1000
+/**
+ * How long a completed loopback login stays replayable. The UI polls
+ * `pollAuthCode` in a loop; once the flow succeeds the pending flow record is
+ * deleted, so without a replay window the next poll (or an overlapping one)
+ * reports `AUTH.FLOW_NOT_FOUND` even though the login worked.
+ */
+const AUTH_CODE_REPLAY_MS = 10 * 60_000
+const AUTH_CODE_REPLAY_LIMIT = 32
 
 interface FlowState {
   flowId: string
@@ -78,6 +86,12 @@ interface AuthCodeFlowState {
   clientId: string
   tenant: string
   startedAt: number
+}
+
+/** Last successful result of a loopback flow, replayed for a short window. */
+interface CompletedAuthCodeFlow {
+  account: Account
+  completedAt: number
 }
 
 function dashedUuid(value: string): string {
@@ -153,6 +167,7 @@ export class AuthService {
   private readonly now: () => number
   private readonly flows = new Map<string, FlowState>()
   private readonly authCodeFlows = new Map<string, AuthCodeFlowState>()
+  private readonly completedAuthCodeFlows = new Map<string, CompletedAuthCodeFlow>()
   private readonly listeners = new Set<(payload: unknown) => void>()
   private readonly refreshInFlight = new Map<string, Promise<StoredSession>>()
   private readonly profileCache: ProfileCache<AuthProfile>
@@ -787,6 +802,15 @@ export class AuthService {
   }
 
   async pollAuthCode(flowId: string): Promise<AuthCodePollResult> {
+    // Idempotent after success: the flow record is gone, but the login already
+    // happened and the UI may still be mid-poll. Replay the same account.
+    const completed = this.completedAuthCodeFlows.get(flowId)
+    if (completed) {
+      if (this.now() - completed.completedAt <= AUTH_CODE_REPLAY_MS) {
+        return { status: 'ok', account: { ...completed.account } }
+      }
+      this.completedAuthCodeFlows.delete(flowId)
+    }
     const flow = this.authCodeFlows.get(flowId)
     if (!flow) {
       return {
@@ -870,6 +894,8 @@ export class AuthService {
         xuid: minecraft.xuid,
       })
       this.accounts.select(account.id)
+      // Keep the successful result replayable before the pending flow is gone.
+      this.rememberAuthCodeResult(flowId, account)
       flow.server.close()
       this.authCodeFlows.delete(flowId)
       this.emitChanged()
@@ -895,6 +921,23 @@ export class AuthService {
     flow.server.close()
     this.authCodeFlows.delete(flowId)
     return { ok: true }
+  }
+
+  /**
+   * Bounded replay table for `pollAuthCode`. Stores only the public account
+   * snapshot (never tokens), expires old entries and keeps the map small.
+   */
+  private rememberAuthCodeResult(flowId: string, account: Account): void {
+    const now = this.now()
+    this.completedAuthCodeFlows.set(flowId, { account: { ...account }, completedAt: now })
+    for (const [id, entry] of this.completedAuthCodeFlows) {
+      if (now - entry.completedAt > AUTH_CODE_REPLAY_MS) this.completedAuthCodeFlows.delete(id)
+    }
+    while (this.completedAuthCodeFlows.size > AUTH_CODE_REPLAY_LIMIT) {
+      const oldest = this.completedAuthCodeFlows.keys().next().value
+      if (oldest === undefined) break
+      this.completedAuthCodeFlows.delete(oldest)
+    }
   }
 
   async pollDeviceCode(flowId: string): Promise<PollDeviceCodeResult> {

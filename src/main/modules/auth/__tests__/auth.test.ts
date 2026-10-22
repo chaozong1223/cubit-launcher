@@ -554,6 +554,12 @@ describe('HMCL OAuth loopback port', () => {
     if (result.status !== 'ok') throw new Error('expected loopback login')
     expect(result.account.kind).toBe('microsoft')
     expect((await service.list()).selectedId).toBe(result.account.id)
+    // P3: the flow record is consumed on success, but polling again must stay
+    // idempotent instead of degrading into AUTH.FLOW_NOT_FOUND.
+    const replay = await service.pollAuthCode(start.flowId)
+    expect(replay).toEqual({ status: 'ok', account: result.account })
+    const replayAgain = await service.pollAuthCode(start.flowId)
+    expect(replayAgain.status).toBe('ok')
     } finally {
       if (previousPorts === undefined) delete process.env.MCL_AUTH_CALLBACK_PORTS
       else process.env.MCL_AUTH_CALLBACK_PORTS = previousPorts

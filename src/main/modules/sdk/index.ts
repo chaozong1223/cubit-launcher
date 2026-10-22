@@ -22,4 +22,10 @@ export function register(ctx: ModuleContext): void {
   publishService(moduleId, service)
   moduleIpc.handle(sdkContract, makeHandlers(service) as unknown as ModuleHandlers)
   ctx.log.info('module registered')
+
+  // A sidecar must never outlive the launcher: kill tracked children on exit
+  // (same last-resort pattern as the EasyTier sidecar in modules/net).
+  process.once('exit', () => {
+    service.disposeSync()
+  })
 }

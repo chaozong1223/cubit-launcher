@@ -196,6 +196,40 @@ describe('SDK sidecar lifecycle', () => {
     h.service.stop({ id: 'demo' })
   })
 
+  it('spawns at most one sidecar when start() is called concurrently', async () => {
+    const h = fixture({ fakeSpawn: true })
+    installSdk(h, 'demo')
+    const results = await Promise.allSettled([
+      h.service.start({ id: 'demo' }),
+      h.service.start({ id: 'demo' }),
+      h.service.start({ id: 'demo' }),
+    ])
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(
+      results.filter(
+        (result) =>
+          result.status === 'rejected' &&
+          (result.reason as { code?: string }).code === 'SDK.ALREADY_RUNNING',
+      ),
+    ).toHaveLength(2)
+    expect(h.spawnCalls).toHaveLength(1)
+    expect(h.service.runningIds()).toEqual(['demo'])
+    h.service.stop({ id: 'demo' })
+  })
+
+  it('kills every tracked sidecar on disposeSync (launcher quit)', async () => {
+    const h = fixture({ fakeSpawn: true })
+    installSdk(h, 'demo')
+    installSdk(h, 'other')
+    await h.service.start({ id: 'demo' })
+    await h.service.start({ id: 'other' })
+    expect(h.service.runningIds().sort()).toEqual(['demo', 'other'])
+    expect(h.service.disposeSync()).toBe(2)
+    expect(h.service.runningIds()).toEqual([])
+    const listed = await h.service.list()
+    expect(listed.entries.every((entry) => entry.running === false)).toBe(true)
+  })
+
   it('creates the manifest folder and exposes one handler per method', async () => {
     const h = fixture()
     const folder = await h.service.openFolder()

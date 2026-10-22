@@ -173,8 +173,25 @@ class LineSplitter {
   }
 }
 
-function decodeChunk(chunk: Buffer | string): string {
-  return typeof chunk === 'string' ? chunk : new TextDecoder('utf-8', { fatal: false }).decode(chunk)
+/**
+ * One streaming UTF-8 decoder per stream (R1/H13).
+ *
+ * A fresh `TextDecoder` per chunk cannot be correct: a 3-byte Chinese character
+ * split across two `data` events becomes two replacement characters, which is
+ * exactly the "garbled installer log" reported on Chinese Windows. `stream:true`
+ * keeps the incomplete tail inside the decoder until the next chunk, and
+ * `flush()` emits/escapes whatever is left once the process has exited.
+ */
+function createChunkDecoder(): { decode(chunk: Buffer | string): string; flush(): string } {
+  const decoder = new TextDecoder('utf-8', { fatal: false })
+  return {
+    decode(chunk) {
+      return typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true })
+    },
+    flush() {
+      return decoder.decode()
+    },
+  }
 }
 
 export async function runInstaller(options: InstallerRunOptions): Promise<InstallerRunResult> {
@@ -242,12 +259,14 @@ export async function runInstaller(options: InstallerRunOptions): Promise<Instal
 
   const stdoutSplitter = new LineSplitter()
   const stderrSplitter = new LineSplitter()
+  const stdoutDecoder = createChunkDecoder()
+  const stderrDecoder = createChunkDecoder()
 
   child.stdout?.on('data', (chunk: Buffer | string) => {
-    for (const line of stdoutSplitter.feed(decodeChunk(chunk))) record(line, 'stdout')
+    for (const line of stdoutSplitter.feed(stdoutDecoder.decode(chunk))) record(line, 'stdout')
   })
   child.stderr?.on('data', (chunk: Buffer | string) => {
-    for (const line of stderrSplitter.feed(decodeChunk(chunk))) record(line, 'stderr')
+    for (const line of stderrSplitter.feed(stderrDecoder.decode(chunk))) record(line, 'stderr')
   })
 
   const exit = await new Promise<{ code: number | null; signal: string | null }>((resolve) => {
@@ -267,15 +286,27 @@ export async function runInstaller(options: InstallerRunOptions): Promise<Instal
     })
   })
 
+  clearTimeout(timer)
+  if (options.signal) options.signal.removeEventListener('abort', onAbort)
+  // Give the last stream chunks a tick to land after `exit`; only then can the
+  // decoder/splitter flush safely (a chunk that arrives later must still be
+  // decoded as part of the same stream, not after a premature decoder flush).
+  await new Promise((resolve) => setTimeout(resolve, 30))
+
+  // Flush the decoders first: a trailing incomplete multi-byte sequence must be
+  // released before the line splitters emit their last partial line.
+  const stdoutDecoderTail = stdoutDecoder.flush()
+  if (stdoutDecoderTail) {
+    for (const line of stdoutSplitter.feed(stdoutDecoderTail)) record(line, 'stdout')
+  }
+  const stderrDecoderTail = stderrDecoder.flush()
+  if (stderrDecoderTail) {
+    for (const line of stderrSplitter.feed(stderrDecoderTail)) record(line, 'stderr')
+  }
   const flushLine = stdoutSplitter.flush()
   if (flushLine) record(flushLine, 'stdout')
   const flushErr = stderrSplitter.flush()
   if (flushErr) record(flushErr, 'stderr')
-
-  clearTimeout(timer)
-  if (options.signal) options.signal.removeEventListener('abort', onAbort)
-  // Give the last stream chunks a tick to land after `exit`.
-  await new Promise((resolve) => setTimeout(resolve, 30))
 
   return {
     exitCode: exit.code,

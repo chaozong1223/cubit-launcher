@@ -119,6 +119,37 @@ describe('runInstaller', () => {
     expect(ports.spawned[0].options?.windowsHide).toBe(true)
   })
 
+  it('decodes UTF-8 across chunk boundaries instead of garbling Chinese output', async () => {
+    const workDir = path.join(root, 'work')
+    fs.mkdirSync(workDir, { recursive: true })
+    const line = 'Installing client... 安装客户端\n'
+    const bytes = Buffer.from(line, 'utf8')
+    // Split inside the 3-byte character 安 (U+5B89): a per-chunk TextDecoder
+    // would emit two U+FFFD replacement characters here (R1/H13).
+    const cut = bytes.indexOf(Buffer.from('安', 'utf8')) + 1
+    const ports = fakePorts({
+      script: async (child: FakeChild) => {
+        child.stdout.write(bytes.subarray(0, cut))
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        child.stdout.write(bytes.subarray(cut))
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        child.emit('exit', 0, null)
+      },
+    })
+    const lines: string[] = []
+    const result = await runInstaller({
+      ports,
+      javaPath: 'java',
+      jarPath: 'installer.jar',
+      mcRoot: root,
+      workDir,
+      onLine: (text) => lines.push(text),
+    })
+    expect(result.exitCode).toBe(0)
+    expect(lines).toContain('Installing client... 安装客户端')
+    expect(lines.join('')).not.toContain('\uFFFD')
+  })
+
   it('reports a non-zero exit with a readable failure tail', async () => {
     const ports = fakePorts({
       script: (child: FakeChild) => {

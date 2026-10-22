@@ -1,7 +1,7 @@
 # Cubit Launcher（仓库名 `mc-launcher`）
 
-> **当前发布状态（2026-10-22 更新）**：**P0-6 已闭环，其余阻断见下方清单；对外发布前仍需一次全量回归。**
-> 依据 [`docs/05-acceptance-report.md`](docs/05-acceptance-report.md)：9 张 P0 卡中 **P0-0、P0-2 通过**；**P0-1、P0-3、P0-4、P0-5、P0-7 的阻断已在 10-21 夜间修复并通过复核**（见 `docs/06-review-round3-t54.md`）；**P0-6 的 LAN 世界发现与成员进世界已实测打通**（证据：[`docs/08-p0-6-lan-e2e.md`](docs/08-p0-6-lan-e2e.md)，端口 60321 真实解析、成员通过邀请码进房并进入世界）；P0-8 通过但 A8.3/8.4/8.5/8.7 证据仍不足。
+> **当前发布状态（2026-10-22 更新）**：**P0 仍未全部通过：P0-6 的 L0 真实 LAN 世界发现与成员进世界已实测通过（t64，端口 60321），但“离线账户凭邀请码地址一键进服”仍被原版 1.20.1 会话校验拒绝；对外发布前仍需一次全量回归。**
+> 依据 [`docs/05-acceptance-report.md`](docs/05-acceptance-report.md)：9 张 P0 卡中 **P0-0、P0-2 通过**；**P0-1、P0-3、P0-4、P0-5、P0-7 的阻断已在 10-21 夜间修复并通过复核**（见 `docs/06-review-round3-t54.md`）；**P0-6 的 LAN 世界发现与成员进世界已实测打通，但邀请码一键直连对离线账户仍是 FAIL**（证据：[`docs/08-p0-6-lan-e2e.md`](docs/08-p0-6-lan-e2e.md)，端口 60321 真实解析、成员经原版 LAN 浏览器进入世界）；P0-8 通过但 A8.3/8.4/8.5/8.7 证据仍不足。
 > 2026-10-22 追加修复：微软登录回调地址对齐已注册 URI（`http://localhost:53117/`，端点 `consumers`）、游戏临时目录重定向修复低完整性下模组写 `%TEMP%` 失败、`npm run pack` 不再清空便携数据目录、实例列表新增「复制版本」（完整复制目录并重命名版本 JSON/客户端 jar）。
 > 微软登录端到端已实测：MCE 审批通过后，界面点「微软登录」→ 浏览器授权 → 账户 `chaozong_1223` 写入并选中，dry-run 产出 `--username/--uuid/--accessToken/--userType`。
 > 本 README 只写有证据的能力；**P1/P2 与未通过验收的项不会写成“已可用”**。
@@ -95,7 +95,7 @@ dataRoot/
 | P0-3 | Java 自动检测 | 🟡 **后端 PASS，UI/错误码 FAIL** | 4 候选、1.20.1 选 17；05 时 Java 选择 UI 禁用、错误码被 `IPC.HANDLER_FAILED` 包裹 |
 | P0-4 | 内存/JVM/窗口参数 | 🟡 **后端 PASS，UI FAIL** | argv/4096/1280×720/全屏/G1/natives/A-B 隔离通过；05 时设置页控件 disabled |
 | P0-5 | 日志与崩溃提示 | ⛔ **FAIL** | 日志/`launch-last.*` 齐全、坏 JVM 参数 293 ms 出 `jvm-args`；但 05 时无自动弹窗、报告路径/格式不符、无日志轮转 |
-| P0-6 | 联机：房间 + LAN 世界 + 隧道降级 | ⛔ **FAIL（L0 未闭环）** | 开房/加入/关闭 3.1 s/版本不匹配通过；05 时房主不计入成员、ping null、LAN 世界与进世界未闭环；L2 未验 |
+| P0-6 | 联机：房间 + LAN 世界 + 隧道降级 | 🟡 **部分闭环（L0 通过；一键直连 FAIL）** | 开房/加入/关闭 3.1 s/版本不匹配通过；t64 真实 LAN 世界端口 60321 自动解析、成员经原版 LAN 浏览器进入世界（[`docs/08-p0-6-lan-e2e.md`](docs/08-p0-6-lan-e2e.md)）；**离线账户邀请码一键直连被原版会话校验拒绝**；L2 未验 |
 | P0-7 | 微软设备码 / Authlib / 多账户 | 🟡 **错误路径/Authlib 注入 PASS；UI/实机 FAIL** | `MS_CLIENT_ID_MISSING` 诚实失败、Authlib 1.2.8 SHA-256/`-javaagent` 正确；05 时无微软/Authlib UI 入口，Authlib 未到主菜单 |
 | P0-8 | 模组/资源包/光影 + 整合包 | 🟡 **PASS，证据不足** | 三目录扫描/启停/冲突/删除、拖拽+选择文件两入口、mrpack 导入通过；A8.3/8.4/8.5/8.7 未做端到端 |
 
@@ -115,7 +115,7 @@ dataRoot/
 | 下载增强 | 🟡 部分 | 镜像/源切换/并发/断点在树；05 的 B1 未复验 |
 | PCL 目录只读兼容 | ❌ 未实现 | P0 只扫描 `versions/`，不读 PCL `Setup.ini` |
 | 实例删除/多 MC 文件夹 | 🟡 部分 | 实例列表/详情/模组可用；删除与多文件夹未由 05 覆盖 |
-| 联机重连/一致性指纹 | 🟡 部分 | 心跳/重连/票据代码与测试在树；L0 实机未闭环，mod 指纹未做 |
+| 联机重连/一致性指纹 | 🟡 部分 | 心跳/重连/票据代码与测试在树；**L0 真实 LAN 世界已实测（t64，[`docs/08-p0-6-lan-e2e.md`](docs/08-p0-6-lan-e2e.md)），离线账户一键直连 FAIL**；L2 未验，mod 指纹未做 |
 
 ### 2.3 P2（暂缓/可选）
 
@@ -127,6 +127,21 @@ dataRoot/
 | Mod 在线搜索/安装/更新（Modrinth） | ✅ 资源库/模组更新页面已接真实 `mc:catalog:*`（t43/t45；更新检查为真实空结果） |
 | 数据包/世界下载 | ❌ 未实现 |
 | 自定义主页/音乐/皮肤/帮助/公告/遥测/更新器 | ❌ 未实现（About 页明确标注“尚未接入”） |
+
+### 2.4 二期新增能力（2026-10-22，代码已落地；不等于 P0 验收）
+
+> 本节只记录二期实现与已知限制，**不改变上表的 P0 状态**。逐项审查、P3 修复与残余风险见 [`docs/06-review-round4-t9.md`](docs/06-review-round4-t9.md)。
+
+| 能力 | 状态 | 已知限制 |
+|---|---|---|
+| 可取消作业（整合包导入/实例复制） | ✅ 后台 job：进度/暂停/取消/回滚（`.part`、临时解压目录、半成品实例） | 撤销/重做不适用；进程被杀时 `dataRoot/tmp/jobs/*` 残留需下次清理 |
+| 分享包 `.cubitpack` 导出/导入 | ✅ 内容勾选、脱敏证据、同名冲突三选一、staging+回滚 | 打包在内存中完成（2 GB 上限可能占大内存）；脱敏只覆盖 token/cookie/password/secret/authorization 键，第三方 `apiKey` 等不保证 |
+| 存档复制到其他版本 / 用其他版本启动 | ✅ 跨版本提示、冲突三选一、`--quickPlaySingleplayer`（1.20+） | 跨版本可能丢模组方块/实体数据；1.20 以下只警告不注入 |
+| 投影管理（`.litematic/.nbt/.schem`） | ✅ 列表/解析/导入/复制/移动/回收站 | 单文件 128 MB 解析上限；坏文件保留为“解析失败”行 |
+| 链接导入（Modrinth / CurseForge 可选） | ✅ 两阶段确认、CF 自备 key（safeStorage 加密）+ 镜像、下载校验 | 下载阶段不可取消；CF 无 key/作者关闭第三方分发时只能手动下载；key 仅在本机 |
+| 内存/性能面板 | ✅ 硬件探测、推荐内存、Java 进程、白名单缓存清理 | 进程表仅 Windows 且只能列 Java 进程（无法映射实例）；缓存类别为固定白名单 |
+| 本地皮肤 | ✅ 64×64/64×32 PNG、按账户缓存、链接导入后离线可用 | 绝不上传官方皮肤；链接仅 HTTPS（且不防 DNS 解析到内网，见审查文档） |
+| 第三方联机 SDK 清单 | ✅ 清单校验、哈希、`shell:false` 启动/停止 sidecar | 仅 Windows `.exe`；sidecar stdout/stderr 忽略；退出启动器会杀掉 sidecar |
 
 ---
 
@@ -140,7 +155,7 @@ dataRoot/
 | B2 | 设置页未接线（内存/窗口/JVM/Java/实例设置） | 全局设置页已接线；**实例详情设置 tab 仍占位**；未复验 |
 | B3 | 领域错误码被 `IPC.HANDLER_FAILED` 包裹 | t53 加 `technicalMessage/causeCode` 透传；未复验 |
 | B4 | 崩溃无自动弹窗、报告路径不符、无日志轮转 | 日志轮转/`crash-reports/` 已实现；**自动弹窗仍未实现**；未复验 |
-| B5 | 联机 L0 未闭环（房主成员/ping/LAN 世界/进世界） | 代码已有 `lanWorlds/joinLanWorld` 与房主成员；**未按 05 复验** |
+| B5 | 联机 L0 未闭环（房主成员/ping/LAN 世界/进世界） | **L0 已由 t64 实测**：端口 60321 自动解析、成员经原版 LAN 浏览器进世界（`docs/08`）；房主成员/ping/关房由 t61 复核；**离线账户邀请码一键直连仍 FAIL**；L2 未验 |
 | B6 | 微软/Authlib 无 UI 入口 | 账户页已接微软设备码/Authlib 表单；**Authlib 实机到主菜单未复验** |
 | B7 | P0-8 的 CF zip/Zip-Slip/普通 zip/无加载器提示证据不足 | 未关闭；仅单测 |
 | B8 | 01 的 A1.3/A1.4 数值笔误 | **已修**：01 v1.6 改为 `8a45c6…` / `651,728,646`（磁盘去重 `651,496,644`） |
@@ -149,13 +164,13 @@ dataRoot/
 
 | 轮次 | 结论 | 发现 | 处置 |
 |---|---|---|---|
-| t35（第 1 轮） | needs_revision | 3 high / 6 medium / 5 low，共 14 条 | H1–H3 高危、H4–H9 中危已修；H10–H12/H14 低危已修；**H13 未修**（安装器中文输出逐 chunk UTF-8 解码） |
-| t52（第 2 轮） | needs_revision | 新增 **1 high + 3 medium + 4 low**（N1–N8）；另有上一轮未关闭项 | N1–N8 由 t51/t53 修复；H9/H11/H12/H14 已修；H13 仍开 |
+| t35（第 1 轮） | needs_revision | 3 high / 6 medium / 5 low，共 14 条 | H1–H3 高危、H4–H9 中危已修；H10–H12/H14 低危已修；**H13 已由 t9（2026-10-22）修复**（安装器日志改为流式 UTF-8 解码） |
+| t52（第 2 轮） | needs_revision | 新增 **1 high + 3 medium + 4 low**（N1–N8）；另有上一轮未关闭项 | N1–N8 由 t51/t53 修复；H9/H11/H12/H14 已修；H13 由 t9 关闭 |
 | t54（第 3 轮） | **pass（放行代码审查）** | 0 high / 0 medium；4 low + 2 观察（R1–R6） | 见下；**不等于 P0 验收通过**，05 的 B1–B8 仍需复验 |
 
 **t54 残留（P1，约半天）**：
 
-- **R1 / H13（未修）**：`modules/loader/core/installer.ts:176-178` 仍是逐 chunk `new TextDecoder('utf-8')`；中文 Windows 下 Forge/NeoForge 安装器输出会花屏/截断多字节字符。**不影响机器可解析的英文进度与安装正确性**，但 t53 报告“logEncoding 单 decoder 已满足”**不实**，以此为准。
+- **R1 / H13（2026-10-22 t9 已修）**：`modules/loader/core/installer.ts` 改为**每条流一个 `TextDecoder` + `stream:true`**、退出后先 flush 解码器再 flush 行缓冲；跨 `data` 块的中文不再花屏/截断。新增“3 字节字符被切块”回归单测；此前 t53 报告“单 decoder 已满足”不实的问题就此关闭。
 - **R2**：`helpSupportsSecretEnv` 的 `|| --network-secret` 臂让 fail-closed 判据几乎恒真；应只认 `ET_NETWORK_SECRET`，并补“只有 flag → false”断言。
 - **R3**：`isTrustedUrl` 的 packaged/dev 分支无单测（建议 4 例）。
 - **R4**：dev 态 origin 全等比较（`127.0.0.1` vs `localhost`）可能拒掉开发态 IPC；打包态不受影响。
@@ -175,7 +190,7 @@ dataRoot/
 | 找不到 Java | 设置 → Java 选择已有候选；`java.download` 后端存在但当前 UI 未暴露自动下载入口。本机可用 `%APPDATA%\.minecraft\runtime\*` 或 `tools\jdk21`（若存在） |
 | 微软登录提示 `MS_CLIENT_ID_MISSING` / `MS_AUTH_NOT_APPROVED` | 这是**诚实的未配置/待审批**状态；不会伪造登录。请先用离线或 Authlib 账户。MCE 审批结果到货后再配置 client id |
 | Authlib 登录失败 | 只支持 HTTPS 皮肤站；启动器会注入 `-javaagent`，不改原版 jar。若皮肤站不可达，会明确报错而不是卡死 |
-| 联机进不去 LAN 世界 | 05 时 L0 未闭环；当前代码已有 `lanWorlds/joinLanWorld`，但未复验。跨网 P2P/中继为条件项，失败时按 UI 的手动端口映射指引处理 |
+| 联机进不去 LAN 世界 | L0 世界发现/进世界已实测（`docs/08`）。**离线账户点邀请码“进入世界”会被原版会话校验拒绝（无效会话）**：请让成员用原版「多人游戏 → 局域网世界」进入；正版账户可直连。跨网 P2P/中继为条件项，失败时按 UI 的手动端口映射指引处理 |
 | 崩溃没有自动弹窗 | 05 的 B4 未关闭；当前请在 日志 → 分析最近一次崩溃 手动分析，或导出诊断包 |
 | 日志/诊断包在哪 | 设置 → 日志与诊断 打开数据目录；日志页可导出 `logs.zip` / `diagnostics.zip`；游戏输出在 `dataRoot/logs/game/<实例>/` |
 
@@ -205,7 +220,9 @@ mc-launcher/
 - [`docs/04-multiplayer-design.md`](docs/04-multiplayer-design.md) — 联机选型、房间协议、降级链
 - [`docs/05-acceptance-report.md`](docs/05-acceptance-report.md) — **发布判定以此为准**
 - [`docs/06-user-guide.md`](docs/06-user-guide.md) — 用户手册
+- [`docs/06-review-round4-t9.md`](docs/06-review-round4-t9.md) — 二期实现审查（t1–t8）、P3 修复与残余风险
 - [`docs/07-handoff.md`](docs/07-handoff.md) — 交接、模块扩展、残留与路线图
+- [`docs/08-p0-6-lan-e2e.md`](docs/08-p0-6-lan-e2e.md) — P0-6 L0 真实 LAN 世界证据（t64）
 - [`docs/clean-room-log.md`](docs/clean-room-log.md) — clean-room 记录
 
 ---

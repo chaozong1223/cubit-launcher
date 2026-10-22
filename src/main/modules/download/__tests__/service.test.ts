@@ -337,13 +337,27 @@ describe('install chain end-to-end', () => {
     const h = await setup({ chunkDelayMs: 20, chunkSize: 40 })
     const first = await h.service.install({ versionId: '1.20.1' })
 
-    // Wait until at least two files are done (2 extra = JSON + index), then
-    // cancel mid-flight.
+    // The plan starts with the client jar, but the smaller libraries finish
+    // first, so `done >= 4` does not imply any of the files asserted below
+    // exists (under full-suite load all four completions can be tiny metadata
+    // files). Wait for the two library jars this test inspects; logging/assets
+    // tasks still follow them, so the job is still cancellable.
+    const watched = [
+      'versions/1.20.1/1.20.1.jar',
+      'libraries/com/mojang/logging/1.1.1/logging-1.1.1.jar',
+      'libraries/org/lwjgl/lwjgl/3.3.1/lwjgl-3.3.1.jar',
+    ]
+    const completedOnDisk = (): Set<string> => {
+      const done = new Set<string>()
+      for (const rel of watched) {
+        if (fs.existsSync(path.join(h.mcRoot, rel))) done.add(rel)
+      }
+      return done
+    }
     const deadline = Date.now() + 5_000
     while (Date.now() < deadline) {
-      const status = h.service.status(first.jobId)
-      if (status && status.done >= 4) break
-      await new Promise((resolve) => setTimeout(resolve, 20))
+      if (completedOnDisk().size >= 2) break
+      await new Promise((resolve) => setTimeout(resolve, 10))
     }
     await h.service.cancel(first.jobId)
     const cancelled = await h.service.waitForJob(first.jobId)
@@ -354,14 +368,7 @@ describe('install chain end-to-end', () => {
     expect(h.progress.some((event) => event.currentFile !== null)).toBe(true)
     expect(h.progress.some((event) => event.state === 'running')).toBe(true)
 
-    const completed = new Set<string>()
-    for (const rel of [
-      'versions/1.20.1/1.20.1.jar',
-      'libraries/com/mojang/logging/1.1.1/logging-1.1.1.jar',
-      'libraries/org/lwjgl/lwjgl/3.3.1/lwjgl-3.3.1.jar',
-    ]) {
-      if (fs.existsSync(path.join(h.mcRoot, rel))) completed.add(rel)
-    }
+    const completed = completedOnDisk()
     expect(completed.size).toBeGreaterThan(0)
 
     h.server.reset()

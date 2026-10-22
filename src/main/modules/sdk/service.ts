@@ -156,6 +156,8 @@ export class SdkService {
   private readonly now: () => number
   private readonly directory: string
   private readonly running = new Map<string, RunningSdk>()
+  /** Ids whose async validation/spawn is in flight (concurrent start guard). */
+  private readonly starting = new Set<string>()
   private readonly spawnImpl: typeof spawn
 
   constructor(private readonly options: SdkServiceOptions) {
@@ -319,79 +321,92 @@ export class SdkService {
   }
 
   async start(input: SdkStartInput): Promise<SdkStartResult> {
-    const list = await this.list()
-    const entry = list.entries.find((item) => item.id === input.id)
-    if (!entry) {
-      const rejected = list.rejected.find((item) => item.path.includes(input.id))
-      throw new AppError(
-        'SDK.NOT_FOUND',
-        rejected ? `SDK 未通过校验: ${rejected.errors.join('；')}` : `找不到 SDK: ${input.id}`,
-        { details: { id: input.id } },
-      )
-    }
-    if (entry.running) {
+    // Claim the id synchronously: `list()`/hash validation are async, so two
+    // concurrent start calls would both pass a later "already running" check and
+    // spawn two sidecars (one of them would be orphaned).
+    if (this.running.has(input.id) || this.starting.has(input.id)) {
       throw new AppError('SDK.ALREADY_RUNNING', '这个 SDK sidecar 已经在运行', {
-        details: { id: input.id, pid: entry.pid },
-      })
-    }
-    // Re-validate immediately before spawning: a manifest/file may have changed.
-    const validated = await this.validateEntry(
-      entry.manifestPath,
-      entry.directory,
-      entry.directory === this.directory ? null : path.basename(entry.directory),
-    )
-    if (!validated.ok) {
-      throw new AppError('SDK.INVALID_MANIFEST', `SDK 未通过校验: ${validated.errors.join('；')}`, {
         details: { id: input.id },
       })
     }
-    let extraArgs: string[]
+    this.starting.add(input.id)
     try {
-      extraArgs = validateArgs(input.args ?? [])
-    } catch (error) {
-      throw new AppError('SDK.INVALID_ARGS', error instanceof Error ? error.message : String(error))
-    }
-    const argv = [...validated.sdk.args, ...extraArgs]
-    let child: ChildProcess
-    try {
-      child = this.spawnImpl(validated.sdk.executable, argv, {
-        cwd: validated.sdk.directory,
-        windowsHide: true,
-        stdio: 'ignore',
-        shell: false,
-        env: sidecarEnvironment(),
+      const list = await this.list()
+      const entry = list.entries.find((item) => item.id === input.id)
+      if (!entry) {
+        const rejected = list.rejected.find((item) => item.path.includes(input.id))
+        throw new AppError(
+          'SDK.NOT_FOUND',
+          rejected ? `SDK 未通过校验: ${rejected.errors.join('；')}` : `找不到 SDK: ${input.id}`,
+          { details: { id: input.id } },
+        )
+      }
+      if (entry.running) {
+        throw new AppError('SDK.ALREADY_RUNNING', '这个 SDK sidecar 已经在运行', {
+          details: { id: input.id, pid: entry.pid },
+        })
+      }
+      // Re-validate immediately before spawning: a manifest/file may have changed.
+      const validated = await this.validateEntry(
+        entry.manifestPath,
+        entry.directory,
+        entry.directory === this.directory ? null : path.basename(entry.directory),
+      )
+      if (!validated.ok) {
+        throw new AppError('SDK.INVALID_MANIFEST', `SDK 未通过校验: ${validated.errors.join('；')}`, {
+          details: { id: input.id },
+        })
+      }
+      let extraArgs: string[]
+      try {
+        extraArgs = validateArgs(input.args ?? [])
+      } catch (error) {
+        throw new AppError('SDK.INVALID_ARGS', error instanceof Error ? error.message : String(error))
+      }
+      const argv = [...validated.sdk.args, ...extraArgs]
+      let child: ChildProcess
+      try {
+        child = this.spawnImpl(validated.sdk.executable, argv, {
+          cwd: validated.sdk.directory,
+          windowsHide: true,
+          stdio: 'ignore',
+          shell: false,
+          env: sidecarEnvironment(),
+        })
+      } catch {
+        throw new AppError('SDK.START_FAILED', 'SDK sidecar 启动失败')
+      }
+      if (typeof child.pid !== 'number' || child.pid <= 0) {
+        throw new AppError('SDK.START_FAILED', 'SDK sidecar 启动失败（没有 PID）')
+      }
+      const startedAt = this.now()
+      child.on('exit', () => {
+        if (this.running.get(validated.sdk.id)?.child === child) {
+          this.running.delete(validated.sdk.id)
+        }
+        this.log.info('sdk sidecar exited', { id: validated.sdk.id })
       })
-    } catch {
-      throw new AppError('SDK.START_FAILED', 'SDK sidecar 启动失败')
+      child.on('error', () => {
+        if (this.running.get(validated.sdk.id)?.child === child) {
+          this.running.delete(validated.sdk.id)
+        }
+      })
+      this.running.set(validated.sdk.id, {
+        child,
+        pid: child.pid,
+        startedAt,
+        command: validated.sdk.command,
+      })
+      this.log.info('sdk sidecar started', {
+        id: validated.sdk.id,
+        pid: child.pid,
+        command: validated.sdk.command,
+        args: argv.length,
+      })
+      return { id: validated.sdk.id, pid: child.pid, startedAt, command: validated.sdk.command }
+    } finally {
+      this.starting.delete(input.id)
     }
-    if (typeof child.pid !== 'number' || child.pid <= 0) {
-      throw new AppError('SDK.START_FAILED', 'SDK sidecar 启动失败（没有 PID）')
-    }
-    const startedAt = this.now()
-    child.on('exit', () => {
-      if (this.running.get(validated.sdk.id)?.child === child) {
-        this.running.delete(validated.sdk.id)
-      }
-      this.log.info('sdk sidecar exited', { id: validated.sdk.id })
-    })
-    child.on('error', () => {
-      if (this.running.get(validated.sdk.id)?.child === child) {
-        this.running.delete(validated.sdk.id)
-      }
-    })
-    this.running.set(validated.sdk.id, {
-      child,
-      pid: child.pid,
-      startedAt,
-      command: validated.sdk.command,
-    })
-    this.log.info('sdk sidecar started', {
-      id: validated.sdk.id,
-      pid: child.pid,
-      command: validated.sdk.command,
-      args: argv.length,
-    })
-    return { id: validated.sdk.id, pid: child.pid, startedAt, command: validated.sdk.command }
   }
 
   stop(input: { id: string }): SdkStopResult {
@@ -405,6 +420,34 @@ export class SdkService {
     this.running.delete(input.id)
     this.log.info('sdk sidecar stop requested', { id: input.id, pid: running.pid })
     return { id: input.id, stopped: true }
+  }
+
+  /**
+   * Last-resort shutdown (app quit / process exit): kill every tracked sidecar.
+   *
+   * A sidecar is a child of the launcher, not a detached process; if the
+   * launcher exits without killing it, it keeps running and holding its port.
+   * Synchronous on purpose — async cleanup cannot run after `exit`.
+   */
+  disposeSync(): number {
+    let killed = 0
+    for (const [id, running] of [...this.running]) {
+      try {
+        running.child.kill()
+        killed += 1
+        this.log.info('sdk sidecar killed at shutdown', { id, pid: running.pid })
+      } catch {
+        this.log.warn('sdk sidecar kill at shutdown failed', { id, pid: running.pid })
+      }
+      this.running.delete(id)
+    }
+    this.starting.clear()
+    return killed
+  }
+
+  /** Test/ops view of the tracked sidecars (ids only, no child handles). */
+  runningIds(): string[] {
+    return [...this.running.keys()]
   }
 
   async openFolder(): Promise<{ path: string; opened: boolean }> {

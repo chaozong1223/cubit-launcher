@@ -10,7 +10,8 @@
 | 被测构建 | `release/win-unpacked/mc-launcher.exe`，2026-10-21 22:40:23，247,155,712 B；app 0.1.0 / Electron 44.9.3 |
 | 源码状态 | 验收期间 auth `profile` 由并发修复在 22:36–22:38 落地；最终 `typecheck/build=0`、`test=458 passed/19 skipped`、e2e exit 0（22:43 干净日志重跑） |
 | 证据根 | `docs/evidence/t61/`（脚本：`docs/evidence/p0/tools/probe-t61-*.mjs`） |
-| **发布结论** | **P0 仍未全部通过**：P0-0/1/2/3/4/5/7/8 通过或通过（带条件）；**P0-6 的 L0 真实 LAN 世界/进世界仍未闭环**，是唯一剩余 P0 阻断。**README 不应改为“P0 通过”。** |
+| 口径更新 | **2026-10-22（t9）**：按 t64 的 `docs/08-p0-6-lan-e2e.md` 更新 P0-6 结论、§7 与 §8；未重跑 01/05 全量验收，未改产品代码 |
+| **发布结论** | **P0 仍未全部通过**：P0-0/1/2/3/4/5/7/8 通过或通过（带条件）；**P0-6 的 L0 真实 LAN 世界发现与成员进世界已由 t64 实测补齐，但“离线账户凭邀请码地址一键进服”仍被原版 1.20.1 会话校验拒绝**，是唯一剩余 P0 阻断。**README 不应改为“P0 通过”。** |
 
 > 本轮只新增证据与文档，未修改产品代码。所有结论来自 2026-10-21 22:20–22:45 的实际运行；旧 t34/t45 结论未被复用为“新验证”。
 
@@ -26,11 +27,11 @@
 | P0-3 Java | **PASS** | 4 候选、1.20.1 自动 Java 17；B2 Java 选择 UI 已接线（`settings-launch.png`） |
 | P0-4 内存/JVM/窗口 | **PASS** | 设置页保存 1024/4096、1280×720、`-Dmcl.t61=1`；dry-run 与 instance.json 一致（`probe-ui.log`） |
 | P0-5 日志/崩溃 | **PASS** | 坏 JVM 参数 35 ms 崩溃；`data/crash-reports/*.txt` + 实例 crash-reports；首页自动 CrashPanel；日志轮转单测通过（`unit-breaker-rotation-verbose.log`） |
-| P0-6 联机 | **FAIL（剩余阻断）** | 双进程开房/加入/2 成员 host-first/ping 0 ms/关房 3.1 s 全部通过；但 **真实 LAN 世界发现与一键进世界未实测**（无 LAN 世界）；局域网扫描真实空态 |
+| P0-6 联机 | **部分闭环（L0 世界发现/进世界通过；一键直连 FAIL）** | 双进程开房/加入/2 成员 host-first/ping 0 ms/关房 3.1 s 通过；**t64 真实 1.20.1 LAN 世界：端口 60321 自动解析、成员进房并经原版 LAN 浏览器进入世界**（`docs/08-p0-6-lan-e2e.md`、`docs/evidence/t64/`）；**离线账户凭邀请码一键直连仍 FAIL**（原版会话校验 `Invalid session`） |
 | P0-7 微软/Authlib | **PASS（条件项：真实登录 P1）** | 账户页有微软设备码与 Authlib 入口；`MS_CLIENT_ID_MISSING` 诚实失败；Authlib 注入沿用 t34/t45 证据 |
 | P0-8 模组/整合包/删除 | **PASS** | 全局拖拽 jar/mrpack/CF zip 自动识别并导入；删除实例→回收站→恢复；CF 无 API 调用 |
 
-**一句话**：除 P0-6 的 L0 真实 LAN 世界/进世界外，其余 P0 主链已在当前构建上通过；因此 **README 的“P0 未通过”暂不能改**（只差这一项，需补 LAN 世界实测）。
+**一句话**：除 P0-6 的“离线账户凭邀请码一键进服”外，其余 P0 主链已在当前构建上通过（t64 已补齐 L0 真实 LAN 世界发现与成员进世界）；因此 **README 的“P0 未通过”暂不能改**，只差这一项需要正版账户或 main 侧新增 LAN 浏览器启动模式。
 
 ---
 
@@ -111,15 +112,27 @@
 
 ## 7. 剩余阻断与复现步骤
 
-### 阻断 P0-6-L0：真实 LAN 世界/一键进世界未闭环
+### 阻断 P0-6-L0：真实 LAN 世界已闭环，离线账户一键直连仍失败
 
-- **缺失证据**：没有房主在单人游戏里「对局域网开放」的真实 `latest.log`（`Started serving on <port>` / `Local game hosted on port <port>`）；没有成员通过 `joinLanWorld` 进入该世界的服务端 `joined the game` 日志。
-- **已通过**：房间创建/加入、成员 2 人、房主 ping 0 ms、LAN 扫描真实空态、关房 3.1 s、邀请码错误码。
-- **复现步骤**：
-  1. 两台/双进程启动器，A 建 LAN 房间，B 加入；
-  2. A 启动 1.20.1 → 单人游戏 → 创建世界 → Esc → 对局域网开放；
-  3. 观察 A 房间 ≤5 s 出现世界端口；B 点“进入世界”，断言游戏命令行含 `--quickPlayMultiplayer 127.0.0.1:<port>`，A 日志出现 B 用户名 joined。
-- **当前结果**：环境无 LAN 世界/无第二设备；本轮只验证到 LAN 扫描空态与房间控制面。L1/L2 仍为条件项。
+- **已补齐（t64，2026-10-21 夜间）**：真实 1.20.1 客户端对局域网开放后，
+  `--quickPlaySingleplayer` 启动的房主世界让 `RoomService.startWorldPoll()` 从
+  `dataRoot/logs/game/1.20.1-lan/*.log` 尾部解析到 `Started serving on 60321`，
+  `RoomInfo.world.port=60321` 自动重签 ticket；成员 `RoomService.join` 后成员列表为
+  host + member 两人，并通过原版 LAN 浏览器进入世界（`docs/08-p0-6-lan-e2e.md` §2–§3，
+  证据 `docs/evidence/t64/`：`real-lan-result.json`、三张截图、双方原始日志）。
+  自动化证据：`MCL_REAL_LAN=1 npx vitest run src/main/modules/net/__tests__/real-lan.test.ts`（1 passed，约 97 s）。
+- **仍未闭环**：原版 1.20.1 对**离线账户**的 `--quickPlayMultiplayer` 直连返回
+  `登录失败：无效会话`；`RoomService.enterWorld()/joinLanWorld()` 注入的 `server`
+  因此必然被拒。真实可用路径是原版 LAN 浏览器（房主日志有
+  `Failed to verify username but will let them in anyway!`）。
+- **要闭环需要下列之一**：使用正版微软账户；启动器新增“离线 LAN 浏览器”启动模式
+  （main 侧没有该模式）；或引入会修改原版实例的服务端属性补丁（需单独评审）。
+- **L1/L2 未验证**：EasyTier 隧道下跨网络/另一台真实设备的进世界未测；本轮 L0 只覆盖同机 LAN。
+- **复现步骤**（与 `docs/08` §2 一致）：
+  1. 房主 `RoomService.create({instanceId, transport:'lan'})` 并启动 1.20.1（quick-play 进世界）；
+  2. 游戏内 Esc → 对局域网开放；
+  3. 观察启动器 ≤5 s 解析到世界端口，成员 `join(ticket)` 成功；成员再用 LAN 浏览器进世界；
+  4. 离线账户尝试邀请码直连应复现 `Invalid session`（这是产品缺口，不是日志/票据问题）。
 
 ### 残余风险（不一定阻断，但发布前应处理）
 
@@ -131,14 +144,13 @@
 
 ---
 
-## 8. README 更新建议
+## 8. README 更新建议（2026-10-22 t9 口径）
 
-**本轮不满足“全部 P0 通过”**，因此 README 顶部不应改成“P0 通过/可用”。等 P0-6-L0 真实 LAN 世界/进世界补齐并重跑后，README 可改为：
+**本轮仍不满足“全部 P0 通过”**，README 顶部保留“P0 未全部通过”，但措辞必须与 `docs/08-p0-6-lan-e2e.md` 一致：
 
-> **当前发布状态（2026-10-21）**：**P0 通过，可对外称“可用”**（P0-6 的 L0 同机/LAN 世界已验证；L1/L2 仍为条件项；Forge/NeoForge 安装器为 opt-in）。
+> **当前发布状态（2026-10-22 更新）**：**P0-6 的 L0 真实 LAN 世界发现与成员进世界已实测通过（t64，端口 60321）；但“离线账户凭邀请码地址一键进服”仍被原版 1.20.1 会话校验拒绝，P0 因此仍未全部通过。** 其余 P0 的阻断修复与条件项见 `docs/07-final-acceptance.md`；对外发布前仍需一次全量回归。
 
-在此之前保留 README 现有“P0 未通过”表述，并可在其后追加一句：
-> t61（2026-10-21 22:45）已复核 B1–B7：B1–B4、B6、B7 通过，B5 控制面通过；剩余 P0-6 L0 真实 LAN 世界/进世界未闭环，详见 `docs/07-final-acceptance.md`。
+不得写成“P0 通过 / 可对外称可用”，也不得沿用“LAN 世界与进世界未闭环”的旧表述（t64 已补齐该证据）。
 
 ---
 
@@ -169,3 +181,19 @@ docs/evidence/p0/t61/         截图同内容（probe 输出目录）
 ```
 
 验收脚本：`docs/evidence/p0/tools/probe-t61-*.mjs`、`capture-h2edgy.ps1`；未改 `src/`、`tools/`、`plugins/`。
+
+---
+
+## 10. 2026-10-22 口径更新（t9，只改文档）
+
+本次只做文档口径对齐与二轮审查，**没有重跑 01/05 的全量 16 步验收**，也没有把旧结论复用成新证据：
+
+| 项 | 旧口径（本文件 v1.0） | 新口径（依据 `docs/08-p0-6-lan-e2e.md` / t64） |
+|---|---|---|
+| P0-6 L0 世界发现 | “无 LAN 世界，未实测” | **通过**：真实 1.20.1 对局域网开放，启动器从游戏日志解析端口 60321 并重签 ticket |
+| P0-6 成员进世界 | “未闭环” | **通过（原版 LAN 浏览器路径）**：成员经 Multiplayer → 局域网世界进入，房主/成员日志均有记录 |
+| P0-6 邀请码一键直连 | 未区分 | **FAIL**：离线账户被原版会话校验拒绝（`Invalid session`），需正版账户或新增 LAN 浏览器启动模式 |
+| L1/L2（EasyTier 跨网络） | 未验 | 仍未验；本轮只覆盖同机 LAN |
+| Forge/NeoForge 安装器 | opt-in、未端到端 | 不变（`docs/02` SEC-EXE；P1 条件项） |
+
+二期新增能力（下载作业化/取消、分享包、存档跨版本、投影、链接导入、性能面板、皮肤、联机 SDK）的审查结论、P3 修复与残余风险见 [`docs/06-review-round4-t9.md`](06-review-round4-t9.md)；README 的“当前能力”表不因二期实现自动升级 P0 状态。
