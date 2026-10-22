@@ -384,6 +384,29 @@
 .catalog-results__head h2 { margin: 0; font-size: 14px; color: var(--text); }
 .catalog-results__head span { display: block; margin-top: 2px; font-size: 10.5px; color: var(--text-3); }
 .catalog-row-list { display: flex; flex-direction: column; gap: 2px; }
+.catalog-type-chips { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.catalog-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.catalog-type-chip .ico { color: var(--text-3); }
+.catalog-type-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.catalog-type-chip[aria-selected="true"] {
+  background: var(--accent-subtle);
+  border-color: var(--accent-subtle-2);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.catalog-type-chip[aria-selected="true"] .ico { color: var(--accent-text); }
 .catalog-row {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;

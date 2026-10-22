@@ -42,6 +42,14 @@ import {
 
 const PAGE_SIZE = 20
 
+/** One icon per project type, used by the category chips above the filters. */
+const TYPE_ICONS: Record<string, Parameters<typeof Icon>[0]['name']> = {
+  mod: 'package',
+  modpack: 'cube',
+  resourcepack: 'folder',
+  shader: 'sun',
+}
+
 interface SearchFilters {
   query: string
   projectType: CatalogProjectType
@@ -399,6 +407,21 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
 
   return (
     <>
+      <div className="catalog-type-chips" role="tablist" aria-label="项目类型">
+        {PROJECT_TYPE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            aria-selected={projectType === option.value}
+            className="catalog-type-chip"
+            onClick={() => setProjectType(option.value)}
+          >
+            <Icon name={TYPE_ICONS[option.value] ?? 'package'} className="ico ico--sm" />
+            <span>{option.label}</span>
+          </button>
+        ))}
+      </div>
       <Card className="catalog-filters">
         <div className="catalog-filters__row">
           <Field label="搜索关键词">
@@ -408,11 +431,6 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
               onKeyDown={(event) => { if (event.key === 'Enter') apply() }}
               placeholder="例如 sodium、fabric api、iris"
             />
-          </Field>
-          <Field label="项目类型">
-            <Select value={projectType} onChange={(event) => setProjectType(event.target.value as CatalogProjectType)}>
-              {PROJECT_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </Select>
           </Field>
           <Field label="加载器">
             <Select value={loader} onChange={(event) => setLoader(event.target.value)}>
