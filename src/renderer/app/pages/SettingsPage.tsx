@@ -15,11 +15,12 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  PageNav,
   Segmented,
   Select,
   Switch,
 } from '../ui'
-import { Icon, type IconName } from '../icons'
+import type { IconName } from '../icons'
 import { InstancePicker } from './InstancePicker'
 import { InstanceSettingsFields } from './InstanceSettingsFields'
 import { AccountSettingsPanel } from './AccountSettingsPanel'
@@ -94,21 +95,13 @@ export function SettingsPage() {
         />
       ) : null}
 
-      <div className="settings-layout">
-        <nav className="card settings-nav" aria-label="设置分区">
-          {SECTIONS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              className={section === item.value ? 'is-active' : undefined}
-              aria-selected={section === item.value}
-              onClick={() => choose(item.value)}
-            >
-              <Icon name={item.icon} />
-              {item.label}
-            </button>
-          ))}
-        </nav>
+      <div className="page-split">
+        <PageNav
+          label="设置分区"
+          active={section}
+          onChange={(key) => choose(key as Section)}
+          items={SECTIONS.map((item) => ({ key: item.value, label: item.label, icon: item.icon }))}
+        />
 
         <Card className="settings-content" pad={false}>
           <div className="settings-panel is-active">

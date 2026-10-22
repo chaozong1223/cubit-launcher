@@ -608,8 +608,9 @@
 .page-nav__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .page-nav__count { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
 .page-nav__item.is-active .page-nav__count { color: var(--accent-text); }
-/* Anchor targets of the link page's secondary menu. */
-#link-room, #link-lan, #link-info { scroll-margin-top: 12px; }
+/* Anchor targets of page-level secondary menus. */
+#link-room, #link-lan, #link-info,
+#logs-console, #logs-crash, #logs-files { scroll-margin-top: 12px; }
 @media (max-width: 1120px) {
   .page-split { grid-template-columns: minmax(0, 1fr); }
   .page-nav { flex-direction: row; flex-wrap: wrap; position: static; }

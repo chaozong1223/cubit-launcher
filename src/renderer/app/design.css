@@ -1309,18 +1309,6 @@ svg { display: block; }
 /* ==========================================================================
    17. Settings
    ========================================================================== */
-.settings-layout { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 14px; align-items: start; }
-.settings-nav { position: sticky; top: 0; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
-.settings-nav button {
-  display: flex; align-items: center; gap: 9px;
-  height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius-sm);
-  background: transparent; color: var(--text-2);
-  font-size: 12.5px; font-weight: 500; text-align: left;
-}
-.settings-nav button .ico { width: 16px; height: 16px; color: var(--text-3); }
-.settings-nav button:hover { background: var(--surface-2); color: var(--text); }
-.settings-nav button[aria-selected="true"] { background: var(--accent-subtle); color: var(--accent-text); font-weight: 600; }
-.settings-nav button[aria-selected="true"] .ico { color: var(--accent-text); }
 .settings-content { overflow: hidden; }
 .settings-panel { display: none; }
 .settings-panel.is-active { display: block; animation: viewIn var(--dur-2) var(--ease); }
@@ -1612,7 +1600,6 @@ svg { display: block; }
   .home__aside { display: grid; grid-template-columns: repeat(2, 1fr); }
   .link-aside, .log-aside { display: grid; grid-template-columns: repeat(2, 1fr); }
   .queue-table .mini-progress { width: 110px; }
-  .settings-layout { grid-template-columns: 160px minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
   .page { padding: 18px 16px 32px; }
@@ -1629,10 +1616,6 @@ svg { display: block; }
   .do-dont { grid-template-columns: 1fr; }
   .demo-grid { grid-template-columns: 1fr; }
   .button-matrix__row { grid-template-columns: 72px repeat(3, minmax(0, 1fr)); }
-  .settings-layout { grid-template-columns: 1fr; }
-  .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
-  .settings-nav button { height: 30px; }
-  .settings-nav button .ico { display: none; }
   .setting-group { flex-direction: column; gap: 8px; }
   .setting-control { width: 100%; justify-content: flex-start; }
   .setting-control .input, .setting-control .select { max-width: none; }

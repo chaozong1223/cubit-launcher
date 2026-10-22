@@ -15,6 +15,7 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  PageNav,
   Segmented,
 } from '../ui'
 import { Icon } from '../icons'
@@ -188,6 +189,27 @@ export function LogsPage() {
   const entryCount = mode === 'live' ? liveFiltered.length : historyFiltered.length
   const totalCount = mode === 'live' ? lines.length : history.data?.total ?? 0
 
+  // Page-level secondary menu: anchors to the console, crash analysis and file cards.
+  const [section, setSection] = useState<'console' | 'crash' | 'files'>('console')
+  const jumpTo = (key: string) => {
+    setSection(key as 'console' | 'crash' | 'files')
+    document.getElementById(`logs-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  useEffect(() => {
+    const elements = ['console', 'crash', 'files']
+      .map((key) => document.getElementById(`logs-${key}`))
+      .filter((element): element is HTMLElement => Boolean(element))
+    if (elements.length === 0) return
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+      if (visible) setSection(visible.target.id.replace('logs-', '') as 'console' | 'crash' | 'files')
+    }, { rootMargin: '-16% 0px -64% 0px', threshold: 0 })
+    elements.forEach((element) => observer.observe(element))
+    return () => observer.disconnect()
+  }, [mode])
+
   return (
     <>
       <PageHeader
@@ -242,7 +264,19 @@ export function LogsPage() {
         <DataStateNotice info={describeError(history.error)} onRetry={history.reload} retryLabel="重新查询" />
       ) : null}
 
-      <div className="logs-grid">
+      <div className="page-split">
+        <PageNav
+          label="日志页面导航"
+          active={section}
+          onChange={jumpTo}
+          items={[
+            { key: 'console', label: '控制台', icon: 'terminal' },
+            { key: 'crash', label: '崩溃分析', icon: 'shield' },
+            { key: 'files', label: '来源与位置', icon: 'folder' },
+          ]}
+        />
+        <div className="logs-grid">
+        <div id="logs-console">
         <Card className="log-console" pad={false}>
           <div className="log-toolbar">
             <div className="chip-group" role="group" aria-label="按级别筛选">
@@ -331,10 +365,14 @@ export function LogsPage() {
             </span>
           </div>
         </Card>
+        </div>
 
         <aside className="log-aside">
-          <CrashPanel instanceId={selected?.id ?? null} instanceName={selected?.name} />
+          <div id="logs-crash">
+            <CrashPanel instanceId={selected?.id ?? null} instanceName={selected?.name} />
+          </div>
 
+          <div id="logs-files">
           <Card className="log-file-card">
             <h3>日志来源</h3>
             {sources.length === 0 ? (
@@ -363,7 +401,9 @@ export function LogsPage() {
               <Button size="sm" variant="ghost" icon="info" onClick={() => navigate('/about')}>诊断</Button>
             </div>
           </Card>
+          </div>
         </aside>
+      </div>
       </div>
     </>
   )
