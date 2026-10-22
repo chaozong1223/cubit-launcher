@@ -337,7 +337,7 @@ export class AssetsModuleService {
     for (const name of [...new Set(input.names)]) {
       try {
         const target = assertChild(savesDir, name)
-        const item = this.trash.delete({
+        const item = await this.trash.delete({
           kind: 'save',
           name,
           originalPath: target,
@@ -858,7 +858,7 @@ export class AssetsModuleService {
           continue
         }
         const target = assertChild(dir, name)
-        const item = this.trash.delete({
+        const item = await this.trash.delete({
           kind: 'schematic',
           name,
           originalPath: target,
@@ -996,7 +996,7 @@ export class AssetsModuleService {
       }
       if (mode === 'move') {
         try {
-          this.trash.delete({
+          await this.trash.delete({
             kind: 'schematic',
             name: input.name,
             originalPath: sourcePath,
@@ -1112,7 +1112,7 @@ export class AssetsModuleService {
     for (const name of [...new Set(input.names)]) {
       try {
         const target = assertChild(dir, name)
-        const item = this.trash.delete({
+        const item = await this.trash.delete({
           kind: 'screenshot',
           name,
           originalPath: target,
@@ -1383,7 +1383,7 @@ export class AssetsModuleService {
   }
 
   async restoreTrash(input: { ids?: string[] } = {}): Promise<RestoreResult> {
-    const result = this.trash.restore(input.ids)
+    const result = await this.trash.restore(input.ids)
     if (result.restored.length > 0) {
       const areas = new Set<AssetArea>()
       for (const item of result.restored) {
@@ -1401,7 +1401,7 @@ export class AssetsModuleService {
     purged: string[]
     failed: Array<{ id: string; message: string }>
   }> {
-    const result = this.trash.purge(input.ids)
+    const result = await this.trash.purge(input.ids)
     if (result.purged.length > 0) {
       for (const area of ['saves', 'screenshots', 'schematics', 'game-logs'] as const) this.emit(area)
     }

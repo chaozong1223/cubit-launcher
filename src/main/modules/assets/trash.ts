@@ -50,26 +50,28 @@ export class TrashStore {
     return path.join(this.root, id, payloadName)
   }
 
-  private move(source: string, target: string): void {
+  private async move(source: string, target: string): Promise<void> {
     this.fs.mkdirp(path.dirname(target))
     try {
       this.fs.rename(source, target)
+      return
     } catch {
-      // Trash may live on a different volume from the game directory.
-      fs.cpSync(source, target, { recursive: true, force: true })
-      this.fs.remove(source)
+      // Trash may live on a different volume from the game directory, which
+      // forces a real copy. Async so a multi-GB instance never freezes the app.
     }
+    await fs.promises.cp(source, target, { recursive: true, force: true })
+    await fs.promises.rm(source, { recursive: true, force: true })
   }
 
-  private sizeOf(target: string): number {
+  private async sizeOf(target: string): Promise<number> {
     try {
-      const stat = fs.statSync(target)
+      const stat = await fs.promises.stat(target)
       if (stat.isFile()) return stat.size
       if (!stat.isDirectory()) return 0
       let total = 0
-      for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
+      for (const entry of await fs.promises.readdir(target, { withFileTypes: true })) {
         if (entry.isSymbolicLink()) continue
-        total += this.sizeOf(path.join(target, entry.name))
+        total += await this.sizeOf(path.join(target, entry.name))
       }
       return total
     } catch {
@@ -77,12 +79,12 @@ export class TrashStore {
     }
   }
 
-  delete(input: {
+  async delete(input: {
     kind: TrashItem['kind']
     name: string
     originalPath: string
     instanceId: string | null
-  }): TrashItem {
+  }): Promise<TrashItem> {
     const original = path.resolve(input.originalPath)
     if (!this.insideAllowed(original)) {
       throw new AppError('ASSETS.TRASH_PATH_DENIED', '拒绝将目录外文件移入回收站', {
@@ -98,7 +100,6 @@ export class TrashStore {
     const payloadName = 'payload'
     const itemDir = path.join(this.root, id)
     const payload = this.payloadPath(id, payloadName)
-    const size = this.sizeOf(original)
     this.fs.mkdirp(itemDir)
     const manifest: TrashManifest = {
       id,
@@ -107,12 +108,15 @@ export class TrashStore {
       originalPath: original,
       instanceId: input.instanceId,
       deletedAt: this.now(),
-      size,
+      size: 0,
       canRestore: true,
       payloadName,
     }
     try {
-      this.move(original, payload)
+      await this.move(original, payload)
+      // Measure after the move: walking a multi-GB tree costs seconds and must
+      // not delay the delete itself.
+      manifest.size = await this.sizeOf(payload)
       this.fs.writeTextAtomic(this.manifestPath(id), `${JSON.stringify(manifest, null, 2)}\n`)
     } catch (error) {
       try {
@@ -154,7 +158,7 @@ export class TrashStore {
     return items.sort((left, right) => right.deletedAt - left.deletedAt)
   }
 
-  restore(ids?: string[]): RestoreResult {
+  async restore(ids?: string[]): Promise<RestoreResult> {
     const wanted = ids && ids.length > 0 ? new Set(ids) : null
     const restored: TrashItem[] = []
     const failed: Array<{ id: string; message: string }> = []
@@ -176,7 +180,7 @@ export class TrashStore {
       }
       try {
         this.fs.mkdirp(path.dirname(item.originalPath))
-        this.move(payload, item.originalPath)
+        await this.move(payload, item.originalPath)
         this.fs.remove(path.dirname(manifestFile))
         restored.push({ ...item, canRestore: false })
       } catch (error) {
@@ -193,7 +197,7 @@ export class TrashStore {
    * Permanently delete trash entries (payload + manifest). Irreversible, so the
    * UI must confirm first.
    */
-  purge(ids?: string[]): { purged: string[]; failed: Array<{ id: string; message: string }> } {
+  async purge(ids?: string[]): Promise<{ purged: string[]; failed: Array<{ id: string; message: string }> }> {
     const wanted = ids && ids.length > 0 ? new Set(ids) : null
     const purged: string[] = []
     const failed: Array<{ id: string; message: string }> = []
@@ -201,8 +205,9 @@ export class TrashStore {
       if (wanted && !wanted.has(item.id)) continue
       try {
         const payload = this.payloadPath(item.id)
-        if (this.fs.exists(payload)) this.fs.remove(payload)
-        this.fs.remove(path.dirname(this.manifestPath(item.id)))
+        // Async remove: a large payload must not block the main process.
+        if (this.fs.exists(payload)) await fs.promises.rm(payload, { recursive: true, force: true })
+        await fs.promises.rm(path.dirname(this.manifestPath(item.id)), { recursive: true, force: true })
         purged.push(item.id)
       } catch (error) {
         failed.push({ id: item.id, message: error instanceof Error ? error.message : String(error) })

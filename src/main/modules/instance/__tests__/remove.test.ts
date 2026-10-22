@@ -54,7 +54,7 @@ describe('instance removal to trash', () => {
   it('moves only versions/<dir> into trash and restores it', async () => {
     const h = fixture()
     expect(await h.service.list()).toHaveLength(1)
-    const removed = h.service.removeInstance('1.20.1')
+    const removed = await h.service.removeInstance('1.20.1')
     expect(removed.trashId).toBeTruthy()
     expect(fs.existsSync(h.versionDir)).toBe(false)
     expect(fs.existsSync(path.join(h.dataRoot, 'trash', removed.trashId, 'item.json'))).toBe(true)
@@ -63,7 +63,7 @@ describe('instance removal to trash', () => {
     expect(fs.existsSync(path.join(h.mcRoot, 'assets', 'objects', 'shared'))).toBe(true)
     expect(await h.service.list()).toHaveLength(0)
 
-    const restored = h.service.restoreInstance(removed.trashId)
+    const restored = await h.service.restoreInstance(removed.trashId)
     expect(restored.originalPath).toBe(h.versionDir)
     expect(fs.existsSync(path.join(h.versionDir, '1.20.1.json'))).toBe(true)
     expect(await h.service.list()).toHaveLength(1)
@@ -71,7 +71,7 @@ describe('instance removal to trash', () => {
 
   it('restores through the shared assets trash API', async () => {
     const h = fixture()
-    const removed = h.service.removeInstance('1.20.1')
+    const removed = await h.service.removeInstance('1.20.1')
     const assets = new AssetsModuleService({
       roots: { dataRoot: h.dataRoot, mcRoot: h.mcRoot },
       log: logger,
@@ -87,7 +87,7 @@ describe('instance removal to trash', () => {
     const h = fixture(true)
     let caught: unknown
     try {
-      h.service.removeInstance('1.20.1')
+      await h.service.removeInstance('1.20.1')
     } catch (error) {
       caught = error
     }
@@ -116,7 +116,7 @@ describe('instance removal to trash', () => {
     )
     let caught: unknown
     try {
-      service.removeInstance('1.20.1')
+      await service.removeInstance('1.20.1')
     } catch (error) {
       caught = error
     }

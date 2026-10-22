@@ -971,7 +971,7 @@ export class InstanceModuleService {
    * Move one version directory into the shared trash. Only versions/<dir> is
    * touched; libraries/assets and the rest of mcRoot stay untouched.
    */
-  removeInstance(id: string): RemoveInstanceResult {
+  async removeInstance(id: string): Promise<RemoveInstanceResult> {
     const root = this.root()
     const versionsDir = path.resolve(path.join(root, 'versions'))
     const instance = scanInstances(this.fs, root).find(
@@ -1001,7 +1001,7 @@ export class InstanceModuleService {
 
     const before = this.trashIds()
     try {
-      const item = this.trashStore().delete({
+      const item = await this.trashStore().delete({
         kind: 'other',
         name: instance.name || instance.dirName,
         originalPath: dir,
@@ -1039,8 +1039,8 @@ export class InstanceModuleService {
   }
 
   /** Restore a previously removed instance from the shared trash. */
-  restoreInstance(trashId: string): TrashItem {
-    const result = this.trashStore().restore([trashId])
+  async restoreInstance(trashId: string): Promise<TrashItem> {
+    const result = await this.trashStore().restore([trashId])
     if (result.restored.length === 0) {
       throw new AppError('INSTANCE.RESTORE_FAILED', '无法从回收站恢复实例', {
         details: {
