@@ -1,6 +1,7 @@
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import net from 'node:net'
+import { lookup as dnsLookup } from 'node:dns/promises'
 import { AppError } from '@shared/errors'
 import type {
   SkinAccountInput,
@@ -32,6 +33,8 @@ export interface SkinServiceOptions {
   allowInsecureHosts?: string[]
   timeoutMs?: number
   maxBytes?: number
+  /** DNS resolver seam; production uses `dns.lookup(..., {all:true})`. */
+  resolveHost?: (hostname: string) => Promise<string[]>
 }
 
 interface SkinMeta {
@@ -53,6 +56,43 @@ function safeAccountKey(accountId: string): string {
     throw new AppError('SKIN.INVALID_ACCOUNT', '账户 id 不合法')
   }
   return clean
+}
+
+function isPrivateAddress(address: string): boolean {
+  const version = net.isIP(address)
+  if (version === 4) {
+    const parts = address.split('.').map((part) => Number(part))
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return true
+    const [a, b, c] = parts
+    if (a === 0 || a === 10 || a === 127) return true
+    if (a === 169 && b === 254) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 100 && b >= 64 && b <= 127) return true
+    if (a === 192 && b === 0 && (c === 0 || c === 2)) return true
+    if (a === 198 && (b === 18 || b === 19)) return true
+    if (a === 198 && b === 51 && c === 100) return true
+    if (a === 203 && b === 0 && c === 113) return true
+    if (a >= 224) return true
+    return false
+  }
+  if (version === 6) {
+    const normalized = address.toLowerCase()
+    const mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
+    if (mapped) return isPrivateAddress(mapped[1])
+    if (normalized === '::1' || normalized === '::') return true
+    if (normalized.startsWith('fe80:') || normalized.startsWith('fc') || normalized.startsWith('fd')) {
+      return true
+    }
+    if (normalized.startsWith('ff')) return true
+    return false
+  }
+  return true
+}
+
+async function defaultResolveHost(hostname: string): Promise<string[]> {
+  const addresses = await dnsLookup(hostname, { all: true, verbatim: true })
+  return addresses.map((entry) => entry.address)
 }
 
 export class SkinService {
@@ -207,23 +247,36 @@ export class SkinService {
     if (url.username || url.password) {
       throw new AppError('SKIN.INVALID_URL', '皮肤链接不能包含账号密码')
     }
-    const host = url.hostname.toLowerCase()
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
     if (host === 'localhost' || host.endsWith('.localhost')) {
       throw new AppError('SKIN.INVALID_URL', '皮肤链接不能指向本机')
     }
-    if (net.isIP(host) !== 0) {
-      const privateV4 =
-        host.startsWith('10.') ||
-        host.startsWith('127.') ||
-        host.startsWith('169.254.') ||
-        host.startsWith('192.168.') ||
-        /^172\.(1[6-9]|2\d|3[01])\./.test(host)
-      const privateV6 = host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80')
-      if (privateV4 || privateV6) {
-        throw new AppError('SKIN.INVALID_URL', '皮肤链接不能指向内网地址')
-      }
+    if (net.isIP(host) !== 0 && isPrivateAddress(host)) {
+      throw new AppError('SKIN.INVALID_URL', '皮肤链接不能指向内网地址')
     }
     return url
+  }
+
+  private async assertPublicHost(url: URL): Promise<void> {
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    if (net.isIP(hostname) !== 0) {
+      if (isPrivateAddress(hostname)) {
+        throw new AppError('SKIN.PRIVATE_ADDRESS', '皮肤链接指向内网/保留地址，已拒绝')
+      }
+      return
+    }
+    let addresses: string[]
+    try {
+      addresses = await (this.options.resolveHost ?? defaultResolveHost)(hostname)
+    } catch {
+      throw new AppError('SKIN.INVALID_URL', '无法解析皮肤链接的域名')
+    }
+    if (addresses.length === 0) {
+      throw new AppError('SKIN.INVALID_URL', '皮肤链接的域名没有可用地址')
+    }
+    if (addresses.some((address) => isPrivateAddress(address))) {
+      throw new AppError('SKIN.PRIVATE_ADDRESS', '皮肤链接解析到内网/保留地址，已拒绝')
+    }
   }
 
   private async download(url: URL): Promise<Buffer> {
@@ -233,6 +286,7 @@ export class SkinService {
       let current = url
       let response: Response | null = null
       for (let hop = 0; hop <= 5; hop += 1) {
+        await this.assertPublicHost(current)
         const next = await this.fetchImpl(current, {
           method: 'GET',
           redirect: 'manual',

@@ -56,9 +56,18 @@ const TEXT_EXTENSIONS = new Set([
 /** Upper bound for content scanning; bigger files are binary payloads. */
 export const MAX_SCAN_BYTES = 4 * 1024 * 1024
 
-/** `accessToken`, `access_token`, `refresh-token`, `clientToken`, `token`, … */
+/** `accessToken`, `apiKey`, `clientSecret`, `sessionId`, cookies, … */
 const SENSITIVE_KEY =
-  /^(?:(?:access|refresh|client|id|session|auth)[_-]?)?token$|^cookies?$|^password$|^passwd$|^secret$|^authorization$/i
+  /^(?:(?:access|refresh|client|id|session|auth)[_-]?)?token$|^cookies?$|^password$|^passwd$|^secret$|^authorization$|^api[_-]?key$|^client[_-]?secret$|^access[_-]?key$|^secret[_-]?key$|^private[_-]?key$|^session[_-]?id$/i
+
+const CREDENTIAL_KEYS = [
+  'api[_-]?key',
+  'client[_-]?secret',
+  'access[_-]?key',
+  'secret[_-]?key',
+  'private[_-]?key',
+  'session[_-]?id',
+].join('|')
 
 const TEXT_PATTERNS: Array<{ label: string; pattern: RegExp; replace: string }> = [
   {
@@ -70,6 +79,16 @@ const TEXT_PATTERNS: Array<{ label: string; pattern: RegExp; replace: string }> 
     label: 'credential-json-field',
     pattern: /("(?:cookie|cookies|password|passwd|secret|authorization)"\s*:\s*")[^"]*(")/gi,
     replace: '$1<redacted>$2',
+  },
+  {
+    label: 'credential-json-field',
+    pattern: new RegExp(`("(?:${CREDENTIAL_KEYS})"\\s*:\\s*")[^"]*(")`, 'gi'),
+    replace: '$1<redacted>$2',
+  },
+  {
+    label: 'credential-assignment',
+    pattern: new RegExp(`^(\\s*(?:${CREDENTIAL_KEYS})\\s*[=:]\\s*).+$`, 'gim'),
+    replace: '$1<redacted>',
   },
   {
     label: 'cookie-header',
@@ -112,7 +131,14 @@ export function isSensitiveSharePath(relative: string): boolean {
 }
 
 function isTextCandidate(relative: string): boolean {
-  return TEXT_EXTENSIONS.has(path.extname(relative).toLowerCase())
+  const base = path.basename(relative).toLowerCase()
+  // `path.extname('.env')` is empty; dotfiles are still text.
+  if (base === '.env' || base.startsWith('.env.')) return true
+  return TEXT_EXTENSIONS.has(path.extname(base))
+}
+
+export function isShareTextCandidate(relative: string): boolean {
+  return isTextCandidate(relative)
 }
 
 function redactJsonValue(
@@ -160,7 +186,27 @@ function redactText(text: string): { text: string; fields: string[] } {
     output = output.replace(rule.pattern, rule.replace)
     if (output !== before) fields.push(rule.label)
   }
+  if (fields.length > 0) {
+    // Evidence should name the credential fields, never their values.
+    for (const key of extractSensitiveKeys(text)) {
+      if (!fields.includes(key)) fields.push(key)
+    }
+  }
   return { text: output, fields }
+}
+
+function extractSensitiveKeys(text: string): string[] {
+  const names = new Set<string>()
+  for (const match of text.matchAll(/"([^"]+)"\s*:/g)) {
+    if (SENSITIVE_KEY.test(match[1])) names.add(match[1])
+  }
+  for (const match of text.matchAll(/^\s*([A-Za-z0-9_.-]+)\s*[=:]/gm)) {
+    if (SENSITIVE_KEY.test(match[1])) names.add(match[1])
+  }
+  for (const match of text.matchAll(/[?&]([A-Za-z0-9_.-]+)=/g)) {
+    if (SENSITIVE_KEY.test(match[1])) names.add(match[1])
+  }
+  return [...names]
 }
 
 /** Redacts sensitive JSON keys in an in-memory settings object. */

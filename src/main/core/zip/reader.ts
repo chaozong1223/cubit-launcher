@@ -54,12 +54,16 @@ const CRC_TABLE = (() => {
   return table
 })()
 
-export function crc32(buffer: Buffer): number {
-  let crc = 0xffffffff
+export function crc32Update(crc: number, buffer: Buffer): number {
+  let value = crc >>> 0
   for (let index = 0; index < buffer.length; index += 1) {
-    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ buffer[index]) & 0xff]
+    value = (value >>> 8) ^ CRC_TABLE[(value ^ buffer[index]) & 0xff]
   }
-  return (crc ^ 0xffffffff) >>> 0
+  return value >>> 0
+}
+
+export function crc32(buffer: Buffer): number {
+  return (crc32Update(0xffffffff, buffer) ^ 0xffffffff) >>> 0
 }
 
 const RESERVED_NAMES = new Set([

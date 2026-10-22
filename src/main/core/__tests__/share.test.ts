@@ -120,6 +120,7 @@ function createFixture(): Fixture {
   writeFile(
     path.join(instanceDir, 'config', 'settings.json'),
     JSON.stringify({
+      serverName: 'Public Server',
       apiKey: 'public-value',
       accessToken: 'TOKEN-SECRET-ACCESS',
       refreshToken: 'TOKEN-SECRET-REFRESH',
@@ -189,7 +190,8 @@ describe('share pack export', () => {
     const packedSettings = JSON.parse(
       archive.read('game/config/settings.json').toString('utf8'),
     ) as Record<string, unknown>
-    expect(packedSettings.apiKey).toBe('public-value')
+    expect(packedSettings.serverName).toBe('Public Server')
+    expect(packedSettings.apiKey).toBe('<redacted>')
     expect(packedSettings.accessToken).toBe('<redacted>')
     expect(packedSettings.refreshToken).toBe('<redacted>')
     expect((packedSettings.nested as Record<string, unknown>).cookie).toBe('<redacted>')
@@ -222,6 +224,72 @@ describe('share pack export', () => {
     // The evidence log records field names/paths only.
     expect(JSON.stringify(result.redactions)).not.toContain('TOKEN-SECRET')
     expect(logs.some((line) => line.startsWith('warn:share pack credentials stripped'))).toBe(true)
+  })
+
+  it('redacts apiKey/clientSecret/accessKey/session keys across JSON/properties/toml/yaml/.env/txt', async () => {
+    const fixture = createFixture()
+    const secrets: Array<[string, string]> = [
+      ['F3-API-KEY-VALUE', 'apiKey'],
+      ['F3-API-UNDERSCORE-VALUE', 'api_key'],
+      ['F3-CLIENT-SECRET-VALUE', 'clientSecret'],
+      ['F3-CLIENT-UNDERSCORE-VALUE', 'client_secret'],
+      ['F3-ACCESS-KEY-VALUE', 'accessKey'],
+      ['F3-SECRET-KEY-VALUE', 'secretKey'],
+      ['F3-PRIVATE-KEY-VALUE', 'privateKey'],
+      ['F3-SESSION-TOKEN-VALUE', 'sessionToken'],
+      ['F3-SESSION-ID-VALUE', 'sessionId'],
+    ]
+    writeFile(
+      path.join(fixture.instanceDir, 'config', 'credentials.json'),
+      JSON.stringify(Object.fromEntries(secrets.map(([value, key]) => [key, value]))),
+    )
+    writeFile(
+      path.join(fixture.instanceDir, 'config', 'app.properties'),
+      `apiKey=${secrets[0][0]}\nclientSecret=${secrets[2][0]}\nkeep=this\n`,
+    )
+    writeFile(
+      path.join(fixture.instanceDir, 'config', 'app.toml'),
+      `accessKey = "${secrets[4][0]}"\nsecretKey = "${secrets[5][0]}"\n`,
+    )
+    writeFile(
+      path.join(fixture.instanceDir, 'config', 'app.yaml'),
+      `privateKey: ${secrets[6][0]}\nsessionToken: ${secrets[7][0]}\n`,
+    )
+    writeFile(
+      path.join(fixture.instanceDir, 'config', '.env'),
+      `ACCESS_KEY=${secrets[4][0]}\nSECRET_KEY=${secrets[5][0]}\n`,
+    )
+    writeFile(
+      path.join(fixture.instanceDir, 'config', 'notes.txt'),
+      `sessionId=${secrets[8][0]}\npublic=kept\n`,
+    )
+
+    const result = await exportFixture(fixture)
+    const archive = openZipFile(fsPort, result.path)
+    const serialized = archive.entries
+      .filter((entry) => !entry.isDirectory)
+      .map((entry) => archive.readEntry(entry).toString('utf8'))
+      .join('\n')
+    for (const [value, key] of secrets) {
+      const leaked = archive.entries
+        .filter((entry) => !entry.isDirectory)
+        .filter((entry) => archive.readEntry(entry).toString('utf8').includes(value))
+        .map((entry) => entry.name)
+      expect(leaked, `leaked ${key}`).toEqual([])
+    }
+    expect(serialized).toContain('<redacted>')
+    expect(serialized).toContain('public=kept')
+    expect(result.redactions.some((record) => record.path.endsWith('credentials.json'))).toBe(true)
+    expect(result.redactions.some((record) => record.path.endsWith('.env'))).toBe(true)
+    const recordedFields = new Set(
+      result.redactions.flatMap((record) => record.fields.map((field) => field.toLowerCase())),
+    )
+    for (const [, key] of secrets) {
+      expect(recordedFields.has(key.toLowerCase()), `missing field ${key}`).toBe(true)
+    }
+    const evidence = JSON.stringify(result.redactions)
+    for (const [value] of secrets) expect(evidence).not.toContain(value)
+    expect(result.warnings).not.toContain(secrets[0][0])
   })
 
   it('honours the content selection', async () => {

@@ -76,6 +76,7 @@ function fixture(
     allowInsecureHosts?: string[]
     profileSkinUrl?: (id: string) => Promise<string | null>
     knownAccounts?: string[]
+    resolveHost?: (hostname: string) => Promise<string[]>
   } = {},
 ): Fixture {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mcl-skin-'))
@@ -89,6 +90,7 @@ function fixture(
     accountExists: (id) => accounts.has(id),
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
     ...(options.allowInsecureHosts ? { allowInsecureHosts: options.allowInsecureHosts } : {}),
+    resolveHost: options.resolveHost ?? (async () => ['93.184.216.34']),
     ...(options.profileSkinUrl ? { profileSkinUrl: options.profileSkinUrl } : {}),
   })
   return { root, dataRoot, service, accounts }
@@ -193,12 +195,51 @@ describe('skin PNG validation and per-account cache', () => {
       'https://127.0.0.1/a.png',
       'https://user:pass@skins.example.test/a.png',
       'https://192.168.1.2/a.png',
+      'https://0.0.0.0/a.png',
+      'https://[::1]/a.png',
     ]) {
       await expect(h.service.importUrl({ accountId: 'acc-a', url })).rejects.toMatchObject({
         code: 'SKIN.INVALID_URL',
       })
     }
     expect(called).toBe(0)
+  })
+
+  it('rejects a hostname whose DNS answers include private/reserved addresses', async () => {
+    let called = 0
+    const h = fixture({
+      fetchImpl: async () => {
+        called += 1
+        return pngResponse(makePng(64, 64))
+      },
+      resolveHost: async () => ['93.184.216.34', '10.0.0.7'],
+    })
+    await expect(
+      h.service.importUrl({ accountId: 'acc-a', url: 'https://rebind.example.test/a.png' }),
+    ).rejects.toMatchObject({ code: 'SKIN.PRIVATE_ADDRESS' })
+    expect(called).toBe(0)
+  })
+
+  it('re-checks DNS on redirects (public -> private hostname)', async () => {
+    let calls = 0
+    const h = fixture({
+      fetchImpl: async (input) => {
+        calls += 1
+        if (String(input).includes('public.example.test')) {
+          return new Response(null, {
+            status: 302,
+            headers: { location: 'https://rebind.example.test/private.png' },
+          })
+        }
+        return pngResponse(makePng(64, 64))
+      },
+      resolveHost: async (hostname) =>
+        hostname === 'rebind.example.test' ? ['192.168.1.9'] : ['93.184.216.34'],
+    })
+    await expect(
+      h.service.importUrl({ accountId: 'acc-a', url: 'https://public.example.test/a.png' }),
+    ).rejects.toMatchObject({ code: 'SKIN.PRIVATE_ADDRESS' })
+    expect(calls).toBe(1)
   })
 
   it('rejects a redirect to a local address (SSRF) without following it', async () => {

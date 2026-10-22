@@ -2,7 +2,7 @@ import path from 'node:path'
 import type { InstanceSettings, ShareContentSelection, ShareExportResult, ShareRedaction } from '@shared/instance'
 import { AppError } from '@shared/errors'
 import type { FsPort } from '../../ports'
-import { createStoredZip, type ZipWriteEntry } from '../../zip/writer'
+import { writeStoredZipFile, type StoredZipStreamEntry } from '../../zip/stream-writer'
 import { sanitizePathName } from '../../fs/conflict'
 import {
   DEFAULT_SHARE_CONTENT,
@@ -19,7 +19,13 @@ import {
   type ShareManifest,
   type ShareTransferProgress,
 } from './manifest'
-import { MAX_SCAN_BYTES, redactShareJsonValue, sanitizeShareEntry } from './sanitize'
+import {
+  MAX_SCAN_BYTES,
+  isSensitiveSharePath,
+  isShareTextCandidate,
+  redactShareJsonValue,
+  sanitizeShareEntry,
+} from './sanitize'
 
 /** Hard limits keep the pack readable by the in-memory zip reader on import. */
 export const MAX_SHARE_BYTES = 2 * 1024 * 1024 * 1024
@@ -56,7 +62,7 @@ interface SectionName {
 }
 
 class PackBuilder {
-  readonly entries: ZipWriteEntry[] = []
+  readonly entries: StoredZipStreamEntry[] = []
   readonly redactions: ShareRedaction[] = []
   readonly warnings: string[] = []
   readonly counts: Record<keyof ShareContentSelection, number> = {
@@ -71,18 +77,35 @@ class PackBuilder {
 
   constructor(private readonly fs: FsPort) {}
 
-  add(entryName: string, data: Buffer, section: keyof ShareContentSelection | null): void {
+  private reserve(size: number): void {
     if (this.entries.length >= MAX_SHARE_FILES) {
       throw new AppError(
         'INSTANCE.SHARE_TOO_LARGE',
         `分享包文件数超过 ${MAX_SHARE_FILES} 上限`,
       )
     }
-    if (this.bytes + data.length > MAX_SHARE_BYTES) {
+    if (this.bytes + size > MAX_SHARE_BYTES) {
       throw new AppError('INSTANCE.SHARE_TOO_LARGE', '分享包内容超过 2 GB 上限')
     }
+  }
+
+  add(entryName: string, data: Buffer, section: keyof ShareContentSelection | null): void {
+    this.reserve(data.length)
     this.entries.push({ name: entryName, data })
     this.bytes += data.length
+    if (section) this.counts[section] += 1
+  }
+
+  /** Adds a file without reading it into memory (large binary payloads). */
+  addFile(
+    entryName: string,
+    filePath: string,
+    size: number,
+    section: keyof ShareContentSelection | null,
+  ): void {
+    this.reserve(size)
+    this.entries.push({ name: entryName, filePath, size })
+    this.bytes += size
     if (section) this.counts[section] += 1
   }
 }
@@ -151,12 +174,26 @@ async function walkSection(
       context.builder.warnings.push(`跳过超过 1 GB 的文件: ${relative}`)
       continue
     }
-    addSanitizedFile(
-      context.builder,
-      `game/${relative}`,
-      context.fs.readBytes(absolute),
-      section,
-    )
+    const archiveName = `game/${relative}`
+    if (isSensitiveSharePath(archiveName)) {
+      context.builder.redactions.push({
+        path: archiveName,
+        action: 'skipped',
+        fields: ['credential-store'],
+      })
+    } else if (isShareTextCandidate(archiveName)) {
+      if (stat.size > MAX_SCAN_BYTES) {
+        // Never ship a huge unscanned text/config file: credentials could hide
+        // past the scan window. Large binary payloads are streamed below.
+        context.builder.warnings.push(`跳过超过 4 MB 的文本文件（安全扫描上限）: ${relative}`)
+      } else {
+        addSanitizedFile(context.builder, archiveName, context.fs.readBytes(absolute), section)
+      }
+    } else {
+      // Stream large/binary files directly into the archive; only one 1 MiB
+      // chunk is resident at a time.
+      context.builder.addFile(archiveName, absolute, stat.size, section)
+    }
     context.onProgress?.({
       phase: 'scan',
       files: context.builder.entries.length,
@@ -175,7 +212,7 @@ async function walkSection(
 }
 
 interface IconPlan {
-  entry: ZipWriteEntry | null
+  entry: (StoredZipStreamEntry & { data: Buffer }) | null
   /** Value stored in `instance.json` inside the pack. */
   settingsIcon: string | null
   manifestIcon: string | null
@@ -303,7 +340,8 @@ export async function createSharePack(input: CreateSharePackInput): Promise<Shar
     if (jarStat.size > MAX_SHARE_ENTRY_BYTES) {
       warnings.push('客户端 jar 超过 1 GB，已从分享包中省略')
     } else {
-      addSanitizedFile(builder, 'version/client.jar', fs.readBytes(jarPath), null)
+      // Stream the jar straight into the archive instead of reading it fully.
+      builder.addFile('version/client.jar', jarPath, jarStat.size, null)
     }
   }
 
@@ -399,17 +437,6 @@ export async function createSharePack(input: CreateSharePackInput): Promise<Shar
 
   report('write', null)
   abortIfCancelled(input.signal)
-  const buffer = createStoredZip(
-    [
-      {
-        name: SHARE_MANIFEST_ENTRY,
-        data: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8'),
-      },
-      ...builder.entries,
-    ],
-    { now: new Date(now()), maxEntries: MAX_SHARE_FILES, maxTotalBytes: MAX_SHARE_BYTES },
-  )
-  abortIfCancelled(input.signal)
 
   const timestamp = new Date(now()).toISOString().replace(/[:.]/g, '-')
   const defaultTarget = path.join(
@@ -426,8 +453,19 @@ export async function createSharePack(input: CreateSharePackInput): Promise<Shar
   const partPath = `${finalPath}.part`
   fs.mkdirp(path.dirname(finalPath))
   input.onArtifact?.(finalPath)
+  let archive: { bytes: number; sha256: string }
   try {
-    fs.writeBytes(partPath, buffer)
+    archive = await writeStoredZipFile(
+      partPath,
+      [
+        {
+          name: SHARE_MANIFEST_ENTRY,
+          data: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8'),
+        },
+        ...builder.entries,
+      ],
+      { now: new Date(now()), maxEntries: MAX_SHARE_FILES, maxTotalBytes: MAX_SHARE_BYTES, onCheck: () => abortIfCancelled(input.signal) },
+    )
     abortIfCancelled(input.signal)
     fs.rename(partPath, finalPath)
   } catch (error) {
@@ -444,7 +482,7 @@ export async function createSharePack(input: CreateSharePackInput): Promise<Shar
     path: finalPath,
     format: 'cubitpack' as const,
     files: builder.entries.length,
-    bytes: buffer.length,
+    bytes: archive.bytes,
     content: selection,
     redactions: builder.redactions,
     warnings: [...new Set([...warnings, ...builder.warnings])],
@@ -453,6 +491,7 @@ export async function createSharePack(input: CreateSharePackInput): Promise<Shar
     path: summary.path,
     files: summary.files,
     bytes: summary.bytes,
+    sha256: archive.sha256,
     redacted: builder.redactions.filter((record) => record.action === 'redacted').length,
     skipped: builder.redactions.filter((record) => record.action === 'skipped').length,
   })
