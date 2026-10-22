@@ -1,11 +1,15 @@
 node_modules/
 out/
 release/
-data/
+/data/
 dist/
 coverage/
 *.tsbuildinfo
 *.log
+
+# The renderer keeps real sources in src/renderer/app/data - do not ignore it.
+!/src/renderer/app/data/
+!/src/renderer/app/data/**
 .vite/
 .DS_Store
 Thumbs.db
