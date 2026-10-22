@@ -128,10 +128,6 @@ export function TrashPage() {
         actions={<Button variant="secondary" icon="refresh" onClick={trash.reload}>刷新回收站</Button>}
       />
 
-      <Banner tone="info" title="只恢复，不永久删除">
-        回收站与原始目录分离；恢复前会检查目标路径。若原位置已有同名文件，后端会报告冲突并保持两边都不被覆盖。需要清理磁盘时请手动处理 dataRoot/trash。
-      </Banner>
-
       {trash.status === 'not-wired' || trash.status === 'error' ? (
         <DataStateNotice info={describeError(trash.error)} onRetry={trash.reload} />
       ) : null}
