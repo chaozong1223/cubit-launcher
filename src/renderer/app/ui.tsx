@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
@@ -22,21 +22,19 @@ export function cx(...values: Array<string | false | null | undefined>): string 
  */
 export function ProjectIcon({
   src,
-  alt = '',
   size = 'md',
 }: {
   src: string | null | undefined
-  alt?: string
   size?: 'sm' | 'md'
 }) {
-  const [failed, setFailed] = useState(false)
-  useEffect(() => {
-    setFailed(false)
-  }, [src])
+  // Remember which URL failed instead of a boolean, so reusing the component
+  // with a new `src` renders the new image at once (no stale placeholder frame).
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const usable = Boolean(src) && failedSrc !== src
   return (
     <span className={cx('project-icon', `project-icon--${size}`)} aria-hidden="true">
-      {src && !failed
-        ? <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(true)} />
+      {src && usable
+        ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} />
         : <Icon name="package" />}
     </span>
   )

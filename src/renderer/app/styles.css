@@ -383,35 +383,6 @@
 .catalog-results__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .catalog-results__head h2 { margin: 0; font-size: 14px; color: var(--text); }
 .catalog-results__head span { display: block; margin-top: 2px; font-size: 10.5px; color: var(--text-3); }
-.catalog-hit-grid {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
-}
-.catalog-hit {
-  display: flex; flex-direction: column; min-height: 190px;
-  padding: 11px 12px; border: 1px solid var(--border-subtle); border-radius: 8px;
-  background: var(--surface-2); transition: border-color .15s, background .15s;
-}
-.catalog-hit:hover { border-color: var(--border-strong); background: var(--surface); }
-.catalog-hit__head { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
-.catalog-hit__icon {
-  display: grid; place-items: center; flex: 0 0 auto;
-  width: 38px; height: 38px; border-radius: 8px; overflow: hidden;
-  background: var(--accent-soft); color: var(--accent-text);
-}
-.catalog-hit__icon img { width: 100%; height: 100%; object-fit: cover; }
-.catalog-hit__icon .ico { width: 20px; height: 20px; }
-.catalog-hit__title { flex: 1; min-width: 0; }
-.catalog-hit__title strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 12.5px; }
-.catalog-hit__title span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; color: var(--text-3); font-size: 9.5px; }
-.catalog-hit__desc {
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  min-height: 32px; margin: 8px 0 6px; color: var(--text-2); font-size: 10.5px; line-height: 16px;
-}
-.catalog-hit__tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-height: 18px; }
-.catalog-hit__tags .tag { font-size: 9px; }
-.catalog-hit__foot { display: flex; gap: 6px; margin-top: auto; padding-top: 9px; }
-.catalog-hit__reason { margin-top: 6px; color: var(--warning-text); font-size: 9.5px; line-height: 14px; }
-/* List rows (replaces the card grid): 44px artwork + title/tags + actions. */
 .catalog-row-list { display: flex; flex-direction: column; gap: 2px; }
 .catalog-row {
   display: flex; align-items: flex-start; gap: 12px;
@@ -541,7 +512,6 @@
 .catalog-check-details.is-error summary { color: var(--danger-text); }
 
 @media (max-width: 1180px) {
-  .catalog-hit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .catalog-filters__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Assets: saves / screenshots / trash */
