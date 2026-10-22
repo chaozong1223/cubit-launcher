@@ -1,4 +1,5 @@
 import { HOST_VIP, MAPPED_CIDR, MEMBER_VIP, EASYTIER_VERSION } from './constants'
+import { isAllowedLanTargetSync } from './target'
 
 /**
  * Pure EasyTier argument builders. Hard constraints from the t4 PoC:
@@ -93,8 +94,10 @@ export function assertListenerScoped(host: string): void {
   if (isWildcardHost(host)) {
     throw new Error(`link: refusing wildcard listener ${host}; bind a private/loopback address`)
   }
-  if (!isPrivateIpv4(host) && !isLoopbackHost(host)) {
-    throw new Error(`link: listener ${host} is not a private/loopback address`)
+  // t72: VPN adapters (Radmin 26.x, Hamachi 25.x, Tailscale 100.x, ...) are
+  // valid local listeners, not only RFC1918 addresses.
+  if (!isPrivateIpv4(host) && !isLoopbackHost(host) && !isAllowedLanTargetSync(host)) {
+    throw new Error(`link: listener ${host} is not a local/private address`)
   }
 }
 

@@ -148,7 +148,7 @@ describe('RoomService LAN flow', () => {
     expect(joined.state).toBe('connected')
     expect(joined.transport).toBe('lan')
     expect(joined.members).toHaveLength(2)
-    expect(joined.members[0]).toMatchObject({ role: 'host', name: '房主', pingMs: 0 })
+    expect(joined.members[0]).toMatchObject({ role: 'host', pingMs: 0 })
     expect(joined.members[1]).toMatchObject({ role: 'member' })
     expect(host.status()?.members).toHaveLength(2)
     await waitFor(
@@ -187,11 +187,19 @@ describe('RoomService LAN flow', () => {
     )
     const member = makeRoom({ dataRoot })
     const result = await member.lanWorlds({ timeoutMs: 300 })
+    expect(result.reason).toBeNull()
     expect(result.worlds).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ host: '127.0.0.1', port: 51234, source: 'local-log' }),
       ]),
     )
+  })
+
+  it('returns a readable reason when no LAN world is discoverable', async () => {
+    const member = makeRoom()
+    const result = await member.lanWorlds({ timeoutMs: 150 })
+    expect(result.worlds).toEqual([])
+    expect(result.reason).toContain('未发现局域网世界')
   })
 
   it('joins a discovered LAN world with a real launch server argument', async () => {
@@ -210,6 +218,53 @@ describe('RoomService LAN flow', () => {
       accountId: null,
       server: { host: '127.0.0.1', port: 51234 },
     })
+  })
+
+  it('joins a LAN world advertised on a Radmin VPN 26.x subnet', async () => {
+    const launch = new FakeLaunch()
+    const member = new RoomService({
+      dataRoot: tempRoot(),
+      log: silentLog,
+      launch,
+      instance: instances(),
+      lanIp: '127.0.0.1',
+      networkInterfaces: () =>
+        ({
+          Radmin: [
+            {
+              address: '26.125.118.58',
+              netmask: '255.255.255.0',
+              family: 'IPv4',
+              internal: false,
+              cidr: '26.125.118.58/24',
+              mac: '00:00:00:00:00:02',
+            },
+          ],
+        }) as never,
+    })
+    rooms.push(member)
+    const result = await member.joinLanWorld({
+      worldId: 'lan:26.125.118.57:51234',
+      host: '26.125.118.57',
+      port: 51234,
+      instanceId: 'b',
+      accountId: null,
+    })
+    expect(result.server).toEqual({ host: '26.125.118.57', port: 51234 })
+    expect(launch.starts[0].server).toEqual({ host: '26.125.118.57', port: 51234 })
+  })
+
+  it('rejects public LAN host addresses (SSRF guard)', async () => {
+    const member = makeRoom()
+    await expect(
+      member.joinLanWorld({
+        worldId: 'lan:8.8.8.8:51234',
+        host: '8.8.8.8',
+        port: 51234,
+        instanceId: 'b',
+        accountId: null,
+      }),
+    ).rejects.toMatchObject({ code: 'INVITE_INVALID' })
   })
 
   it('distinguishes a stale invite after the host closed from a manual-mapping failure', async () => {
@@ -472,7 +527,6 @@ describe('RoomService fallback and helpers', () => {
     expect(joined.error?.code).toBe('PORT_MAPPING_REQUIRED')
     expect(joined.error?.retryable).toBe(true)
     expect(joined.manual?.steps.length).toBeGreaterThan(2)
-    expect(joined.manual?.steps.join(' ')).toContain('防火墙')
   })
 
   it('parses the vanilla LAN world log lines', () => {

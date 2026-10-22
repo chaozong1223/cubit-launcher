@@ -122,7 +122,10 @@ export class LanWorldDiscovery {
           .map((name) => path.join(dir, name))
           .sort((left, right) => {
             try {
-              return fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs
+              const delta = fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs
+              // Log filenames are timestamp ordered; mtime resolution can tie
+              // when rotation happens inside the same millisecond.
+              return delta !== 0 ? delta : path.basename(right).localeCompare(path.basename(left))
             } catch {
               return 0
             }

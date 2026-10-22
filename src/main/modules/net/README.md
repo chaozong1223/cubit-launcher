@@ -38,7 +38,9 @@
    - 世界端口已知时再加 world 转发；未知则收到 `EVENT world` 后由 `easytier-cli port-forward add` 补上。
 4. 通过 `127.0.0.1:<localControl>` 连控制面、HMAC 认证、进入 `connected`；`enterWorld` 调 launch，把 `{host:'127.0.0.1', port:<localWorld>}` 作为 `server` 注入（t6 对 1.20+ 转 `--quickPlayMultiplayer`）。
 5. 只有存在隧道/中继路径且隧道失败时才进入 `transport='manual'`；LAN 直连失败且没有隧道路径时返回 `NETWORK_UNREACHABLE`（可区分“房主已关房/旧邀请码”与“需要手动映射”）。
-6. LAN 世界发现：`lanWorlds({timeoutMs})` 读取 MC 组播 `224.0.2.60:4445` + 本机最新游戏日志，返回 `LanWorld[]`；`joinLanWorld({worldId,host,port,instanceId,accountId})` 校验私网/回环后直接调用 launch 注入 `server`（一键加入）。
+6. LAN 世界发现：`lanWorlds({timeoutMs})` 读取 MC 组播 `224.0.2.60:4445` + 本机最新游戏日志，返回 `LanWorld[]` 和 `reason`（找不到世界时的可读中文原因）；`joinLanWorld({worldId,host,port,instanceId,accountId})` 校验目标后启动并注入 `server`。
+7. **离线账户限制（t64 实测）**：原版 1.20.1 对 `--quickPlayMultiplayer` 直连会返回“登录失败：无效会话”，因此离线账户不能用 `enterWorld`/`joinLanWorld` 的一键直连进 LAN 世界；必须走原版“多人游戏 → 局域网世界列表”浏览器（房主日志会打印 `Failed to verify username but will let them in anyway!`）。正版账户或后续 main 侧 LAN 浏览器启动模式才能闭环离线一键进服。证据：`docs/08-p0-6-lan-e2e.md`。
+8. **LAN 目标策略（t72）**：`joinLanWorld`/`enterWorld` 通过 `os.networkInterfaces()` 判定目标是否为回环、RFC1918、100.64/10（Tailscale/CGNAT）或与本机非内部接口同子网（Radmin 26.x、Hamachi 25.x、ZeroTier 等 VPN 网卡）；日志来源（`local:`）和组播来源（`lan:`）会传入策略。SSRF 仍拒绝公网 IP、解析到公网/混合地址的域名、`0.0.0.0`/`*`、组播和 169.254/16 link-local；域名只解析一次并使用解析后的 IP 启动，避免 DNS rebinding。房主监听也允许本机 VPN 网卡；`pickLanIp` 无 RFC1918 时回退到本机非内部 IPv4。
 
 ## 关键约束（t4 实测）
 
@@ -72,11 +74,20 @@
 npm.cmd --prefix mc-launcher exec vitest run src/main/modules/net
 ```
 
-覆盖（30 个用例，6 个文件）：ticket 签发/验签/篡改/过期/短码；EasyTier 参数约束（显式 `-l`、no-TUN、alias `/32`、拒绝 loopback peer）；host/member LAN 全流程、世界更新、`enterWorld`、房主关闭、版本不匹配、短码拒绝、隧道启动/失败降级、手动指引、事件流；HostControl 心跳超时与 HMAC 拒绝；房主在成员列表、PING/STATS 数值、隧道成员 enterWorld、LAN 日志发现与 joinLanWorld、旧邀请码 `NETWORK_UNREACHABLE`、过期/篡改/版本不匹配中文错误码；下载哈希门禁。
+覆盖（44 个常规用例 + 1 个 opt-in 真实 LAN 用例，8 个文件）：ticket 签发/验签/篡改/过期/短码；EasyTier 参数约束（显式 `-l`、no-TUN、alias `/32`、拒绝 loopback peer）；host/member LAN 全流程、世界更新、`enterWorld`、房主关闭、版本不匹配、短码拒绝、隧道启动/失败降级、手动指引、事件流；HostControl 心跳超时与 HMAC 拒绝；房主在成员列表、PING/STATS 数值、隧道成员 enterWorld、LAN 日志发现与 joinLanWorld、latest.log 轮转/尾部截断、空结果可读 reason、Radmin 26.x/Tailscale 100.x/localhost/8.8.8.8/组播 SSRF 策略、旧邀请码 `NETWORK_UNREACHABLE`、过期/篡改/版本不匹配中文错误码；下载哈希门禁。
+
+真实 LAN 端到端（需要桌面会话与 `.e2e` 1.20.1 实例，默认跳过）：
+
+```powershell
+$env:MCL_REAL_LAN='1'; npm.cmd --prefix mc-launcher exec vitest run src/main/modules/net/__tests__/real-lan.test.ts
+```
+
+t64 实测结果与截图：`docs/08-p0-6-lan-e2e.md`、`docs/evidence/t64/`。
 
 ## 已知边界
 
 - 跨网 P2P/中继只实现配置与降级编排，未在真实双网络验收（t4 §5.5）。
+- 离线账户无法用 `enterWorld` 的一键直连进原版 LAN 世界（Invalid session）；t64 用原版 LAN 浏览器完成真实进世界，闭环需正版账户或 main 侧 LAN 浏览器启动模式（见 `docs/08-p0-6-lan-e2e.md`）。
 - 多成员并发未压测；HostControl 支持 ≤8 成员。
 - UI 接线由 t16/t50 完成；本模块提供 `lanWorlds`/`joinLanWorld` 契约与 `mc:net:evt:lanWorlds` 事件，LinkPage 尚未消费。
 - TUN 模式、自动 UPnP 不在本 MVP（04 的 P1/P2）。

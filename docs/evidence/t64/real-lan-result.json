@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-21T15:40:44.131Z",
+  "invite": {
+    "code": "YWKGQA",
+    "length": 853
+  },
+  "host": {
+    "instanceId": "1.20.1-lan",
+    "argvHasQuickPlaySingleplayer": true,
+    "worldLog": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t64\\real-host-data\\logs\\game\\1.20.1-lan\\20261021-233917.log",
+    "discoveredPort": 60321,
+    "startedServing": "Started serving on 60321",
+    "memberJoined": "[stdout]     <log4j:Message><![CDATA[T64Member[/26.125.118.57:60416] logged in with entity id 628 at (0.5, 84.0, 5.5)]]></log4j:Message>",
+    "offlineLooseAuth": true
+  },
+  "member": {
+    "instanceId": "1.20.1",
+    "log": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t64\\real-member-data\\logs\\game\\1.20.1\\20261021-233953.log",
+    "joinedVia": "vanilla LAN browser (offline session bypass)",
+    "directConnectNote": "Direct Connect / enterWorld quickPlayMultiplayer is rejected by vanilla 1.20.1 for offline accounts: 登录失败：无效会话"
+  },
+  "screenshot": "D:\\DSH-工作文件\\mc-launcher\\.e2e\\t64\\t64-member-in-world.png"
+}

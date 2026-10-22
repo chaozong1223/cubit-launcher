@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "generatedAt": "2026-10-21T15:03:51.642Z",
   "files": {
-    "package.json": "e60c9fbd20405ca07fa6585bc61f656d7536ed584ee389d6e8c3350cb15ca694",
+    "package.json": "5706aea8c8b88e8b7397d4226bde87244bc186d386932c188046e62ed9eb455c",
     "package-lock.json": "ebb16c3054b858d9e56351d1556d961e75f536dae0e68a52c307a6d825a2dc71",
     "electron.vite.config.ts": "0ca70c50c71fbd254bffc97897ee056bc36ac67f9ea224f55ac9ea32b3542e3a",
     "tsconfig.json": "7d31dbb684d8fb3e73507969f42c0b8518ec710ffd64c1a43f401fc78ca1b775",

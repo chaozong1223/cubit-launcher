@@ -11,10 +11,11 @@ import { isCoreError } from '../core/errors'
  */
 const DOMAIN_CODE =
   /^(JAVA|LAUNCH|LOADER|REPAIR|MODS|DOWNLOAD|AUTH|NET|ASSETS|CRASH|INSTANCE|VERSION|PROCESS|FS|ARCHIVE|TUNNEL|AUTHLIB|LINK)\.[A-Z0-9_]+$/
+const EXTRA_DOMAIN_CODES = new Set(['INSTANCE_ALREADY_RUNNING'])
 const LINK_CODES = new Set<string>(LINK_ERROR_CODES)
 
 function isDomainCode(code: string): boolean {
-  return DOMAIN_CODE.test(code) || LINK_CODES.has(code)
+  return DOMAIN_CODE.test(code) || EXTRA_DOMAIN_CODES.has(code) || LINK_CODES.has(code)
 }
 
 function asShape(value: unknown): AppErrorShape | null {

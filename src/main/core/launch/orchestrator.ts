@@ -59,6 +59,53 @@ export interface LaunchRequestInput {
   gameLanguage?: string | null
 }
 
+export function commandLineMatchesGameDir(
+  commandLine: string,
+  gameDir: string,
+): boolean {
+  const normalized = gameDir
+    .replace(/[\\/]+$/, '')
+    .replaceAll('\\', '/')
+    .toLowerCase()
+  if (!normalized) return false
+  const command = commandLine.replaceAll('\\', '/').toLowerCase()
+  return command.includes(normalized)
+}
+
+/** A real write+delete probe; EPERM/EBUSY must be detected before planning natives. */
+export function probeWritableDirectory(fs: FsPort, dir: string): boolean {
+  const probe = path.join(dir, `.mcl-write-test-${process.pid}-${randomUUID()}`)
+  try {
+    fs.writeTextAtomic(probe, 'ok')
+    fs.remove(probe)
+    return true
+  } catch {
+    try {
+      fs.remove(probe)
+    } catch {
+      // best effort cleanup only
+    }
+    return false
+  }
+}
+
+export function fallbackNativesDirectory(
+  dataRoot: string,
+  dirName: string,
+  sequence: number,
+): string {
+  const safe = dirName.replace(/[^A-Za-z0-9._-]+/g, '_') || 'instance'
+  return path.join(dataRoot, 'tmp', 'natives', `${safe}-${sequence}`)
+}
+
+export function rewriteNativesPath(
+  argv: string[],
+  previous: string,
+  next: string,
+): string[] {
+  return argv.map((value) => value.split(previous).join(next))
+}
+
 export interface LaunchOrchestratorOptions {
   dataRoot: string
   mcRoot: string
@@ -132,6 +179,8 @@ export class LaunchOrchestrator extends EventEmitter {
   private readonly platform: NodeJS.Platform
   private readonly arch: string
   private readonly sessions = new Map<string, SessionRecord>()
+  private readonly pendingStarts = new Set<string>()
+  private launchSequence = 0
   private readonly statusByInstance = new Map<string, LaunchStatus>()
   private readonly reportByInstance = new Map<string, LaunchExitReport>()
   private codePage: number | null = null
@@ -326,6 +375,19 @@ export class LaunchOrchestrator extends EventEmitter {
 
     const paths = this.buildPaths(resolved, settings)
     assertPathBudget(paths.nativesDir, 'natives 目录')
+
+    // The game runs with the launcher's integrity level. Under a low-integrity
+    // fallback (Chromium sandbox unavailable) mods cannot write to the system
+    // %TEMP%, so hand the JVM a directory the launcher created itself.
+    const gameTempDir = path.join(this.options.dataRoot, 'tmp', 'game')
+    try {
+      this.fs.mkdirp(gameTempDir)
+    } catch (error) {
+      this.options.logger?.warn?.('game temp dir unavailable; keeping system temp', {
+        dir: gameTempDir,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
     const sessionId = randomUUID()
     const logFile = allocateGameLogFile(
       this.fs,
@@ -364,6 +426,7 @@ export class LaunchOrchestrator extends EventEmitter {
       now: this.now,
       env: process.env,
       exists: (target) => this.fs.exists(target),
+      tempDir: gameTempDir,
     })
 
     plan.warnings.push(...javaSelection.warnings)
@@ -438,21 +501,184 @@ export class LaunchOrchestrator extends EventEmitter {
     return prepared.publicPlan
   }
 
-  async start(input: LaunchRequestInput): Promise<{ sessionId: string }> {
-    if ([...this.sessions.values()].some((session) => session.instanceId === input.instanceId)) {
-      throw new CoreError('LAUNCH.ALREADY_RUNNING', {
-        message: `instance already running: ${input.instanceId}`,
-        details: { instanceId: input.instanceId },
+  private setNativesDirectory(
+    prepared: PreparedLaunch,
+    nextDir: string,
+    warning?: string,
+  ): void {
+    const previous = prepared.plan.nativesDir
+    if (nextDir === previous) return
+    prepared.plan.nativesDir = nextDir
+    prepared.publicPlan.nativesDir = nextDir
+    const replace = (value: string): string => value.split(previous).join(nextDir)
+    prepared.plan.argv = rewriteNativesPath(prepared.plan.argv, previous, nextDir)
+    prepared.publicPlan.argv = rewriteNativesPath(prepared.publicPlan.argv, previous, nextDir)
+    prepared.plan.env = Object.fromEntries(
+      Object.entries(prepared.plan.env).map(([key, value]) => [key, replace(value)]),
+    )
+    prepared.publicPlan.env = Object.fromEntries(
+      Object.entries(prepared.publicPlan.env).map(([key, value]) => [key, replace(value)]),
+    )
+    if (warning) {
+      prepared.plan.warnings.push(warning)
+      prepared.publicPlan.warnings.push(warning)
+    }
+  }
+
+  private ensureWritableNativesDirectory(prepared: PreparedLaunch): void {
+    const checks = [prepared.instance.dir, prepared.plan.cwd]
+    const writable = [...new Set(checks)].every((dir) => probeWritableDirectory(this.fs, dir))
+    if (writable) return
+    const sequence = ++this.launchSequence
+    const fallback = fallbackNativesDirectory(
+      this.options.dataRoot,
+      prepared.resolved.dirName,
+      sequence,
+    )
+    const warning =
+      `实例目录不可写，游戏仍可启动，但模组安装/存档备份等功能会失败；` +
+      `建议把启动器加入杀毒软件信任。natives 已改到 ${fallback}。`
+    this.setNativesDirectory(prepared, fallback, warning)
+    this.logger.warn('instance directory is not writable; using temp natives', {
+      instanceId: prepared.instance.id,
+      gameDir: prepared.plan.cwd,
+      instanceDir: prepared.instance.dir,
+      nativesDir: fallback,
+    })
+  }
+
+  private async findRunningGameProcess(
+    gameDir: string,
+  ): Promise<{ pid: number | null; commandLine: string } | null> {
+    if (!gameDir.trim()) return null
+    let stdout = ''
+    try {
+      if (this.platform === 'win32') {
+        const wmic = await this.ports.exec(
+          'wmic',
+          [
+            'process',
+            'where',
+            "name='java.exe' or name='javaw.exe'",
+            'get',
+            'ProcessId,CommandLine',
+            '/format:list',
+          ],
+          { timeoutMs: 3_000 },
+        )
+        stdout = wmic.code === 0 ? wmic.stdout : ''
+        if (!stdout.includes('CommandLine=')) {
+          const powershell = await this.ports.exec(
+            'powershell.exe',
+            [
+              '-NoProfile',
+              '-NonInteractive',
+              '-Command',
+              "Get-CimInstance Win32_Process -Filter \"Name='java.exe' OR Name='javaw.exe'\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
+            ],
+            { timeoutMs: 3_000 },
+          )
+          stdout = powershell.code === 0 ? powershell.stdout : ''
+        }
+      } else {
+        const ps = await this.ports.exec('ps', ['-eo', 'pid=,args='], { timeoutMs: 3_000 })
+        stdout = ps.code === 0 ? ps.stdout : ''
+      }
+    } catch (error) {
+      this.logger.warn('could not inspect running Java processes', {
+        message: error instanceof Error ? error.message : String(error),
       })
+      return null
+    }
+    if (!stdout.trim()) return null
+    const parsed: Array<{ pid: number | null; commandLine: string }> = []
+    const trimmed = stdout.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const json = JSON.parse(trimmed) as
+          | { ProcessId?: unknown; CommandLine?: unknown }
+          | Array<{ ProcessId?: unknown; CommandLine?: unknown }>
+        for (const entry of Array.isArray(json) ? json : [json]) {
+          if (typeof entry.CommandLine === 'string') {
+            parsed.push({
+              pid: typeof entry.ProcessId === 'number' ? entry.ProcessId : null,
+              commandLine: entry.CommandLine,
+            })
+          }
+        }
+      } catch {
+        return null
+      }
+    } else if (this.platform === 'win32') {
+      for (const block of stdout.split(/\r?\n\r?\n/)) {
+        const commandLine = /^CommandLine=(.*)$/im.exec(block)?.[1]
+        const pid = /^ProcessId=(\d+)$/im.exec(block)?.[1]
+        if (commandLine) {
+          parsed.push({ pid: pid ? Number(pid) : null, commandLine })
+        }
+      }
+    } else {
+      for (const line of stdout.split(/\r?\n/)) {
+        const match = /^\s*(\d+)\s+(.+)$/.exec(line)
+        if (match) parsed.push({ pid: Number(match[1]), commandLine: match[2] })
+      }
+    }
+    return (
+      parsed.find((entry) => commandLineMatchesGameDir(entry.commandLine, gameDir)) ?? null
+    )
+  }
+
+  private instanceAlreadyRunning(
+    instanceId: string,
+    extra: Record<string, unknown> = {},
+  ): CoreError {
+    return new CoreError('INSTANCE_ALREADY_RUNNING', {
+      message: `instance already running: ${instanceId}`,
+      userMessage: '这个实例已经在运行，请先关闭游戏',
+      hint: '请先关闭正在运行的游戏窗口，或等待其退出后再启动。',
+      details: { instanceId, ...extra },
+    })
+  }
+
+  async start(input: LaunchRequestInput): Promise<{ sessionId: string }> {
+    if (
+      this.pendingStarts.has(input.instanceId) ||
+      [...this.sessions.values()].some((session) => session.instanceId === input.instanceId)
+    ) {
+      throw this.instanceAlreadyRunning(input.instanceId)
+    }
+    this.pendingStarts.add(input.instanceId)
+    try {
+      return await this.startInternal(input)
+    } finally {
+      this.pendingStarts.delete(input.instanceId)
+    }
+  }
+
+  private async startInternal(input: LaunchRequestInput): Promise<{ sessionId: string }> {
+    if ([...this.sessions.values()].some((session) => session.instanceId === input.instanceId)) {
+      throw this.instanceAlreadyRunning(input.instanceId)
     }
     const prepared = await this.prepare(input, 'start')
 
     if ([...this.sessions.values()].some((session) => session.instanceId === prepared.instance.id)) {
-      throw new CoreError('LAUNCH.ALREADY_RUNNING', {
-        message: `instance already running: ${prepared.instance.id}`,
-        details: { instanceId: prepared.instance.id },
+      throw this.instanceAlreadyRunning(prepared.instance.id)
+    }
+
+    const external = await this.findRunningGameProcess(prepared.plan.cwd)
+    if (external) {
+      this.logger.warn('blocked duplicate launch: game process already uses this gameDir', {
+        instanceId: prepared.instance.id,
+        gameDir: prepared.plan.cwd,
+        pid: external.pid,
+      })
+      throw this.instanceAlreadyRunning(prepared.instance.id, {
+        gameDir: prepared.plan.cwd,
+        pid: external.pid,
       })
     }
+
+    this.ensureWritableNativesDirectory(prepared)
 
     // Apply the language setting to the real gameDir from the launch plan
     // (isolated version dir or shared mcRoot), before spawning Java.
@@ -514,14 +740,51 @@ export class LaunchOrchestrator extends EventEmitter {
     })
     this.emitStage(prepared.instance.id, 'spawn', 'extracting natives')
     if (nativePlan.sources.length > 0) {
-      const result = extractNatives(nativePlan, { fs: this.fs, now: this.now })
+      let result: ReturnType<typeof extractNatives>
+      try {
+        result = extractNatives(nativePlan, { fs: this.fs, now: this.now })
+      } catch (error) {
+        if (error instanceof CoreError) throw error
+        const causeCode =
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : null
+        throw new CoreError('LAUNCH.NATIVES_BUSY', {
+          message: `failed to prepare natives: ${error instanceof Error ? error.message : String(error)}`,
+          hint: 'natives 目录可能仍被上次的游戏进程占用，请先关闭游戏后重试。',
+          details: { causeCode, error: error instanceof Error ? error.message : String(error) },
+          cause: error,
+        })
+      }
+      if (result.fallback || result.nativesDir !== prepared.plan.nativesDir) {
+        const previous = prepared.plan.nativesDir
+        this.setNativesDirectory(
+          prepared,
+          result.nativesDir,
+          `natives 目录被占用，已改用 ${result.nativesDir}；请先关闭正在运行的游戏。`,
+        )
+        this.logger.warn('natives directory busy; using fallback directory', {
+          instanceId: prepared.instance.id,
+          previous,
+          fallback: result.nativesDir,
+        })
+      }
       this.logger.info('natives ready', {
         jars: result.jars,
         extracted: result.extracted,
         cacheHit: result.cacheHit,
+        fallback: result.fallback,
+        nativesDir: prepared.plan.nativesDir,
       })
     } else {
       this.fs.mkdirp(prepared.plan.nativesDir)
+      this.logger.info('natives ready', {
+        jars: 0,
+        extracted: 0,
+        cacheHit: false,
+        fallback: false,
+        nativesDir: prepared.plan.nativesDir,
+      })
     }
 
     const handle = startLaunchProcess({

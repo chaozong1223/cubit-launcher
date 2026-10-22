@@ -38,6 +38,7 @@ import { LanWorldDiscovery } from './discovery'
 import type { TunnelHandle, TunnelPort } from './easytier'
 import type { LanWorldsInput, LanWorldsOutput, JoinLanWorldInput } from '@shared/net'
 import { isLoopbackHost, isPrivateIpv4, isWildcardHost } from './args'
+import { normalizeLanTarget, isAllowedLanTargetSync, type NetworkInterfaces } from './target'
 
 /** Structural ports so room.ts can be tested without Electron or real EasyTier. */
 export interface LaunchPort {
@@ -76,6 +77,9 @@ export interface RoomServiceOptions {
   sleep?: (ms: number) => Promise<void>
   randomId?: () => string
   onSnapshot?: (info: RoomInfo) => void
+  /** Test seam: defaults to os.networkInterfaces() in target.ts. */
+  networkInterfaces?: () => NetworkInterfaces
+  lookupHost?: (host: string) => Promise<Array<{ address: string }>>
 }
 
 interface JoinTarget {
@@ -207,7 +211,10 @@ export class RoomService {
     this.members = [this.hostMember()]
 
     try {
-      if (isWildcardHost(this.lanIp) || (!isPrivateIpv4(this.lanIp) && !isLoopbackHost(this.lanIp))) {
+      if (
+        isWildcardHost(this.lanIp) ||
+        (!isPrivateIpv4(this.lanIp) && !isLoopbackHost(this.lanIp) && !isAllowedLanTargetSync(this.lanIp))
+      ) {
         throw new LinkError('INTERNAL', `refusing to bind room control on ${this.lanIp}`)
       }
       this.hostControl = new HostControl({
@@ -471,8 +478,19 @@ export class RoomService {
     if (!this.role || this.state !== 'connected') {
       throw new LinkError('NETWORK_UNREACHABLE', 'room is not connected', { retryable: true })
     }
-    const server = this.resolveJoinTarget()
-    if (!server) throw new LinkError('WORLD_NOT_FOUND', 'LAN world port is not known yet', { retryable: true })
+    const resolvedServer = this.resolveJoinTarget()
+    if (!resolvedServer) throw new LinkError('WORLD_NOT_FOUND', 'LAN world port is not known yet', { retryable: true })
+    const targetHost = await normalizeLanTarget(resolvedServer.host, {
+      interfaces: this.options.networkInterfaces?.(),
+      lookup: this.options.lookupHost,
+    })
+    if (!targetHost) {
+      throw new LinkError(
+        'INVITE_INVALID',
+        `LAN world host is not a local/LAN address: ${resolvedServer.host}`,
+      )
+    }
+    const server = { host: targetHost, port: resolvedServer.port }
     if (!this.options.launch) throw new LinkError('LAUNCH_FAILED', 'launch service is not available')
     const instanceId = input.instanceId ?? this.instanceId
     if (!instanceId) throw new LinkError('LAUNCH_FAILED', 'instance is not selected')
@@ -530,19 +548,36 @@ export class RoomService {
 
   async lanWorlds(input: LanWorldsInput = { timeoutMs: 1_500 }): Promise<LanWorldsOutput> {
     const worlds = await this.discovery.discover(input.timeoutMs ?? 1_500)
-    this.fire('lanWorlds', { worlds })
-    return { worlds }
+    const reason =
+      worlds.length > 0
+        ? null
+        : '未发现局域网世界：请确认游戏内已执行「对局域网开放」且日志含 Started serving on <port>；组播 224.0.2.60:4445 也无响应。'
+    this.fire('lanWorlds', { worlds, reason })
+    return { worlds, reason }
   }
 
   async joinLanWorld(input: JoinLanWorldInput): Promise<{
     sessionId: string
     server: { host: string; port: number }
   }> {
-    if (!isPrivateIpv4(input.host) && !isLoopbackHost(input.host)) {
-      throw new LinkError('INVITE_INVALID', `LAN world host is not private/loopback: ${input.host}`)
+    const source = input.worldId.startsWith('local:')
+      ? 'local-log'
+      : input.worldId.startsWith('lan:')
+        ? 'multicast'
+        : null
+    const targetHost = await normalizeLanTarget(input.host, {
+      source,
+      interfaces: this.options.networkInterfaces?.(),
+      lookup: this.options.lookupHost,
+    })
+    if (!targetHost) {
+      throw new LinkError(
+        'INVITE_INVALID',
+        `LAN world host is not a local/LAN address: ${input.host}`,
+      )
     }
     if (!this.options.launch) throw new LinkError('LAUNCH_FAILED', 'launch service is not available')
-    const server = { host: input.host, port: input.port }
+    const server = { host: targetHost, port: input.port }
     try {
       const started = await this.options.launch.start({
         instanceId: input.instanceId,
@@ -1167,13 +1202,17 @@ export function parseWorldPort(line: string): number | null {
 export function pickLanIp(): string {
   try {
     const interfaces = os.networkInterfaces()
+    const fallback: string[] = []
     for (const entries of Object.values(interfaces)) {
       for (const entry of entries ?? []) {
-        if (entry.family === 'IPv4' && !entry.internal && isPrivate(entry.address)) {
-          return entry.address
-        }
+        if (entry.family !== 'IPv4' || entry.internal) continue
+        if (isPrivate(entry.address)) return entry.address
+        // t72: VPN-only machines (Radmin/Hamachi/ZeroTier) still need a
+        // listener; use the first non-internal IPv4 if no RFC1918 exists.
+        fallback.push(entry.address)
       }
     }
+    if (fallback.length > 0) return fallback[0]
   } catch {
     // fall through
   }

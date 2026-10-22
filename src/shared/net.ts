@@ -131,6 +131,8 @@ export type LanWorldsInput = z.infer<typeof LanWorldsInputSchema>
 
 export const LanWorldsOutputSchema = z.object({
   worlds: z.array(LanWorldSchema),
+  /** Human-readable reason when no world can be discovered. */
+  reason: z.string().nullable().default(null),
 })
 export type LanWorldsOutput = z.infer<typeof LanWorldsOutputSchema>
 

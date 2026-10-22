@@ -1201,6 +1201,16 @@ svg { display: block; }
 .net-chip--relay { background: var(--info-bg); color: var(--info-text); }
 .net-chip--host { background: var(--accent-subtle); color: var(--accent-text); }
 .room-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.link-enter-guide { padding: 16px; border-color: var(--accent); background: var(--accent-soft); }
+.link-enter-guide__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.link-enter-guide__head h3 { display: flex; align-items: center; gap: 5px; margin: 3px 0 0; font: 600 14px/20px var(--font-sans); }
+.link-enter-guide__head h3 .ico { width: 15px; height: 15px; color: var(--accent-text); }
+.link-enter-guide__head p { margin: 5px 0 0; max-width: 620px; color: var(--text-3); font-size: 10px; line-height: 16px; }
+.link-enter-guide__steps { margin: 11px 0 0; padding-left: 20px; color: var(--text-2); font-size: 11px; line-height: 20px; }
+.link-enter-guide__steps li { padding-left: 2px; }
+.link-enter-guide__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+.link-enter-guide__foot .muted { font-size: 9.5px; }
+
 .link-card { padding: 16px; }
 .link-card h3 { font-size: 12.5px; }
 .check-list { margin-top: 10px; display: flex; flex-direction: column; }

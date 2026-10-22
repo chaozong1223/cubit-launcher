@@ -92,7 +92,10 @@ export class LoopbackOAuthServer {
   }
 
   static async start(
-    preferredPorts: number[] = [29111, 29112, 29113, 29114, 29115],
+    // 53117 is the redirect URI registered in our Entra app as
+    // `http://localhost:53117/`. Azure validates the port, so we cannot use a
+    // random one: a free port here would still be rejected at authorize time.
+    preferredPorts: number[] = [53117],
     pkce: PkcePair = createPkce(),
   ): Promise<LoopbackOAuthServer> {
     let lastError: unknown = null
@@ -130,7 +133,9 @@ export class LoopbackOAuthServer {
   }
 
   get redirectUri(): string {
-    return `http://localhost:${this.port}/auth-response`
+    // Must match the registered redirect URI exactly, including the trailing
+    // slash and the absence of a path segment.
+    return `http://localhost:${this.port}/`
   }
 
   private complete(result: LoopbackResult): void {
@@ -141,7 +146,15 @@ export class LoopbackOAuthServer {
   }
 
   private handle(request: http.IncomingMessage, response: http.ServerResponse): void {
-    if (request.url?.split('?')[0] !== '/auth-response') {
+    // The registered redirect URI is the site root, so the authorization code
+    // arrives at `/` (query params included). Ignore favicon and other probes.
+    const path = request.url?.split('?')[0] ?? '/'
+    if (path !== '/' && path !== '/auth-response') {
+      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+      response.end('Not found')
+      return
+    }
+    if (!request.url?.includes('code=') && !request.url?.includes('error=')) {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
       response.end('Not found')
       return

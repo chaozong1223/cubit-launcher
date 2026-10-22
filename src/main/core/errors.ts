@@ -94,6 +94,21 @@ export const CORE_ERRORS = {
     userMessage: '这个实例已经在运行',
     retryable: false,
   },
+  INSTANCE_ALREADY_RUNNING: {
+    category: 'process',
+    userMessage: '这个实例已经在运行，请先关闭游戏',
+    retryable: false,
+  },
+  'LAUNCH.NATIVES_BUSY': {
+    category: 'process',
+    userMessage: 'natives 目录被占用，无法准备启动文件',
+    retryable: true,
+  },
+  'LAUNCH.START_FAILED': {
+    category: 'process',
+    userMessage: '启动游戏失败',
+    retryable: true,
+  },
   'LAUNCH.ACCOUNT_REQUIRED': {
     category: 'auth',
     userMessage: '还没有选择账户',

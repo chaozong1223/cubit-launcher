@@ -19,7 +19,7 @@
     "test:watch": "vitest",
     "guard": "node scripts/check-frozen.mjs",
     "check": "npm run guard && npm run typecheck && npm run test",
-    "pack": "electron-vite build && electron-builder --dir --win",
+    "pack": "node scripts/pack-safe.mjs",
     "dist": "electron-vite build && electron-builder --win",
     "clean": "node scripts/clean.mjs",
     "e2e:install-launch": "node scripts/e2e-install-launch.mjs"

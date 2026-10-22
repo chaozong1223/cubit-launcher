@@ -243,6 +243,52 @@ describe('buildLaunchPlan — window, server and loader variants', () => {
     expect(classpath).toContain('lwjgl-3.3.1.jar')
   })
 
+  it('keeps repeated add-opens/add-exports flag-value pairs intact (PCL Forge profile)', () => {
+    const profile = {
+      ...forgeVersion(),
+      arguments: {
+        jvm: [
+          '-Djava.library.path=${natives_directory}',
+          '-DignoreList=client-extra,fmlcore',
+          '-Dwith.spaces=hello world',
+          '--add-modules',
+          'ALL-MODULE-PATH',
+          '--add-opens',
+          'java.base/java.util.jar=cpw.mods.securejarhandler',
+          '--add-opens',
+          'java.base/java.lang.invoke=cpw.mods.securejarhandler',
+          '--add-exports',
+          'java.base/sun.security.util=cpw.mods.securejarhandler',
+          '--add-exports',
+          'jdk.naming.dns/com.sun.jndi.dns=java.naming',
+        ],
+        game: ['--launchTarget', 'forgeclient'],
+      },
+    }
+    const plan = build({ version: flattenVersionChain([vanillaVersion(), profile]).json })
+    const argv = plan.argv
+    const start = argv.indexOf('--add-modules')
+    expect(argv.slice(start, start + 8)).toEqual([
+      '--add-modules',
+      'ALL-MODULE-PATH',
+      '--add-opens',
+      'java.base/java.util.jar=cpw.mods.securejarhandler',
+      '--add-opens',
+      'java.base/java.lang.invoke=cpw.mods.securejarhandler',
+      '--add-exports',
+      'java.base/sun.security.util=cpw.mods.securejarhandler',
+    ])
+    expect(argv).toContain('jdk.naming.dns/com.sun.jndi.dns=java.naming')
+    expect(argv).toContain('-Dwith.spaces=hello world')
+    expect(argv).not.toContain('java.base.java.lang.invoke=cpw.mods.securejarhandler')
+    expect(count(argv, '--add-opens')).toBe(2)
+    expect(count(argv, '--add-exports')).toBe(2)
+    // The flag values must never become the main class.
+    expect(argv.indexOf('cpw.mods.bootstraplauncher.BootstrapLauncher')).toBeGreaterThan(
+      argv.indexOf('jdk.naming.dns/com.sun.jndi.dns=java.naming'),
+    )
+  })
+
   it('adds the x86-only argument when arch is x86', () => {
     const x86 = build({ arch: 'x86' })
     const x64 = build({ arch: 'x64' })

@@ -72,6 +72,9 @@ export interface ExtractNativesResult {
   cacheHit: boolean
   markerFile: string
   missing: string[]
+  /** Effective directory; differs from plan.nativesDir when EPERM/EBUSY forced a fallback. */
+  nativesDir: string
+  fallback: boolean
 }
 
 function markerFile(nativesDir: string): string {
@@ -125,7 +128,8 @@ export function extractNatives(
   options: ExtractNativesOptions = {},
 ): ExtractNativesResult {
   const fs = options.fs ?? nodeFsPort()
-  const markerPath = markerFile(plan.nativesDir)
+  let targetDir = plan.nativesDir
+  let markerPath = markerFile(targetDir)
 
   if (plan.sources.length === 0) {
     return {
@@ -135,10 +139,12 @@ export function extractNatives(
       cacheHit: false,
       markerFile: markerPath,
       missing: plan.missing,
+      nativesDir: targetDir,
+      fallback: false,
     }
   }
 
-  if (!options.force && cacheMatches(fs, plan.nativesDir, plan)) {
+  if (!options.force && cacheMatches(fs, targetDir, plan)) {
     return {
       extracted: 0,
       jars: plan.sources.length,
@@ -146,11 +152,38 @@ export function extractNatives(
       cacheHit: true,
       markerFile: markerPath,
       missing: plan.missing,
+      nativesDir: targetDir,
+      fallback: false,
     }
   }
 
-  fs.remove(winLongPath(plan.nativesDir))
-  fs.mkdirp(winLongPath(plan.nativesDir))
+  let fallback = false
+  let lastRemoveError: unknown = null
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      fs.remove(winLongPath(targetDir))
+      lastRemoveError = null
+      break
+    } catch (error) {
+      lastRemoveError = error
+    }
+  }
+  if (lastRemoveError) {
+    // Windows keeps DLLs locked while the previous JVM is still shutting down.
+    // A unique sibling directory lets the new launch proceed without deleting
+    // the old (still mapped) files.
+    const stamp = options.now?.() ?? Date.now()
+    let candidate = `${targetDir}-${stamp}`
+    let suffix = 1
+    while (fs.exists(winLongPath(candidate))) {
+      candidate = `${targetDir}-${stamp}-${suffix}`
+      suffix += 1
+    }
+    targetDir = candidate
+    markerPath = markerFile(targetDir)
+    fallback = true
+  }
+  fs.mkdirp(winLongPath(targetDir))
 
   let extracted = 0
   const skipped: string[] = []
@@ -171,7 +204,7 @@ export function extractNatives(
       })
     }
     const excludes = ['META-INF/', ...source.exclude]
-    const result = extractZip(fs, archive, winLongPath(plan.nativesDir), { excludePrefixes: excludes })
+    const result = extractZip(fs, archive, winLongPath(targetDir), { excludePrefixes: excludes })
     extracted += result.written.length
     skipped.push(...result.skipped)
   }
@@ -191,5 +224,7 @@ export function extractNatives(
     cacheHit: false,
     markerFile: markerPath,
     missing: plan.missing,
+    nativesDir: targetDir,
+    fallback,
   }
 }

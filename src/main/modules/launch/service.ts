@@ -72,10 +72,30 @@ export class LaunchModuleService {
 
   async start(input: LaunchRequestInput): Promise<{ sessionId: string }> {
     const settings = loadLaunchSettings(this.roots.dataRoot)
-    return this.requireOrchestrator().start({
-      ...input,
-      gameLanguage: settings.language,
-    })
+    try {
+      return await this.requireOrchestrator().start({
+        ...input,
+        gameLanguage: settings.language,
+      })
+    } catch (error) {
+      if (error instanceof CoreError || error instanceof AppError) throw error
+      const causeCode =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : null
+      throw new CoreError('LAUNCH.START_FAILED', {
+        message: error instanceof Error ? error.message : String(error),
+        userMessage: '启动游戏失败，请查看日志后重试',
+        details: {
+          causeCode,
+          hint:
+            causeCode === 'EPERM' || causeCode === 'EBUSY'
+              ? '文件正被占用；请先关闭正在运行的游戏。'
+              : '请查看启动器日志中的原始错误。',
+        },
+        cause: error,
+      })
+    }
   }
 
   getSettings(): LaunchSettings {

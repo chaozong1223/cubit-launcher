@@ -481,7 +481,7 @@ describe('HMCL OAuth loopback port', () => {
       buildAuthorizationUrl({
         clientId: 'our-client-id',
         tenant: 'tenant-id',
-        redirectUri: 'http://localhost:29111/auth-response',
+        redirectUri: 'http://localhost:53117/',
         state: pkce.state,
         challenge: pkce.challenge,
       }),
@@ -490,14 +490,14 @@ describe('HMCL OAuth loopback port', () => {
     expect(url.searchParams.get('code_challenge_method')).toBe('S256')
     expect(url.searchParams.get('code_challenge')).toBe(pkce.challenge)
     expect(url.searchParams.get('scope')).toBe(HMCL_MICROSOFT_SCOPE)
-    expect(url.searchParams.get('redirect_uri')).toBe('http://localhost:29111/auth-response')
+    expect(url.searchParams.get('redirect_uri')).toBe('http://localhost:53117/')
     expect(url.toString()).not.toContain('hmcl.microsoft.auth.id')
   })
 
   it('serves the localhost callback, validates state and returns the code', async () => {
     const server = await LoopbackOAuthServer.start([0])
     try {
-      expect(server.redirectUri).toContain('/auth-response')
+      expect(server.redirectUri).toBe('http://localhost:' + String(server.port) + '/')
       const response = await fetch(
         `${server.redirectUri}?code=authorization-code&state=${server.pkce.state}`,
       )

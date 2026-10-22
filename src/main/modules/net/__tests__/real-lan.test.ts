@@ -214,7 +214,6 @@ describe.skipIf(!enabled)('real 1.20.1 LAN world end-to-end', () => {
       runWin('click', 805, 484)
       await new Promise((resolve) => setTimeout(resolve, 1_500))
       runWin('shot', 0, 0, path.join(root, '.e2e', 't64', 't64-host-lanscreen.png'))
-      const lanShot = path.join(root, '.e2e', 't64', 't64-host-lanscreen.png')
       runWin('click', 405, 670)
       await new Promise((resolve) => setTimeout(resolve, 2_000))
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -255,21 +254,58 @@ describe.skipIf(!enabled)('real 1.20.1 LAN world end-to-end', () => {
       expect(joined.state).toBe('connected')
       expect(joined.members.map((entry) => entry.role).sort()).toEqual(['host', 'member'])
 
-      const entered = await member.enterWorld({
+      const memberOptions = path.join(mcRoot, 'versions', '1.20.1', 'options.txt')
+      const hostOptionsText = fs.existsSync(hostOptions) ? fs.readFileSync(hostOptions, 'utf8') : ''
+      let memberOptionsText = hostOptionsText
+        .replace(/^pauseOnLostFocus:.*$/m, 'pauseOnLostFocus:false')
+        .replace(/^skipMultiplayerWarning:.*$/m, 'skipMultiplayerWarning:true')
+        .replace(/^fullscreen:.*$/m, 'fullscreen:false')
+      if (!/^skipMultiplayerWarning:/m.test(memberOptionsText)) {
+        memberOptionsText = `${memberOptionsText.trimEnd()}\nskipMultiplayerWarning:true\n`
+      }
+      fs.writeFileSync(memberOptions, memberOptionsText, 'utf8')
+
+      // Offline accounts cannot join a vanilla LAN world via Direct Connect:
+      // the integrated server answers "Invalid session". The vanilla LAN
+      // browser path explicitly allows offline players ("Failed to verify
+      // username but will let them in anyway"), so drive that real path.
+      await memberOrchestrator.start({
         instanceId: '1.20.1',
         accountId: memberAccount.name,
+        server: null,
       })
-      expect(entered.server).toEqual({ host: '127.0.0.1', port })
-      await new Promise((resolve) => setTimeout(resolve, 3_000))
-      runWin('shot', 0, 0, path.join(root, '.e2e', 't64', 't64-member-disconnected.png'), 'Minecraft*', true)
+      await waitFor(
+        () => readLog(latestLog(memberData, '1.20.1')).includes('Sound engine started'),
+        120_000,
+        'member main menu',
+      )
+      runWin('shot', 0, 0, path.join(root, '.e2e', 't64', 't64-member-menu.png'), 'Minecraft 1.20.1')
+      runWin('click', 648, 459, '', 'Minecraft 1.20.1')
+      await new Promise((resolve) => setTimeout(resolve, 5_000))
+      runWin('shot', 0, 0, path.join(root, '.e2e', 't64', 't64-member-lanlist.png'), 'Minecraft 1.20.1')
+      runWin('click', 450, 300, '', 'Minecraft 1.20.1')
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      runWin('click', 330, 615, '', 'Minecraft 1.20.1')
 
       await waitFor(
-        () => readLog(hostLog()).includes(`${memberAccount.name} joined the game`),
-        120_000,
-        'member to join the integrated server',
+        () =>
+          readLog(hostLog()).includes(`${memberAccount.name}[`) ||
+          readLog(hostLog()).includes(`${memberAccount.name} joined the game`),
+        60_000,
+        'member to join the integrated server via the LAN list',
       )
       const memberLog = latestLog(memberData, '1.20.1')
-      expect(readLog(memberLog)).toContain(`Connecting to 127.0.0.1, ${port}`)
+      const hostJoinedLine =
+        readLog(hostLog())
+          .split('\n')
+          .find((line) => line.includes(`${memberAccount.name}[`)) ??
+        readLog(hostLog())
+          .split('\n')
+          .find((line) => line.includes(`${memberAccount.name} joined the game`)) ??
+        ''
+      const inWorldShot = path.join(root, '.e2e', 't64', 't64-member-in-world.png')
+      await new Promise((resolve) => setTimeout(resolve, 1_500))
+      runWin('shot', 0, 0, inWorldShot, 'Minecraft*', true)
 
       const evidence = {
         at: new Date().toISOString(),
@@ -280,15 +316,17 @@ describe.skipIf(!enabled)('real 1.20.1 LAN world end-to-end', () => {
           worldLog: hostLog(),
           discoveredPort: port,
           startedServing: `Started serving on ${port}`,
-          memberJoined: `${memberAccount.name} joined the game`,
+          memberJoined: hostJoinedLine,
+          offlineLooseAuth: readLog(hostLog()).includes('Failed to verify username but will let them in anyway'),
         },
         member: {
           instanceId: '1.20.1',
           log: memberLog,
-          connecting: `Connecting to 127.0.0.1, ${port}`,
-          server: entered.server,
+          joinedVia: 'vanilla LAN browser (offline session bypass)',
+          directConnectNote:
+            'Direct Connect / enterWorld quickPlayMultiplayer is rejected by vanilla 1.20.1 for offline accounts (login failed: invalid session)',
         },
-        screenshot: lanShot,
+        screenshot: inWorldShot,
       }
       fs.writeFileSync(
         path.join(root, '.e2e', 't64', 'real-lan-result.json'),
@@ -299,4 +337,5 @@ describe.skipIf(!enabled)('real 1.20.1 LAN world end-to-end', () => {
     300_000,
   )
 })
+
 

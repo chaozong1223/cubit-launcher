@@ -74,6 +74,14 @@ export interface BuildLaunchPlanInput {
   /** Injected existence check; defaults to "everything exists". */
   exists?: (target: string) => boolean
   features?: Record<string, boolean>
+  /**
+   * Replaces the JVM's `java.io.tmpdir`. On machines where the launcher runs at
+   * low integrity (Chromium falls back to that when its sandbox cannot start),
+   * the game inherits that level and mods unpacking themselves into %TEMP% hit
+   * AccessDeniedException. Pointing the JVM temp dir at a folder the launcher
+   * created itself fixes that without elevating anything.
+   */
+  tempDir?: string
 }
 
 export interface LaunchPlanCore {
@@ -520,6 +528,11 @@ export function buildLaunchPlan(input: BuildLaunchPlanInput): LaunchPlanCore {
   jvmArgs = stripArgs(jvmArgs, (arg) => arg.startsWith('-Xmx') || arg.startsWith('-Xms'))
   ensureNativesArgs(jvmArgs, paths.nativesDir)
 
+  // Keep the JVM temp dir inside launcher-owned storage (see BuildLaunchPlanInput.tempDir).
+  if (input.tempDir && !hasAny(jvmArgs, (arg) => arg.startsWith('-Djava.io.tmpdir='))) {
+    jvmArgs.push(`-Djava.io.tmpdir=${input.tempDir}`)
+  }
+
   const authlibArgs: string[] = []
   if (settings.authlib) {
     authlibArgs.push(`-javaagent:${settings.authlib.javaagentPath}=${settings.authlib.apiRoot}`)
@@ -552,8 +565,9 @@ export function buildLaunchPlan(input: BuildLaunchPlanInput): LaunchPlanCore {
     ...encodingAdditions,
   ]
 
-  // Duplicate defaults can appear if a future JSON ships them; keep them unique.
-  jvmArgs = [...new Set(jvmArgs)]
+  // Do NOT deduplicate JVM args with a plain Set: Forge repeats the same
+  // `--add-opens`/`--add-exports` flag for multiple package=module values.
+  // Collapsing the flag leaves its values looking like JVM/main-class args.
   ensureNativesArgs(jvmArgs, paths.nativesDir)
   ensureBrandArgs(jvmArgs, settings.launcherName, settings.launcherVersion)
 
