@@ -1,6 +1,8 @@
 import path from 'node:path'
 import type { FsPort } from '../../core/ports'
 import { JobCancelledError } from '../../core/job/kernel'
+import { CurseForgeClient } from '../../core/curseforge/client'
+import { loadCurseForgeConfig } from '../../core/curseforge/settings'
 import type { ZipArchive } from '../../core/zip/reader'
 import { safeEntryPath } from '../../core/zip/reader'
 import type { Loader } from '@shared/instance'
@@ -378,56 +380,81 @@ export type CurseForgeResolver = (
   options?: { signal?: AbortSignal },
 ) => Promise<CurseForgeFile>
 
+export interface CurseForgeResolverOptions {
+  /** Reads the user's CurseForge key/mirror from the shared settings file. */
+  dataRoot?: string
+  fetchImpl?: typeof fetch
+  userAgent?: string
+  allowInsecureHosts?: string[]
+  log?: {
+    debug?(message: string, fields?: Record<string, unknown>): void
+    warn?(message: string, fields?: Record<string, unknown>): void
+  }
+}
+
+/**
+ * Resolves one CurseForge manifest entry into a downloadable file.
+ *
+ * The user's key/mirror come from the main-process settings (shared with the
+ * catalog link importer). `downloadUrl === null` means the author disabled
+ * third-party distribution: we never guess a forgecdn URL (docs/02 API-10).
+ */
 export function createCurseForgeResolver(
-  fetchImpl: typeof fetch = fetch,
-  apiKey = process.env.MCL_CF_API_KEY,
+  defaults: CurseForgeResolverOptions = {},
 ): CurseForgeResolver {
   return async (projectID, fileID, options = {}) => {
-    if (!apiKey) {
+    if (options.signal?.aborted) throw new JobCancelledError()
+    const config = defaults.dataRoot
+      ? loadCurseForgeConfig(defaults.dataRoot)
+      : { apiKey: process.env.MCL_CF_API_KEY ?? null, mirrorBase: null }
+    if (!config.apiKey) {
       throw new AppError(
         'MODS.CF_API_KEY_MISSING',
-        '导入 CurseForge 整合包需要 CurseForge API key（仅后端环境变量）',
+        '导入 CurseForge 整合包需要自备 CurseForge API key（仅保存在本机主进程）',
         {
           details: {
-            hint: '设置 MCL_CF_API_KEY 后重试；overrides 仍可手动解压，但 manifest 中的文件无法解析下载地址。',
+            hint: '在设置页填入自备 CurseForge key 后重试；overrides 仍会解压，但 manifest 中的文件无法解析下载地址。',
           },
         },
       )
     }
-    if (options.signal?.aborted) throw new JobCancelledError()
-    const response = await fetchImpl(
-      `https://api.curseforge.com/v1/mods/${projectID}/files/${fileID}`,
-      {
-        headers: { 'x-api-key': apiKey, Accept: 'application/json' },
-        ...(options.signal ? { signal: options.signal } : {}),
-      },
-    )
-    if (!response.ok) {
-      throw new AppError('MODS.PACK_DOWNLOAD_FAILED', `CurseForge API HTTP ${response.status}`, {
-        retryable: response.status >= 500,
-      })
-    }
-    const body = (await response.json()) as { data?: Record<string, unknown> }
-    const data = body.data
-    if (!data || typeof data.fileName !== 'string') {
-      throw new AppError('MODS.PACK_DOWNLOAD_FAILED', 'CurseForge 未返回文件名')
-    }
-    const hashes = Array.isArray(data.hashes)
-      ? data.hashes.flatMap((item) => {
-          const entry = asRecord(item)
-          if (!entry || typeof entry.value !== 'string') return []
-          // CurseForge: 1=SHA1, 2=MD5, 3=SHA256 (SHA1 is what we verify).
-          return Number(entry.algo) === 1 ? [{ sha1: entry.value }] : []
+    const client = new CurseForgeClient({
+      config,
+      userAgent: defaults.userAgent ?? 'mc-launcher/0.1.0 (+https://github.com/cubit-launcher)',
+      ...(defaults.fetchImpl ? { fetchImpl: defaults.fetchImpl } : {}),
+      ...(defaults.allowInsecureHosts ? { allowInsecureHosts: defaults.allowInsecureHosts } : {}),
+      ...(defaults.log ? { log: defaults.log } : {}),
+    })
+    let file
+    try {
+      file = await client.file(projectID, fileID, options.signal)
+    } catch (error) {
+      if (error instanceof AppError && error.code === 'CATALOG.CF_NOT_FOUND') {
+        throw new AppError('MODS.CF_FILE_NOT_FOUND', 'CurseForge 文件不存在（可能已被作者删除）', {
+          details: { projectID, fileID },
         })
-      : []
-    const downloadUrl =
-      typeof data.downloadUrl === 'string' && data.downloadUrl.length > 0
-        ? data.downloadUrl
-        : `https://edge.forgecdn.net/files/${Math.floor(fileID / 1000)}/${fileID % 1000}/${encodeURIComponent(data.fileName)}`
+      }
+      throw error
+    }
+    if (options.signal?.aborted) throw new JobCancelledError()
+    if (!file.downloadUrl) {
+      throw new AppError(
+        'MODS.CF_DISTRIBUTION_DISABLED',
+        `作者关闭了第三方分发（downloadUrl=null）: ${file.fileName}`,
+        {
+          details: {
+            projectID,
+            fileID,
+            fileName: file.fileName,
+            hint: '请到 CurseForge 项目页手动下载该文件后放入 mods/，或联系整合包作者。',
+          },
+        },
+      )
+    }
     return {
-      fileName: data.fileName,
-      downloadUrl,
-      ...(hashes[0] ? { hashes: hashes[0] } : {}),
+      fileName: file.fileName,
+      downloadUrl: file.downloadUrl,
+      ...(file.hashes.sha1 ? { hashes: { sha1: file.hashes.sha1 } } : {}),
     }
   }
 }
@@ -477,10 +504,13 @@ export async function downloadCurseForgeFiles(
     } catch (error) {
       throwIfCancelled(options.signal)
       if (error instanceof JobCancelledError) throw error
-      if (error instanceof AppError && error.code === 'MODS.CF_API_KEY_MISSING') {
-        warnings.push(
-          `${error.message}；已跳过 ${label}，overrides 仍会解压`,
-        )
+      if (
+        error instanceof AppError &&
+        (error.code === 'MODS.CF_API_KEY_MISSING' ||
+          error.code === 'MODS.CF_FILE_NOT_FOUND' ||
+          error.code === 'MODS.CF_DISTRIBUTION_DISABLED')
+      ) {
+        warnings.push(`${error.message}；已跳过 ${label}，overrides 仍会解压`)
         skipped += 1
         options.onFileDone?.(label, 'skipped')
         continue

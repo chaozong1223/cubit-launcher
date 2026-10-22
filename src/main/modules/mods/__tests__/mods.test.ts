@@ -640,6 +640,48 @@ describe('modpack import/export', () => {
     ).toBe(true)
   })
 
+  it('warns and skips a single CurseForge file that returns 404', async () => {
+    const fixture = createFixture()
+    const modJar = fabricMod('kept', '1.0.0')
+    const manifest = {
+      minecraft: { version: '1.20.1', modLoaders: [{ id: 'forge-47.2.0', primary: true }] },
+      manifestType: 'minecraftModpack',
+      name: 'Partial CF Pack',
+      files: [
+        { projectID: 111, fileID: 222, required: true },
+        { projectID: 333, fileID: 444, required: true },
+      ],
+    }
+    const pack = path.join(fixture.root, 'partial-cf.zip')
+    makeZip(pack, [
+      { name: 'manifest.json', data: JSON.stringify(manifest) },
+      { name: 'overrides/config/kept.json', data: '{"kept":true}' },
+    ])
+    const service = new ModsModuleService({
+      roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
+      log: logger,
+      fs: nodeFsPort(),
+      downloader: { download: async () => modJar },
+      curseResolver: async (projectID) => {
+        if (projectID === 111) {
+          throw new AppError('MODS.CF_FILE_NOT_FOUND', 'CurseForge 文件不存在（可能已被作者删除）')
+        }
+        return {
+          fileName: 'kept.jar',
+          downloadUrl: 'https://edge.example.invalid/kept.jar',
+          hashes: { sha1: crypto.createHash('sha1').update(modJar).digest('hex') },
+        }
+      },
+    })
+    const { outcome } = await runImport(service, { filePath: pack })
+    expect(outcome.ok).toBe(true)
+    expect(outcome.result).toMatchObject({ downloaded: 1, skipped: 1 })
+    expect(outcome.result?.warnings.some((warning) => warning.includes('文件不存在'))).toBe(true)
+    const importedDir = path.join(fixture.mcRoot, 'versions', outcome.result!.dirName)
+    expect(fs.existsSync(path.join(importedDir, 'mods', 'kept.jar'))).toBe(true)
+    expect(fs.existsSync(path.join(importedDir, 'config', 'kept.json'))).toBe(true)
+  })
+
   it('keeps overrides and reports missing CurseForge API credentials honestly', async () => {
     const fixture = createFixture()
     const manifest = {

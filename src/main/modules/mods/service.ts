@@ -144,7 +144,15 @@ export class ModsModuleService {
   constructor(private readonly options: ModsServiceOptions) {
     this.fs = options.fs ?? nodeFsPort()
     this.downloader = options.downloader ?? createFetchDownloader()
-    this.curseResolver = options.curseResolver ?? createCurseForgeResolver()
+    this.curseResolver =
+      options.curseResolver ??
+      createCurseForgeResolver({
+        dataRoot: options.roots.dataRoot,
+        log: {
+          debug: (message, fields) => this.options.log.debug(message, fields),
+          warn: (message, fields) => this.options.log.warn(message, fields),
+        },
+      })
     this.now = options.now ?? Date.now
     this.wireImportEvents()
   }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { defineContract } from './kernel'
+import { ModpackImportStartSchema } from './mods'
 
 /**
  * Catalog + mod-update contract (t41).
@@ -202,6 +203,66 @@ export const CatalogPageResultSchema = z.object({
 })
 export type CatalogPageResult = z.infer<typeof CatalogPageResultSchema>
 
+/** CurseForge key/mirror settings; the key itself is never returned over IPC. */
+export const CurseForgeConfigViewSchema = z.object({
+  hasApiKey: z.boolean(),
+  mirrorBase: z.string().nullable(),
+})
+export type CurseForgeConfigView = z.infer<typeof CurseForgeConfigViewSchema>
+
+export const CurseForgeConfigPatchSchema = z.object({
+  /** New key; omit to keep the stored one, null/`clearApiKey` to delete it. */
+  apiKey: z.string().min(1).max(512).nullable().optional(),
+  clearApiKey: z.boolean().optional(),
+  /** null or empty string clears the mirror. */
+  mirrorBase: z.string().max(500).nullable().optional(),
+})
+export type CurseForgeConfigPatch = z.infer<typeof CurseForgeConfigPatchSchema>
+
+export const PackLinkPlanSchema = z.object({
+  /** Opaque plan handle; pass to `startLinkImport` after confirmation. */
+  planId: z.string().min(1),
+  provider: CatalogProvider,
+  slug: z.string().min(1),
+  projectTitle: z.string(),
+  pageUrl: z.string(),
+  versionId: z.string().nullable(),
+  versionName: z.string().nullable(),
+  fileId: z.number().int().positive().nullable(),
+  fileName: z.string().nullable(),
+  fileSize: z.number().int().nonnegative().nullable(),
+  /** Host of the pack archive download (no query string). */
+  downloadHost: z.string().nullable(),
+  requiresApiKey: z.boolean(),
+  apiKeyConfigured: z.boolean(),
+  mirrorConfigured: z.boolean(),
+  /** API host actually used (CurseForge diagnostics); key never included. */
+  apiSourceHost: z.string().nullable(),
+  canProceed: z.boolean(),
+  /** CATALOG.* reason when `canProceed` is false (e.g. distribution disabled). */
+  reason: z.string().nullable(),
+  warnings: z.array(z.string()),
+})
+export type PackLinkPlan = z.infer<typeof PackLinkPlanSchema>
+
+export const LinkImportInputSchema = z.object({
+  planId: z.string().min(1),
+  /** Must be true: the UI asks the user before any pack archive is fetched. */
+  confirm: z.boolean().default(false),
+})
+export type LinkImportInput = z.infer<typeof LinkImportInputSchema>
+
+export const LinkImportStartSchema = z.object({
+  provider: CatalogProvider,
+  planId: z.string().min(1),
+  /** Local archive handed to the modpack importer. */
+  packPath: z.string(),
+  downloadBytes: z.number().int().nonnegative(),
+  /** Mods-module import job (progress via mods.importProgress/finished). */
+  import: ModpackImportStartSchema,
+})
+export type LinkImportStart = z.infer<typeof LinkImportStartSchema>
+
 export const CatalogSearchInputSchema = z.object({
   query: z.string().max(100).default(''),
   loaders: z.array(z.string().min(1).max(32)).default([]),
@@ -255,6 +316,24 @@ export const contract = defineContract({
       input: CatalogPageInputSchema,
       output: CatalogPageResultSchema,
     },
+    getCurseForgeConfig: {
+      input: z.void(),
+      output: CurseForgeConfigViewSchema,
+    },
+    updateCurseForgeConfig: {
+      input: CurseForgeConfigPatchSchema,
+      output: CurseForgeConfigViewSchema,
+    },
+    /** Resolve a Modrinth/CurseForge modpack link without downloading anything. */
+    planLinkImport: {
+      input: z.object({ link: z.string().min(1).max(500) }),
+      output: PackLinkPlanSchema,
+    },
+    /** Starts the download + mods import after explicit user confirmation. */
+    startLinkImport: {
+      input: LinkImportInputSchema,
+      output: LinkImportStartSchema,
+    },
   },
   events: {
     checkProgress: {
@@ -286,6 +365,16 @@ export const contract = defineContract({
         recycledPath: z.string().nullable(),
       }),
     },
+    linkDownloadProgress: {
+      payload: z.object({
+        planId: z.string(),
+        provider: CatalogProvider,
+        phase: z.enum(['downloading', 'verifying', 'importing']),
+        bytes: z.number().int().nonnegative(),
+        totalBytes: z.number().int().nonnegative().nullable(),
+      }),
+      throttleMs: 100,
+    },
   },
 })
 
@@ -300,4 +389,8 @@ export interface CatalogService {
   update(input: CatalogUpdateInput): Promise<CatalogUpdateResult>
   pageUrl(input: CatalogPageInput): Promise<CatalogPageResult>
   openPage(input: CatalogPageInput): Promise<CatalogPageResult>
+  getCurseForgeConfig(): Promise<CurseForgeConfigView>
+  updateCurseForgeConfig(input: CurseForgeConfigPatch): Promise<CurseForgeConfigView>
+  planLinkImport(input: { link: string }): Promise<PackLinkPlan>
+  startLinkImport(input: LinkImportInput): Promise<LinkImportStart>
 }

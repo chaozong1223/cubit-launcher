@@ -19,6 +19,7 @@ export interface CatalogDownloadInput {
   url: string
   dest: string
   sha1?: string | null
+  sha256?: string | null
   sha512?: string | null
   size?: number | null
   maxBytes?: number
@@ -113,6 +114,7 @@ export async function downloadCatalogFile(input: CatalogDownloadInput): Promise<
   }
 
   const sha1 = createHash('sha1')
+  const sha256 = createHash('sha256')
   const sha512 = createHash('sha512')
   const out = fs.createWriteStream(part, { flags: 'w' })
   let bytes = 0
@@ -135,6 +137,7 @@ export async function downloadCatalogFile(input: CatalogDownloadInput): Promise<
         })
       }
       sha1.update(buffer)
+      sha256.update(buffer)
       sha512.update(buffer)
       if (!out.write(buffer)) await once(out, 'drain')
       input.onProgress?.(bytes, total)
@@ -153,6 +156,7 @@ export async function downloadCatalogFile(input: CatalogDownloadInput): Promise<
   }
 
   const actualSha1 = sha1.digest('hex')
+  const actualSha256 = sha256.digest('hex')
   const actualSha512 = sha512.digest('hex')
   try {
     if (total !== null && bytes !== total) {
@@ -164,6 +168,12 @@ export async function downloadCatalogFile(input: CatalogDownloadInput): Promise<
       throw new AppError('CATALOG.HASH_MISMATCH', 'SHA-512 校验失败，已删除下载文件', {
         retryable: true,
         details: { expected: input.sha512, actual: actualSha512 },
+      })
+    }
+    if (input.sha256 && actualSha256.toLowerCase() !== input.sha256.toLowerCase()) {
+      throw new AppError('CATALOG.HASH_MISMATCH', 'SHA-256 校验失败，已删除下载文件', {
+        retryable: true,
+        details: { expected: input.sha256, actual: actualSha256 },
       })
     }
     if (input.sha1 && actualSha1.toLowerCase() !== input.sha1.toLowerCase()) {

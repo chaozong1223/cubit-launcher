@@ -45,10 +45,11 @@ describe('catalog registration', () => {
     }
   })
 
-  it('declares search/install/update events for the UI', () => {
+  it('declares search/install/update/link events for the UI', () => {
     expect(Object.keys(catalogContract.events).sort()).toEqual([
       'checkProgress',
       'installProgress',
+      'linkDownloadProgress',
       'updated',
     ])
   })

@@ -104,6 +104,8 @@ export function modFile(name: string, enabled = true): ModFile {
 
 export class FakeModsService implements ModsService {
   installs: Array<{ instanceId: string; path: string }> = []
+  /** Modpack archive paths handed to importModpack (link-import tests). */
+  packImports: string[] = []
 
   constructor(
     private readonly gameDir: string,
@@ -155,8 +157,19 @@ export class FakeModsService implements ModsService {
   async analyzeDependencies(): Promise<{ issues: [] }> {
     return { issues: [] }
   }
-  async importModpack(): Promise<ModpackImportStart> {
-    throw new Error('not used')
+  async importModpack(input: { filePath: string; name?: string }): Promise<ModpackImportStart> {
+    this.packImports.push(input.filePath)
+    return {
+      jobId: `job-${this.packImports.length}`,
+      instanceId: 'Packed',
+      dirName: 'Packed',
+      name: input.name ?? 'Packed',
+      format: 'modrinth',
+      mcVersion: '1.20.1',
+      loader: { type: 'fabric', version: '0.15.0' },
+      totalFiles: 1,
+      needsBaseInstall: false,
+    }
   }
   async cancelImport(): Promise<{ cancelled: boolean }> {
     throw new Error('not used')

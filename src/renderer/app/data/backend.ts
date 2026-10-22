@@ -82,6 +82,10 @@ import type {
   CatalogUpdateResult,
   CatalogVersion,
   CatalogVersionsInput,
+  CurseForgeConfigPatch,
+  CurseForgeConfigView,
+  LinkImportStart,
+  PackLinkPlan,
 } from '@shared/catalog'
 import type { RendererReadyReport } from '@shared/channels'
 import type {
@@ -414,6 +418,10 @@ const CH = {
   catalogUpdate: channelOf('catalog', 'update'),
   catalogPageUrl: channelOf('catalog', 'pageUrl'),
   catalogOpenPage: channelOf('catalog', 'openPage'),
+  catalogCurseForgeConfig: channelOf('catalog', 'getCurseForgeConfig'),
+  catalogUpdateCurseForgeConfig: channelOf('catalog', 'updateCurseForgeConfig'),
+  catalogPlanLinkImport: channelOf('catalog', 'planLinkImport'),
+  catalogStartLinkImport: channelOf('catalog', 'startLinkImport'),
   assetsListSaves: channelOf('assets', 'listSaves'),
   assetsBackupSave: channelOf('assets', 'backupSave'),
   assetsDeleteSaves: channelOf('assets', 'deleteSaves'),
@@ -534,6 +542,14 @@ export type CatalogUpdatedEvent = {
   projectId: string
   versionId: string
   recycledPath: string | null
+}
+
+export type CatalogLinkProgressEvent = {
+  planId: string
+  provider: 'modrinth' | 'curseforge'
+  phase: 'downloading' | 'verifying' | 'importing'
+  bytes: number
+  totalBytes: number | null
 }
 
 export type AssetsChangedEvent = { area: AssetArea }
@@ -660,9 +676,14 @@ export interface Backend {
     update(input: CatalogUpdateInput): Promise<CatalogUpdateResult>
     pageUrl(input: CatalogPageInput): Promise<CatalogPageResult>
     openPage(input: CatalogPageInput): Promise<CatalogPageResult>
+    getCurseForgeConfig(): Promise<CurseForgeConfigView>
+    updateCurseForgeConfig(input: CurseForgeConfigPatch): Promise<CurseForgeConfigView>
+    planLinkImport(link: string): Promise<PackLinkPlan>
+    startLinkImport(planId: string): Promise<LinkImportStart>
     subscribeCheckProgress(callback: (event: CatalogCheckProgressEvent) => void): () => void
     subscribeInstallProgress(callback: (event: CatalogInstallProgressEvent) => void): () => void
     subscribeUpdated(callback: (event: CatalogUpdatedEvent) => void): () => void
+    subscribeLinkProgress(callback: (event: CatalogLinkProgressEvent) => void): () => void
   }
   assets: {
     listSaves(instanceId: string): Promise<{ gameDir: string; saves: SaveEntry[] }>
@@ -916,9 +937,18 @@ export const ipcBackend: Backend = {
     update: (input) => invoke<CatalogUpdateResult>('更新模组', CH.catalogUpdate, input),
     pageUrl: (input) => invoke<CatalogPageResult>('资源项目。', CH.catalogPageUrl, input),
     openPage: (input) => invoke<CatalogPageResult>('打开资源项目。', CH.catalogOpenPage, input),
+    getCurseForgeConfig: () =>
+      invoke<CurseForgeConfigView>('CurseForge 设置', CH.catalogCurseForgeConfig),
+    updateCurseForgeConfig: (input) =>
+      invoke<CurseForgeConfigView>('保存 CurseForge 设置', CH.catalogUpdateCurseForgeConfig, input),
+    planLinkImport: (link) =>
+      invoke<PackLinkPlan>('解析整合包链接', CH.catalogPlanLinkImport, { link }),
+    startLinkImport: (planId) =>
+      invoke<LinkImportStart>('确认导入整合包', CH.catalogStartLinkImport, { planId, confirm: true }),
     subscribeCheckProgress: (callback) => on('mc:catalog:evt:checkProgress', callback),
     subscribeInstallProgress: (callback) => on('mc:catalog:evt:installProgress', callback),
     subscribeUpdated: (callback) => on('mc:catalog:evt:updated', callback),
+    subscribeLinkProgress: (callback) => on('mc:catalog:evt:linkDownloadProgress', callback),
   },
   assets: {
     listSaves: (instanceId) =>

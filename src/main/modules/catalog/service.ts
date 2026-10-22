@@ -19,6 +19,11 @@ import type {
   CatalogUpdateResult,
   CatalogVersion,
   CatalogVersionFile,
+  CurseForgeConfigPatch,
+  CurseForgeConfigView,
+  LinkImportInput,
+  LinkImportStart,
+  PackLinkPlan,
 } from '@shared/catalog'
 import type { ModFile, ModsService } from '@shared/mods'
 import type { ScopedLogger } from '../../kernel/logger'
@@ -27,12 +32,28 @@ import { gameDirectory, readInstanceSettings } from '../../core/instance/setting
 import { scanInstances, type ScannedInstance } from '../../core/instance/scan'
 import { nodeFsPort, type FsPort } from '../../core/ports'
 import {
+  CurseForgeClient,
+  chooseLatestPackFile,
+  type CfFile,
+  type CfProject,
+} from '../../core/curseforge/client'
+import {
+  loadCurseForgeConfig,
+  loadStoredCurseForgeConfig,
+  maskCurseForgeConfig,
+  normalizeMirrorBase,
+  saveCurseForgeConfig,
+  type CurseForgeConfig,
+} from '../../core/curseforge/settings'
+import { buildUserAgent } from '../download/core/sources'
+import {
   ModrinthClient,
   curseForgePageUrl,
   modrinthPageUrl,
   type ModrinthOptions,
 } from './core/modrinth'
 import { downloadCatalogFile } from './core/download'
+import { parsePackLink, type ParsedPackLink } from './core/link'
 
 export interface CatalogServiceOptions {
   roots: ModuleRoots
@@ -48,6 +69,9 @@ export interface CatalogServiceOptions {
   emit?: (event: string, payload: unknown) => void
   openExternal?: (url: string) => Promise<void> | void
   allowInsecureHosts?: string[]
+  userAgent?: string
+  /** Test seam: build the CurseForge client for a config snapshot. */
+  curseForgeClientFactory?: (config: CurseForgeConfig) => CurseForgeClient
 }
 
 interface InstanceInfo {
@@ -64,6 +88,24 @@ function fail(code: string, message: string, details?: Record<string, unknown>):
 
 function safeSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80) || 'instance'
+}
+
+/** Newest release wins; prereleases are only used when no release exists. */
+function chooseModrinthVersion(versions: CatalogVersion[]): CatalogVersion | null {
+  if (versions.length === 0) return null
+  const releases = versions.filter((version) => version.versionType === 'release')
+  const pool = releases.length > 0 ? releases : versions
+  return (
+    [...pool].sort((left, right) =>
+      (right.datePublished ?? '').localeCompare(left.datePublished ?? ''),
+    )[0] ?? null
+  )
+}
+
+function safePackFileName(input: string): string {
+  const base = path.basename(input.replaceAll('\\', '/'))
+  const cleaned = base.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 120)
+  return cleaned || 'modpack.zip'
 }
 
 function sha1File(file: string): Promise<string> {
@@ -135,10 +177,35 @@ async function recycleFile(dataRoot: string, instanceId: string, source: string)
   return target
 }
 
+const LINK_PLAN_TTL_MS = 10 * 60 * 1000
+const MAX_PACK_ARCHIVE_BYTES = 1024 * 1024 * 1024
+const MODRINTH_DOWNLOAD_HOSTS = ['cdn.modrinth.com', '*.modrinth.com']
+const CURSEFORGE_DOWNLOAD_HOSTS = [
+  '*.forgecdn.net',
+  'edge.forgecdn.net',
+  'mediafilez.forgecdn.net',
+  '*.curseforge.com',
+]
+
+/** In-memory only (no CurseForge metadata cache on disk, docs/02 API-12/19). */
+interface StoredLinkPlan {
+  plan: PackLinkPlan
+  downloadUrl: string | null
+  fileName: string
+  size: number | null
+  sha1: string | null
+  sha256: string | null
+  sha512: string | null
+  allowedHosts: string[]
+  createdAt: number
+}
+
 /**
- * Catalog service: Modrinth search/detail/install + update check.
+ * Catalog service: Modrinth search/detail/install + update check + link import.
  *
- * CurseForge is intentionally limited to `pageUrl`/`openPage` — no API calls.
+ * CurseForge API access is user-keyed (docs/02 API-07..22): the key is read from
+ * the main-process settings file, sent only as a header, and the official API
+ * is preferred over an optional user mirror.
  */
 export class CatalogModuleService {
   private readonly fs: FsPort
@@ -150,6 +217,8 @@ export class CatalogModuleService {
   private readonly openExternal?: (url: string) => Promise<void> | void
   private readonly allowInsecureHosts: string[]
   private readonly log: ScopedLogger
+  private readonly userAgent: string
+  private readonly linkPlans = new Map<string, StoredLinkPlan>()
 
   constructor(private readonly options: CatalogServiceOptions) {
     this.fs = options.fs ?? nodeFsPort()
@@ -167,6 +236,8 @@ export class CatalogModuleService {
     this.emit = options.emit
     this.openExternal = options.openExternal
     this.allowInsecureHosts = options.allowInsecureHosts ?? []
+    this.userAgent =
+      options.userAgent ?? buildUserAgent({ version: options.appVersion ?? '0.1.0' })
   }
 
   private requireMcRoot(): string {
@@ -636,6 +707,397 @@ export class CatalogModuleService {
     }
     await this.openExternal(url)
     return { provider: input.provider, url, opened: true }
+  }
+
+  // ------------------------------------------------------- CurseForge config
+
+  async getCurseForgeConfig(): Promise<CurseForgeConfigView> {
+    // The key itself never leaves the main process.
+    return maskCurseForgeConfig(loadCurseForgeConfig(this.options.roots.dataRoot))
+  }
+
+  async updateCurseForgeConfig(patch: CurseForgeConfigPatch): Promise<CurseForgeConfigView> {
+    const current = loadStoredCurseForgeConfig(this.options.roots.dataRoot)
+    let apiKey = current.apiKey
+    if (patch.clearApiKey === true) {
+      apiKey = null
+    } else if (patch.apiKey !== undefined) {
+      apiKey = patch.apiKey === null ? null : patch.apiKey.trim() || null
+    }
+    if (apiKey && (apiKey.length > 512 || /\s/.test(apiKey))) {
+      fail('CATALOG.CF_KEY_INVALID', 'CurseForge API key 格式不正确', {
+        hint: '请粘贴官方 API key，不要包含空白字符。',
+      })
+    }
+    let mirrorBase = current.mirrorBase
+    if (patch.mirrorBase !== undefined) {
+      mirrorBase = normalizeMirrorBase(patch.mirrorBase, {
+        allowInsecureHosts: this.allowInsecureHosts,
+      })
+    }
+    saveCurseForgeConfig(this.options.roots.dataRoot, { apiKey, mirrorBase })
+    this.log.info('curseforge config updated', {
+      hasApiKey: Boolean(apiKey),
+      mirrorConfigured: Boolean(mirrorBase),
+      apiKeyChanged: patch.apiKey !== undefined || patch.clearApiKey === true,
+    })
+    return this.getCurseForgeConfig()
+  }
+
+  // ------------------------------------------------------------- link import
+
+  private curseForgeClient(config: CurseForgeConfig): CurseForgeClient {
+    const factory = this.options.curseForgeClientFactory
+    if (factory) return factory(config)
+    return new CurseForgeClient({
+      config,
+      userAgent: this.userAgent,
+      allowInsecureHosts: this.allowInsecureHosts,
+      log: {
+        debug: (message, fields) => this.log.debug(message, fields),
+        warn: (message, fields) => this.log.warn(message, fields),
+      },
+    })
+  }
+
+  private pruneLinkPlans(): void {
+    const cutoff = this.now() - LINK_PLAN_TTL_MS
+    for (const [planId, record] of this.linkPlans) {
+      if (record.createdAt < cutoff) this.linkPlans.delete(planId)
+    }
+  }
+
+  private async prunePackDownloads(dir: string): Promise<void> {
+    const cutoff = this.now() - 7 * 24 * 60 * 60 * 1000
+    try {
+      for (const name of await fsp.readdir(dir)) {
+        const target = path.join(dir, name)
+        try {
+          const stat = await fsp.stat(target)
+          if (stat.isFile() && stat.mtimeMs < cutoff) await fsp.rm(target, { force: true })
+        } catch {
+          /* a file removed concurrently is fine */
+        }
+      }
+    } catch {
+      /* missing packs dir is fine */
+    }
+  }
+
+  /** Resolves the link without downloading anything (confirmation step). */
+  async planLinkImport(input: { link: string }): Promise<PackLinkPlan> {
+    this.pruneLinkPlans()
+    const parsed = parsePackLink(input.link)
+    return parsed.provider === 'modrinth'
+      ? this.planModrinthLink(parsed)
+      : this.planCurseForgeLink(parsed)
+  }
+
+  private async planModrinthLink(parsed: ParsedPackLink): Promise<PackLinkPlan> {
+    const project = await this.client.project(parsed.slug)
+    if (project.projectType !== 'modpack') {
+      fail('CATALOG.LINK_UNSUPPORTED', '这个 Modrinth 项目不是整合包', {
+        projectType: project.projectType,
+      })
+    }
+    let version: CatalogVersion | null = null
+    const warnings: string[] = []
+    if (parsed.versionId) {
+      version = await this.client.version(parsed.versionId)
+      if (version.projectId !== project.id) {
+        fail('CATALOG.LINK_INVALID', '链接中的版本不属于该整合包', {
+          versionId: parsed.versionId,
+          projectId: project.id,
+        })
+      }
+    } else {
+      version = chooseModrinthVersion(await this.client.versions({ projectId: project.id }))
+      if (!version) fail('CATALOG.LINK_NOT_FOUND', '该整合包没有可导入的版本')
+    }
+    if (version.versionType !== 'release') {
+      warnings.push(`所选版本是 ${version.versionType} 测试版，可能不稳定。`)
+    }
+    const file = version.files.find((entry) => entry.primary) ?? version.files[0]
+    if (!file?.url) fail('CATALOG.LINK_NO_FILE', '该版本没有可下载的整合包文件')
+    const planId = randomUUID()
+    const pageUrl = project.pageUrl || `https://modrinth.com/modpack/${parsed.slug}`
+    let canProceed = true
+    let reason: string | null = null
+    let downloadHost: string | null = null
+    try {
+      const url = new URL(file.url)
+      downloadHost = url.hostname
+      if (url.protocol !== 'https:' && !this.allowInsecureHosts.includes(url.hostname)) {
+        canProceed = false
+        reason = 'CATALOG.UNSAFE_URL'
+      }
+    } catch {
+      canProceed = false
+      reason = 'CATALOG.UNSAFE_URL'
+    }
+    const plan: PackLinkPlan = {
+      planId,
+      provider: 'modrinth',
+      slug: parsed.slug,
+      projectTitle: project.title,
+      pageUrl,
+      versionId: version.id,
+      versionName: version.name,
+      fileId: null,
+      fileName: file.filename,
+      fileSize: file.size,
+      downloadHost,
+      requiresApiKey: false,
+      apiKeyConfigured: false,
+      mirrorConfigured: false,
+      apiSourceHost: null,
+      canProceed,
+      reason,
+      warnings,
+    }
+    if (canProceed) {
+      this.linkPlans.set(planId, {
+        plan,
+        downloadUrl: file.url,
+        fileName: file.filename,
+        size: file.size > 0 ? file.size : null,
+        sha1: file.sha1,
+        sha256: null,
+        sha512: file.sha512,
+        allowedHosts: [...MODRINTH_DOWNLOAD_HOSTS, ...this.allowInsecureHosts],
+        createdAt: this.now(),
+      })
+    } else {
+      this.linkPlans.set(planId, {
+        plan,
+        downloadUrl: null,
+        fileName: file.filename,
+        size: file.size > 0 ? file.size : null,
+        sha1: file.sha1,
+        sha256: null,
+        sha512: file.sha512,
+        allowedHosts: [...MODRINTH_DOWNLOAD_HOSTS, ...this.allowInsecureHosts],
+        createdAt: this.now(),
+      })
+    }
+    return plan
+  }
+
+  private async planCurseForgeLink(parsed: ParsedPackLink): Promise<PackLinkPlan> {
+    const config = loadCurseForgeConfig(this.options.roots.dataRoot)
+    const planId = randomUUID()
+    const base: PackLinkPlan = {
+      planId,
+      provider: 'curseforge',
+      slug: parsed.slug,
+      projectTitle: parsed.slug,
+      pageUrl: parsed.pageUrl,
+      versionId: null,
+      versionName: null,
+      fileId: null,
+      fileName: null,
+      fileSize: null,
+      downloadHost: null,
+      requiresApiKey: true,
+      apiKeyConfigured: Boolean(config.apiKey),
+      mirrorConfigured: Boolean(config.mirrorBase),
+      apiSourceHost: null,
+      canProceed: false,
+      reason: null,
+      warnings: [],
+    }
+    if (!config.apiKey) {
+      const plan: PackLinkPlan = {
+        ...base,
+        reason: 'CATALOG.CF_KEY_MISSING',
+        warnings: [
+          'CurseForge 导入需要自备 CurseForge API key：请到设置页填入后重试。key 只保存在本机主进程，仅作为请求头发送给 API 域名，不会写入日志、URL 或分享包。',
+        ],
+      }
+      this.linkPlans.set(planId, {
+        plan,
+        downloadUrl: null,
+        fileName: base.slug,
+        size: null,
+        sha1: null,
+        sha256: null,
+        sha512: null,
+        allowedHosts: [...CURSEFORGE_DOWNLOAD_HOSTS, ...this.allowInsecureHosts],
+        createdAt: this.now(),
+      })
+      return plan
+    }
+
+    const client = this.curseForgeClient(config)
+    const project = await client.searchModpacks(parsed.slug)
+    if (!project) {
+      fail('CATALOG.LINK_NOT_FOUND', `CurseForge 上找不到整合包「${parsed.slug}」`)
+    }
+    let file: CfFile | null
+    if (parsed.fileId !== null) {
+      file = await client.file(project.id, parsed.fileId)
+      if (file.modId !== project.id) {
+        fail('CATALOG.LINK_INVALID', '链接中的文件不属于该整合包', {
+          projectId: project.id,
+          fileId: parsed.fileId,
+        })
+      }
+    } else {
+      file = chooseLatestPackFile(await client.files(project.id))
+    }
+    if (!file) fail('CATALOG.LINK_NOT_FOUND', '该整合包没有可导入的文件')
+    const pageUrl = project.websiteUrl ?? parsed.pageUrl
+    const warnings: string[] = []
+    let canProceed = true
+    let reason: string | null = null
+    let downloadHost: string | null = null
+    if (!file.downloadUrl) {
+      canProceed = false
+      reason = 'CATALOG.CF_DISTRIBUTION_DISABLED'
+      warnings.push(
+        `作者关闭了第三方分发（downloadUrl 为 null），无法直接下载。请打开项目页手动下载后再本地导入：${pageUrl}`,
+      )
+    } else {
+      try {
+        const url = new URL(file.downloadUrl)
+        downloadHost = url.hostname
+        if (url.protocol !== 'https:' && !this.allowInsecureHosts.includes(url.hostname)) {
+          canProceed = false
+          reason = 'CATALOG.UNSAFE_URL'
+        }
+      } catch {
+        canProceed = false
+        reason = 'CATALOG.UNSAFE_URL'
+      }
+      // docs/02 API-11: third-party downloads do not count towards author revenue.
+      warnings.push('CurseForge 第三方下载不计入作者收益，建议支持作者。')
+    }
+    const plan: PackLinkPlan = {
+      ...base,
+      projectTitle: project.name,
+      pageUrl,
+      versionName: file.displayName,
+      fileId: file.id,
+      fileName: file.fileName,
+      fileSize: file.fileLength,
+      downloadHost,
+      apiSourceHost: client.lastSourceHost,
+      canProceed,
+      reason,
+      warnings,
+    }
+    this.linkPlans.set(planId, {
+      plan,
+      downloadUrl: file.downloadUrl ?? null,
+      fileName: file.fileName,
+      size:
+        canProceed && file.fileLength && file.fileLength > 0 ? file.fileLength : null,
+      sha1: file.hashes.sha1 ?? null,
+      sha256: file.hashes.sha256 ?? null,
+      sha512: null,
+      allowedHosts: [
+        ...CURSEFORGE_DOWNLOAD_HOSTS,
+        ...this.allowInsecureHosts,
+        ...(config.mirrorBase
+          ? (() => {
+              try {
+                return [new URL(config.mirrorBase).hostname]
+              } catch {
+                return []
+              }
+            })()
+          : []),
+      ],
+      createdAt: this.now(),
+    })
+    return plan
+  }
+
+  /** Downloads the confirmed pack archive and hands it to the mods import job. */
+  async startLinkImport(input: LinkImportInput): Promise<LinkImportStart> {
+    if (!input.confirm) {
+      fail('CATALOG.CONFIRMATION_REQUIRED', '下载整合包前需要用户确认', {
+        hint: '先展示 planLinkImport 的结果，用户确认后再调用 startLinkImport。',
+      })
+    }
+    this.pruneLinkPlans()
+    const record = this.linkPlans.get(input.planId)
+    if (!record) fail('CATALOG.PLAN_EXPIRED', '导入计划已过期，请重新解析链接')
+    this.linkPlans.delete(input.planId)
+    if (!record.plan.canProceed) {
+      fail(record.plan.reason ?? 'CATALOG.LINK_NOT_IMPORTABLE', record.plan.warnings[0] ?? '该链接无法直接导入')
+    }
+    if (!record.downloadUrl) {
+      fail('CATALOG.LINK_NOT_IMPORTABLE', '该链接没有可下载的整合包文件')
+    }
+    const downloadUrl = record.downloadUrl
+    const mods = this.requireMods()
+    const packsDir = path.join(this.options.roots.dataRoot, 'modules', 'catalog', 'packs')
+    await fsp.mkdir(packsDir, { recursive: true })
+    await this.prunePackDownloads(packsDir)
+    const fileName = safePackFileName(record.fileName)
+    const dest = path.join(packsDir, `${record.plan.planId}-${fileName}`)
+    try {
+      const downloaded = await downloadCatalogFile({
+        http: this.client.httpClient,
+        url: downloadUrl,
+        dest,
+        ...(record.sha1 ? { sha1: record.sha1 } : {}),
+        ...(record.sha256 ? { sha256: record.sha256 } : {}),
+        ...(record.sha512 ? { sha512: record.sha512 } : {}),
+        ...(record.size !== null ? { size: record.size } : {}),
+        maxBytes: MAX_PACK_ARCHIVE_BYTES,
+        allowedHosts: record.allowedHosts,
+        allowInsecureHosts: this.allowInsecureHosts,
+        onProgress: (bytes, totalBytes) => {
+          this.emit?.('linkDownloadProgress', {
+            planId: record.plan.planId,
+            provider: record.plan.provider,
+            phase: 'downloading',
+            bytes,
+            totalBytes: totalBytes ?? record.size,
+          })
+        },
+      })
+      this.emit?.('linkDownloadProgress', {
+        planId: record.plan.planId,
+        provider: record.plan.provider,
+        phase: 'verifying',
+        bytes: downloaded.bytes,
+        totalBytes: downloaded.bytes,
+      })
+      this.emit?.('linkDownloadProgress', {
+        planId: record.plan.planId,
+        provider: record.plan.provider,
+        phase: 'importing',
+        bytes: downloaded.bytes,
+        totalBytes: downloaded.bytes,
+      })
+      const start = await mods.importModpack({ filePath: dest })
+      this.log.info('pack link imported', {
+        provider: record.plan.provider,
+        slug: record.plan.slug,
+        versionId: record.plan.versionId,
+        fileId: record.plan.fileId,
+        bytes: downloaded.bytes,
+        jobId: start.jobId,
+      })
+      return {
+        provider: record.plan.provider,
+        planId: record.plan.planId,
+        packPath: dest,
+        downloadBytes: downloaded.bytes,
+        import: start,
+      }
+    } catch (error) {
+      await fsp.rm(dest, { force: true }).catch(() => undefined)
+      if (error instanceof AppError) throw error
+      throw new AppError(
+        'CATALOG.LINK_IMPORT_FAILED',
+        `链接导入失败: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      )
+    }
   }
 }
 

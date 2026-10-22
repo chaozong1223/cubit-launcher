@@ -5,6 +5,8 @@ import type {
   CatalogSearchInput,
   CatalogVersionsInput,
   CatalogUpdateInput,
+  CurseForgeConfigPatch,
+  LinkImportInput,
 } from '@shared/catalog'
 import type { CatalogModuleService } from './service'
 
@@ -19,6 +21,11 @@ export function makeHandlers(service: CatalogModuleService) {
     update: async (input: CatalogUpdateInput) => service.update(input),
     pageUrl: async (input: CatalogPageInput) => service.pageUrl(input),
     openPage: async (input: CatalogPageInput) => service.openPage(input),
+    getCurseForgeConfig: async () => service.getCurseForgeConfig(),
+    updateCurseForgeConfig: async (input: CurseForgeConfigPatch) =>
+      service.updateCurseForgeConfig(input),
+    planLinkImport: async (input: { link: string }) => service.planLinkImport(input),
+    startLinkImport: async (input: LinkImportInput) => service.startLinkImport(input),
   }
 }
 
