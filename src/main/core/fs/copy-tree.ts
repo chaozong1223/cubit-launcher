@@ -18,6 +18,8 @@ export interface CopyTreeOptions {
   /** Cooperative pause/cancel gate between entries. */
   checkpoint?: () => Promise<void>
   onBytes?: (delta: number) => void
+  /** Notified before each regular file is streamed. */
+  onFile?: (relative: string, size: number) => void
 }
 
 export interface CopyTreeResult {
@@ -74,13 +76,14 @@ export async function copyTree(
         continue
       }
       await throwIfAborted(options.signal, options.checkpoint)
+      const sourceStat = await fsp.stat(childSource)
+      options.onFile?.(childRelative, sourceStat.size)
       await copyFileStreaming(childSource, childTarget, {
         ...(options.signal ? { signal: options.signal } : {}),
         ...(options.onBytes ? { onBytes: options.onBytes } : {}),
       })
-      const stat = await fsp.stat(childSource)
       result.files += 1
-      result.bytes += stat.size
+      result.bytes += sourceStat.size
     }
   }
 

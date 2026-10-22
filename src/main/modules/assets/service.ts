@@ -10,7 +10,10 @@ import type {
   LogLevel,
   LogSource,
   RestoreResult,
+  SaveCopyFinished,
+  SaveCopyProgress,
   SaveCopyResult,
+  SaveCopyStart,
   SaveEntry,
   SchematicEntry,
   SchematicImportResult,
@@ -26,6 +29,7 @@ import type { ModuleRoots } from '../_context'
 import { requireMcRoot } from '../_context'
 import { CoreError } from '../../core/errors'
 import { nodeFsPort, type FsPort } from '../../core/ports'
+import { JobRegistry, JobCancelledError, type JobOutcome } from '../../core/job/kernel'
 import { gameDirectory, readInstanceSettings } from '../../core/instance/settings'
 import { scanInstances, type ScannedInstance } from '../../core/instance/scan'
 import { RollbackStack } from '../../core/fs/rollback'
@@ -68,6 +72,8 @@ export interface AssetsServiceOptions {
   now?: () => number
   /** Rejects copy operations while either instance is running. */
   isInstanceRunning?: (instanceId: string, dirName: string) => boolean
+  onCopySaveProgress?: (progress: SaveCopyProgress) => void
+  onCopySaveFinished?: (finished: SaveCopyFinished) => void
 }
 
 interface ResolvedInstance {
@@ -177,6 +183,7 @@ export class AssetsModuleService {
   private readonly trash: TrashStore
   private readonly now: () => number
   private readonly listeners = new Set<(payload: { area: AssetArea }) => void>()
+  private readonly copySaveJobs = new JobRegistry<SaveCopyResult>()
 
   constructor(private readonly options: AssetsServiceOptions) {
     this.fs = options.fs ?? nodeFsPort()
@@ -187,6 +194,32 @@ export class AssetsModuleService {
     this.trash = new TrashStore(options.roots.dataRoot, roots, {
       fs: this.fs,
       now: this.now,
+    })
+    this.copySaveJobs.onProgress((progress, job) => {
+      this.options.onCopySaveProgress?.({
+        ...progress,
+        phase: progress.stage,
+        files: progress.done,
+        totalFiles: progress.total,
+        bytes: progress.bytesDone,
+        totalBytes: progress.bytesTotal,
+        sourceInstanceId: job.meta.sourceInstanceId ?? '',
+        targetInstanceId: job.meta.targetInstanceId ?? '',
+        targetName: job.meta.targetName ?? '',
+      })
+    })
+    this.copySaveJobs.onFinished((outcome, job) => {
+      this.options.onCopySaveFinished?.({
+        jobId: outcome.jobId,
+        state: outcome.state,
+        ok: outcome.ok,
+        error: outcome.error,
+        durationMs: outcome.durationMs,
+        sourceInstanceId: job.meta.sourceInstanceId ?? '',
+        targetInstanceId: job.meta.targetInstanceId ?? '',
+        targetName: job.meta.targetName ?? '',
+        result: outcome.result,
+      })
     })
   }
 
@@ -320,20 +353,229 @@ export class AssetsModuleService {
   }
 
   /**
-   * Copies one world into another instance's `saves/` directory.
-   *
-   * Conflicts follow the shared policy: omit `conflict` → return
-   * `status:"conflict"` without writing, then overwrite/skip/rename. An
-   * overwrite first moves the existing world aside and a failure restores it
-   * through `RollbackStack` (never leaves a half-copied world behind).
+   * Copies one world into another instance's `saves/` directory as a
+   * cancellable job. The synchronous precheck resolves conflicts without
+   * writing; a copied world is staged first and renamed only on commit.
    */
-  async copySave(input: {
+  copySaveJob(input: {
     instanceId: string
     name: string
     targetInstanceId: string
     targetName?: string
     conflict?: 'overwrite' | 'skip' | 'rename'
-  }): Promise<SaveCopyResult> {
+  }): SaveCopyStart {
+    const planned = this.planCopySave(input)
+    if (planned.kind === 'result') {
+      return {
+        kind: planned.result.status === 'skipped' ? 'skipped' : 'conflict',
+        result: planned.result,
+      }
+    }
+    const plan = planned.plan
+    const jobId = randomUUID()
+    const staging = path.join(path.dirname(plan.targetDir), `.mcl-save-copy-${randomUUID()}`)
+    const backup = path.join(path.dirname(plan.targetDir), `.mcl-save-backup-${randomUUID()}`)
+    this.copySaveJobs.start(
+      {
+        id: jobId,
+        stage: 'copy',
+        meta: {
+          sourceInstanceId: plan.source.instance.dirName,
+          targetInstanceId: plan.target.instance.dirName,
+          targetName: plan.targetName,
+        },
+      },
+      async (job) => {
+        const rollback = new RollbackStack()
+        try {
+          rollback.push('删除存档复制暂存目录', () => {
+            try {
+              this.fs.remove(staging)
+            } catch {
+              /* best effort */
+            }
+          })
+          this.fs.mkdirp(staging)
+          job.update({ stage: 'copy', currentFile: null })
+          const copied = await copyTree(plan.sourceDir, staging, {
+            signal: job.signal,
+            checkpoint: () => job.checkpoint(),
+            skip: (relative) => relative.toLowerCase() === 'session.lock',
+            onBytes: (delta) => job.addBytes(delta),
+            onFile: (relative) => job.setCurrent(relative),
+          })
+          job.update({
+            stage: 'commit',
+            done: copied.files,
+            bytesDone: copied.bytes,
+            currentFile: null,
+          })
+          job.throwIfCancelled()
+
+          if (plan.overwritten && this.fs.exists(plan.targetDir)) {
+            this.fs.rename(plan.targetDir, backup)
+            rollback.push('恢复原有存档', () => {
+              try {
+                if (this.fs.exists(backup)) {
+                  if (this.fs.exists(plan.targetDir)) this.fs.remove(plan.targetDir)
+                  this.fs.rename(backup, plan.targetDir)
+                }
+              } catch {
+                /* best effort */
+              }
+            })
+          }
+          this.fs.rename(staging, plan.targetDir)
+          rollback.push('删除已复制存档', () => {
+            try {
+              this.fs.remove(plan.targetDir)
+            } catch {
+              /* best effort */
+            }
+          })
+          job.throwIfCancelled()
+          rollback.commit()
+          if (plan.overwritten && this.fs.exists(backup)) {
+            try {
+              this.fs.remove(backup)
+            } catch {
+              plan.warnings.push('旧存档备份未能删除（位于 saves/ 下的隐藏目录）')
+            }
+          }
+
+          this.emit('saves')
+          this.options.log.info('save copied across instances', {
+            sourceInstanceId: plan.source.instance.dirName,
+            targetInstanceId: plan.target.instance.dirName,
+            name: input.name,
+            targetName: plan.targetName,
+            files: copied.files,
+            bytes: copied.bytes,
+            overwritten: plan.overwritten,
+            renamed: plan.renamed,
+            crossVersion: plan.crossVersion,
+          })
+          return {
+            status: 'copied' as const,
+            sourceInstanceId: plan.source.instance.dirName,
+            sourceName: input.name,
+            targetInstanceId: plan.target.instance.dirName,
+            targetName: plan.targetName,
+            files: copied.files,
+            bytes: copied.bytes,
+            overwritten: plan.overwritten,
+            renamed: plan.renamed,
+            crossVersion: plan.crossVersion,
+            warnings: plan.warnings,
+          }
+        } catch (error) {
+          const failures = await rollback.rollback()
+          if (failures.length > 0) {
+            this.options.log.warn('save copy rollback step failed', { failures })
+          }
+          if (job.signal.aborted || error instanceof JobCancelledError) {
+            throw new JobCancelledError()
+          }
+          if (error instanceof AppError) throw error
+          throw new AppError(
+            'ASSETS.SAVE_COPY_FAILED',
+            `复制存档失败: ${error instanceof Error ? error.message : String(error)}`,
+            { details: { name: input.name, targetInstanceId: input.targetInstanceId } },
+          )
+        }
+      },
+      {
+        failureCode: 'ASSETS.SAVE_COPY_FAILED',
+        cleanup: () => {
+          try {
+            this.fs.remove(staging)
+          } catch {
+            /* best effort */
+          }
+          try {
+            if (this.fs.exists(backup) && !this.fs.exists(plan.targetDir)) {
+              this.fs.rename(backup, plan.targetDir)
+            }
+          } catch {
+            /* best effort */
+          }
+        },
+      },
+    )
+    return {
+      kind: 'started',
+      jobId,
+      targetInstanceId: plan.target.instance.dirName,
+      targetName: plan.targetName,
+      crossVersion: plan.crossVersion,
+    }
+  }
+
+  cancelCopySave(jobId: string): { cancelled: boolean } {
+    return { cancelled: this.copySaveJobs.cancel(jobId) }
+  }
+
+  copySaveStatus(jobId: string): SaveCopyProgress | null {
+    const progress = this.copySaveJobs.status(jobId)
+    if (!progress) return null
+    const meta = this.copySaveJobs.meta(jobId) ?? {}
+    return {
+      ...progress,
+      phase: progress.stage,
+      files: progress.done,
+      totalFiles: progress.total,
+      bytes: progress.bytesDone,
+      totalBytes: progress.bytesTotal,
+      sourceInstanceId: meta.sourceInstanceId ?? '',
+      targetInstanceId: meta.targetInstanceId ?? '',
+      targetName: meta.targetName ?? '',
+    }
+  }
+
+  copySaveResult(jobId: string): SaveCopyFinished | null {
+    const outcome = this.copySaveJobs.outcome(jobId)
+    if (!outcome) return null
+    const meta = this.copySaveJobs.meta(jobId) ?? {}
+    return {
+      jobId: outcome.jobId,
+      state: outcome.state,
+      ok: outcome.ok,
+      error: outcome.error,
+      durationMs: outcome.durationMs,
+      sourceInstanceId: meta.sourceInstanceId ?? '',
+      targetInstanceId: meta.targetInstanceId ?? '',
+      targetName: meta.targetName ?? '',
+      result: outcome.result,
+    }
+  }
+
+  /** Test seam: waits for a save-copy job. */
+  waitForCopySave(jobId: string, timeoutMs?: number): Promise<JobOutcome<SaveCopyResult>> {
+    return this.copySaveJobs.waitFor(jobId, timeoutMs)
+  }
+
+  private planCopySave(input: {
+    instanceId: string
+    name: string
+    targetInstanceId: string
+    targetName?: string
+    conflict?: 'overwrite' | 'skip' | 'rename'
+  }):
+    | { kind: 'result'; result: SaveCopyResult }
+    | {
+        kind: 'started'
+        plan: {
+          source: ResolvedInstance
+          target: ResolvedInstance
+          sourceDir: string
+          targetDir: string
+          targetName: string
+          overwritten: boolean
+          renamed: boolean
+          crossVersion: boolean
+          warnings: string[]
+        }
+      } {
     const source = this.resolve(input.instanceId)
     const target = this.resolve(input.targetInstanceId)
     const sourceSaves = path.join(source.gameDir, 'saves')
@@ -350,7 +592,6 @@ export class AssetsModuleService {
     }
 
     const targetSaves = path.join(target.gameDir, 'saves')
-    this.fs.mkdirp(targetSaves)
     const requestedName = input.targetName?.trim() || input.name
     const safeBase = sanitizePathName(requestedName, 'save')
     if (safeBase !== requestedName) {
@@ -380,32 +621,38 @@ export class AssetsModuleService {
     const exists = (candidate: string): boolean => this.fs.exists(candidate)
     if (exists(baseTarget) && input.conflict === undefined) {
       return {
-        status: 'conflict',
-        sourceInstanceId: source.instance.dirName,
-        sourceName: input.name,
-        targetInstanceId: target.instance.dirName,
-        targetName: null,
-        files: 0,
-        bytes: 0,
-        overwritten: false,
-        renamed: false,
-        crossVersion,
-        warnings: [...warnings, `目标实例已存在同名存档「${safeBase}」；请选择覆盖、跳过或改名。`],
+        kind: 'result',
+        result: {
+          status: 'conflict',
+          sourceInstanceId: source.instance.dirName,
+          sourceName: input.name,
+          targetInstanceId: target.instance.dirName,
+          targetName: null,
+          files: 0,
+          bytes: 0,
+          overwritten: false,
+          renamed: false,
+          crossVersion,
+          warnings: [...warnings, `目标实例已存在同名存档「${safeBase}」；请选择覆盖、跳过或改名。`],
+        },
       }
     }
     if (exists(baseTarget) && input.conflict === 'skip') {
       return {
-        status: 'skipped',
-        sourceInstanceId: source.instance.dirName,
-        sourceName: input.name,
-        targetInstanceId: target.instance.dirName,
-        targetName: null,
-        files: 0,
-        bytes: 0,
-        overwritten: false,
-        renamed: false,
-        crossVersion,
-        warnings: [...warnings, `目标实例已存在同名存档「${safeBase}」，已按“跳过”处理。`],
+        kind: 'result',
+        result: {
+          status: 'skipped',
+          sourceInstanceId: source.instance.dirName,
+          sourceName: input.name,
+          targetInstanceId: target.instance.dirName,
+          targetName: null,
+          files: 0,
+          bytes: 0,
+          overwritten: false,
+          renamed: false,
+          crossVersion,
+          warnings: [...warnings, `目标实例已存在同名存档「${safeBase}」，已按“跳过”处理。`],
+        },
       }
     }
 
@@ -419,93 +666,22 @@ export class AssetsModuleService {
     const targetName = path.basename(resolution.target)
     const targetDir = resolution.target
     const overwritten = resolution.strategy === 'overwrite' && exists(targetDir)
-    const renamed = resolution.renamed
     if (path.resolve(sourceDir) === path.resolve(targetDir)) {
       fail('ASSETS.SAVE_SELF_OVERWRITE', '不能把存档覆盖复制到它自己；请选择改名。')
     }
-
-    const staging = path.join(targetSaves, `.mcl-save-copy-${randomUUID()}`)
-    const backup = path.join(targetSaves, `.mcl-save-backup-${randomUUID()}`)
-    const rollback = new RollbackStack()
-    try {
-      rollback.push('删除存档复制暂存目录', () => {
-        try {
-          this.fs.remove(staging)
-        } catch {
-          /* best effort */
-        }
-      })
-      this.fs.mkdirp(staging)
-      const copied = await copyTree(sourceDir, staging, {
-        skip: (relative) => relative.toLowerCase() === 'session.lock',
-      })
-
-      if (overwritten && exists(targetDir)) {
-        this.fs.rename(targetDir, backup)
-        rollback.push('恢复原有存档', () => {
-          try {
-            if (this.fs.exists(backup)) {
-              if (this.fs.exists(targetDir)) this.fs.remove(targetDir)
-              this.fs.rename(backup, targetDir)
-            }
-          } catch {
-            /* best effort */
-          }
-        })
-      }
-      this.fs.rename(staging, targetDir)
-      rollback.push('删除已复制存档', () => {
-        try {
-          this.fs.remove(targetDir)
-        } catch {
-          /* best effort */
-        }
-      })
-      rollback.commit()
-      if (overwritten && this.fs.exists(backup)) {
-        try {
-          this.fs.remove(backup)
-        } catch {
-          warnings.push('旧存档备份未能删除（位于 saves/ 下的隐藏目录）')
-        }
-      }
-
-      this.emit('saves')
-      this.options.log.info('save copied across instances', {
-        sourceInstanceId: source.instance.dirName,
-        targetInstanceId: target.instance.dirName,
-        name: input.name,
+    return {
+      kind: 'started',
+      plan: {
+        source,
+        target,
+        sourceDir,
+        targetDir,
         targetName,
-        files: copied.files,
-        bytes: copied.bytes,
         overwritten,
-        renamed,
-        crossVersion,
-      })
-      return {
-        status: 'copied',
-        sourceInstanceId: source.instance.dirName,
-        sourceName: input.name,
-        targetInstanceId: target.instance.dirName,
-        targetName,
-        files: copied.files,
-        bytes: copied.bytes,
-        overwritten,
-        renamed,
+        renamed: resolution.renamed,
         crossVersion,
         warnings,
-      }
-    } catch (error) {
-      const failures = await rollback.rollback()
-      if (failures.length > 0) {
-        this.options.log.warn('save copy rollback step failed', { failures })
-      }
-      if (error instanceof AppError) throw error
-      throw new AppError(
-        'ASSETS.SAVE_COPY_FAILED',
-        `复制存档失败: ${error instanceof Error ? error.message : String(error)}`,
-        { details: { name: input.name, targetInstanceId: input.targetInstanceId } },
-      )
+      },
     }
   }
 

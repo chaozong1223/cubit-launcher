@@ -50,6 +50,18 @@ export function register(ctx: ModuleContext): void {
     onCopyFinished: (finished) => {
       moduleIpc.emit(moduleId, 'copyFinished', finished)
     },
+    onShareExportProgress: (progress) => {
+      moduleIpc.emit(moduleId, 'shareExportProgress', progress)
+    },
+    onShareExportFinished: (finished) => {
+      moduleIpc.emit(moduleId, 'shareExportFinished', finished)
+    },
+    onShareImportProgress: (progress) => {
+      moduleIpc.emit(moduleId, 'shareImportProgress', progress)
+    },
+    onShareImportFinished: (finished) => {
+      moduleIpc.emit(moduleId, 'shareImportFinished', finished)
+    },
     isInstanceRunning: (instanceId, dirName) => {
       const launch = getService<{
         status?: (id: string) => { state?: string } | undefined | null

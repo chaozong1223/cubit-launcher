@@ -104,17 +104,22 @@ describe('cross-version save copy', () => {
     for (const method of Object.keys(assetsContract.methods)) {
       expect(typeof handlers[method]).toBe('function')
     }
-    expect(Object.keys(assetsContract.methods)).toContain('copySave')
+    expect(Object.keys(assetsContract.methods)).toContain('copySaveJob')
   })
 
   it('copies a world into another instance and reports cross-version risk', async () => {
     const h = fixture()
-    const result = await h.service.copySave({
+    const start = h.service.copySaveJob({
       instanceId: 'A',
       name: 'World One',
       targetInstanceId: 'B',
     })
-    expect(assetsContract.methods.copySave.output.safeParse(result).success).toBe(true)
+    expect(start.kind).toBe('started')
+    if (start.kind !== 'started') throw new Error('copy did not start')
+    expect(assetsContract.methods.copySaveJob.output.safeParse(start).success).toBe(true)
+    const outcome = await h.service.waitForCopySave(start.jobId)
+    expect(outcome.ok).toBe(true)
+    const result = outcome.result!
     expect(result).toMatchObject({
       status: 'copied',
       sourceInstanceId: 'A',
@@ -139,44 +144,52 @@ describe('cross-version save copy', () => {
 
   it('reports a conflict without writing and supports skip/rename/overwrite', async () => {
     const h = fixture()
-    await h.service.copySave({ instanceId: 'A', name: 'World One', targetInstanceId: 'B' })
+    const first = h.service.copySaveJob({ instanceId: 'A', name: 'World One', targetInstanceId: 'B' })
+    if (first.kind !== 'started') throw new Error('copy did not start')
+    await h.service.waitForCopySave(first.jobId)
     fs.writeFileSync(path.join(h.saveDirA, 'saves', 'World One', 'level.dat'), 'level-a2')
 
-    const conflict = await h.service.copySave({
+    const conflict = h.service.copySaveJob({
       instanceId: 'A',
       name: 'World One',
       targetInstanceId: 'B',
     })
-    expect(conflict).toMatchObject({ status: 'conflict', targetName: null })
+    expect(conflict.kind).toBe('conflict')
+    if (conflict.kind !== 'conflict') throw new Error('expected conflict')
+    expect(conflict.result).toMatchObject({ status: 'conflict', targetName: null })
     expect(
       fs.readFileSync(path.join(h.saveDirB, 'saves', 'World One', 'level.dat'), 'utf8'),
     ).toBe('level-a')
 
-    const skipped = await h.service.copySave({
+    const skipped = h.service.copySaveJob({
       instanceId: 'A',
       name: 'World One',
       targetInstanceId: 'B',
       conflict: 'skip',
     })
-    expect(skipped.status).toBe('skipped')
+    expect(skipped.kind).toBe('skipped')
 
-    const renamed = await h.service.copySave({
+    const renamedStart = h.service.copySaveJob({
       instanceId: 'A',
       name: 'World One',
       targetInstanceId: 'B',
       conflict: 'rename',
     })
+    if (renamedStart.kind !== 'started') throw new Error('rename did not start')
+    const renamed = (await h.service.waitForCopySave(renamedStart.jobId)).result!
     expect(renamed).toMatchObject({ status: 'copied', targetName: 'World One-2', renamed: true })
     expect(
       fs.readFileSync(path.join(h.saveDirB, 'saves', 'World One-2', 'level.dat'), 'utf8'),
     ).toBe('level-a2')
 
-    const overwritten = await h.service.copySave({
+    const overwriteStart = h.service.copySaveJob({
       instanceId: 'A',
       name: 'World One',
       targetInstanceId: 'B',
       conflict: 'overwrite',
     })
+    if (overwriteStart.kind !== 'started') throw new Error('overwrite did not start')
+    const overwritten = (await h.service.waitForCopySave(overwriteStart.jobId)).result!
     expect(overwritten).toMatchObject({
       status: 'copied',
       targetName: 'World One',
@@ -191,21 +204,45 @@ describe('cross-version save copy', () => {
     expect(leftovers).toEqual([])
   })
 
-  it('refuses running instances and self-overwrite', async () => {
+  it('refuses running instances and self-overwrite', () => {
     const running = fixture({ running: true })
-    await expect(
-      running.service.copySave({ instanceId: 'A', name: 'World One', targetInstanceId: 'B' }),
-    ).rejects.toMatchObject({ code: 'ASSETS.INSTANCE_RUNNING' })
+    expect(() =>
+      running.service.copySaveJob({ instanceId: 'A', name: 'World One', targetInstanceId: 'B' }),
+    ).toThrowError(expect.objectContaining({ code: 'ASSETS.INSTANCE_RUNNING' }))
 
     const h = fixture()
-    await expect(
-      h.service.copySave({
+    expect(() =>
+      h.service.copySaveJob({
         instanceId: 'A',
         name: 'World One',
         targetInstanceId: 'A',
         conflict: 'overwrite',
       }),
-    ).rejects.toMatchObject({ code: 'ASSETS.SAVE_SELF_OVERWRITE' })
+    ).toThrowError(expect.objectContaining({ code: 'ASSETS.SAVE_SELF_OVERWRITE' }))
+  })
+
+  it('cancels a copy job without leaving a half-copied world', async () => {
+    const h = fixture()
+    for (let index = 0; index < 200; index += 1) {
+      writeFile(
+        path.join(h.saveDirA, 'saves', 'World One', 'bulk', `file-${index}.dat`),
+        `bulk-${index}`,
+      )
+    }
+    const start = h.service.copySaveJob({
+      instanceId: 'A',
+      name: 'World One',
+      targetInstanceId: 'B',
+    })
+    if (start.kind !== 'started') throw new Error('copy did not start')
+    expect(h.service.cancelCopySave(start.jobId).cancelled).toBe(true)
+    const outcome = await h.service.waitForCopySave(start.jobId)
+    expect(outcome.state).toBe('cancelled')
+    expect(fs.existsSync(path.join(h.saveDirB, 'saves', 'World One'))).toBe(false)
+    const leftovers = fs
+      .readdirSync(path.join(h.saveDirB, 'saves'))
+      .filter((name) => name.startsWith('.mcl-save-'))
+    expect(leftovers).toEqual([])
   })
 
   it('restores the previous world when the commit rename fails', async () => {
@@ -232,16 +269,15 @@ describe('cross-version save copy', () => {
       now: () => 1_700_000_000_000,
     })
     let caught: unknown
-    try {
-      await service.copySave({
-        instanceId: 'A',
-        name: 'World One',
-        targetInstanceId: 'B',
-        conflict: 'overwrite',
-      })
-    } catch (error) {
-      caught = error
-    }
+    const start = service.copySaveJob({
+      instanceId: 'A',
+      name: 'World One',
+      targetInstanceId: 'B',
+      conflict: 'overwrite',
+    })
+    if (start.kind !== 'started') throw new Error('copy did not start')
+    const outcome = await service.waitForCopySave(start.jobId)
+    caught = outcome.error
     expect(caught).toMatchObject({ code: 'ASSETS.SAVE_COPY_FAILED' })
     expect(
       fs.readFileSync(path.join(h.saveDirB, 'saves', 'World One', 'level.dat'), 'utf8'),

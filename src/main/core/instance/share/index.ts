@@ -9,9 +9,11 @@ export {
 } from './export'
 export {
   extractSharePack,
+  previewShareImport,
   SHARE_ZIP_LIMITS,
   type ExtractSharePackInput,
   type ShareImportLogger,
+  type ShareImportPreview,
 } from './import'
 export {
   DEFAULT_SHARE_CONTENT,
@@ -24,6 +26,7 @@ export {
   SHARE_PACK_KIND,
   ShareManifestSchema,
   type ShareManifest,
+  type ShareTransferProgress,
 } from './manifest'
 export {
   isSensitiveSharePath,

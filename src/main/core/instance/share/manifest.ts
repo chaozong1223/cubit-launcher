@@ -23,6 +23,26 @@ export const SHARE_PACK_KIND = 'cubit-launcher-share'
 export const SHARE_MANIFEST_ENTRY = 'manifest.json'
 export const SHARE_MANIFEST_SCHEMA_VERSION = 1
 
+export interface ShareTransferProgress {
+  phase: 'scan' | 'write' | 'import' | 'commit' | 'done'
+  files: number
+  totalFiles: number
+  bytes: number
+  totalBytes: number
+  currentFile: string | null
+}
+
+export function abortIfCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new AppError('INSTANCE.SHARE_CANCELLED', '分享包任务已取消')
+  }
+}
+
+/** Yield to the event loop so IPC/UIs stay responsive during large packs. */
+export function yieldToLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve))
+}
+
 export const SHARE_SECTION_FOLDERS = {
   mods: ['mods'],
   config: ['config', 'defaultconfigs'],

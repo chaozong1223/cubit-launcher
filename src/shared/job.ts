@@ -49,3 +49,17 @@ export const JobFinishedSchema = z.object({
   durationMs: z.number().int().nonnegative(),
 })
 export type JobFinished = z.infer<typeof JobFinishedSchema>
+
+/**
+ * Progress for file-copy/zip jobs. Keeps the generic job fields (`state`,
+ * `message`, throttling) and adds the phase/file/byte counters the share/save
+ * UIs display.
+ */
+export const FileJobProgressSchema = JobProgressSchema.extend({
+  phase: z.string().min(1).max(32),
+  files: z.number().int().nonnegative(),
+  totalFiles: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  totalBytes: z.number().int().nonnegative(),
+})
+export type FileJobProgress = z.infer<typeof FileJobProgressSchema>

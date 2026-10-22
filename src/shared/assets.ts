@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { defineContract } from './kernel'
+import { FileJobProgressSchema, JobFinishedSchema } from './job'
 
 export const AssetArea = z.enum(['saves', 'screenshots', 'schematics', 'game-logs', 'launcher-logs'])
 export type AssetArea = z.infer<typeof AssetArea>
@@ -95,6 +96,34 @@ export const SaveCopyResultSchema = z.object({
 })
 export type SaveCopyResult = z.infer<typeof SaveCopyResultSchema>
 
+export const SaveCopyStartSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('conflict'), result: SaveCopyResultSchema }),
+  z.object({ kind: z.literal('skipped'), result: SaveCopyResultSchema }),
+  z.object({
+    kind: z.literal('started'),
+    jobId: z.string().min(1),
+    targetInstanceId: z.string().min(1),
+    targetName: z.string().min(1),
+    crossVersion: z.boolean(),
+  }),
+])
+export type SaveCopyStart = z.infer<typeof SaveCopyStartSchema>
+
+export const SaveCopyProgressSchema = FileJobProgressSchema.extend({
+  sourceInstanceId: z.string().min(1),
+  targetInstanceId: z.string().min(1),
+  targetName: z.string().min(1),
+})
+export type SaveCopyProgress = z.infer<typeof SaveCopyProgressSchema>
+
+export const SaveCopyFinishedSchema = JobFinishedSchema.extend({
+  sourceInstanceId: z.string().min(1),
+  targetInstanceId: z.string().min(1),
+  targetName: z.string().min(1),
+  result: SaveCopyResultSchema.nullable(),
+})
+export type SaveCopyFinished = z.infer<typeof SaveCopyFinishedSchema>
+
 /** Projection/schematic formats recognised by the NBT detector. */
 export const SchematicFormatSchema = z.enum([
   'litematic',
@@ -181,7 +210,7 @@ export const contract = defineContract({
       output: BatchTrashResultSchema,
     },
     /** Copy `saves/<name>` into another instance (cross-version aware). */
-    copySave: {
+    copySaveJob: {
       input: z.object({
         instanceId: z.string().min(1),
         name: z.string().min(1),
@@ -189,7 +218,19 @@ export const contract = defineContract({
         targetName: z.string().min(1).max(128).optional(),
         conflict: SaveConflictStrategySchema.optional(),
       }),
-      output: SaveCopyResultSchema,
+      output: SaveCopyStartSchema,
+    },
+    cancelCopySave: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ cancelled: z.boolean() }),
+    },
+    copySaveStatus: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: SaveCopyProgressSchema.nullable(),
+    },
+    copySaveResult: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: SaveCopyFinishedSchema.nullable(),
     },
     listScreenshots: {
       input: z.object({ instanceId: z.string().min(1) }),
@@ -302,6 +343,13 @@ export const contract = defineContract({
   },
   events: {
     changed: { payload: z.object({ area: AssetArea }) },
+    copySaveProgress: {
+      payload: SaveCopyProgressSchema,
+      throttleMs: 100,
+    },
+    copySaveFinished: {
+      payload: SaveCopyFinishedSchema,
+    },
   },
 })
 

@@ -14,7 +14,10 @@ import {
   SHARE_SECTION_FOLDERS,
   ShareManifestSchema,
   countRedactions,
+  abortIfCancelled,
+  yieldToLoop,
   type ShareManifest,
+  type ShareTransferProgress,
 } from './manifest'
 import { MAX_SCAN_BYTES, redactShareJsonValue, sanitizeShareEntry } from './sanitize'
 
@@ -41,6 +44,10 @@ export interface CreateSharePackInput {
   outPath?: string
   now?: () => number
   log?: ShareExportLogger
+  signal?: AbortSignal
+  onProgress?: (progress: ShareTransferProgress) => void
+  /** Called before the archive is written, so a cancelled job can delete it. */
+  onArtifact?: (path: string) => void
 }
 
 interface SectionName {
@@ -101,15 +108,20 @@ interface WalkContext {
   builder: PackBuilder
   /** Guards against a symlink loop while walking selected folders. */
   visitedDirs: Set<string>
+  signal?: AbortSignal
+  onProgress?: (progress: ShareTransferProgress) => void
+  /** Files visited since the last event-loop yield. */
+  pending: number
 }
 
-function walkSection(
+async function walkSection(
   context: WalkContext,
   section: keyof ShareContentSelection,
   absoluteDir: string,
   relativeDir: string,
   depth = 0,
-): void {
+): Promise<void> {
+  abortIfCancelled(context.signal)
   if (depth > 32) {
     context.builder.warnings.push(`目录层级过深，已跳过: ${relativeDir}`)
     return
@@ -118,12 +130,13 @@ function walkSection(
   if (context.visitedDirs.has(realDir)) return
   context.visitedDirs.add(realDir)
   for (const name of context.fs.readDir(absoluteDir)) {
+    abortIfCancelled(context.signal)
     const absolute = path.join(absoluteDir, name)
     const stat = context.fs.stat(absolute)
     if (!stat) continue
     const relative = relativeDir ? `${relativeDir}/${name}` : name
     if (stat.isDirectory()) {
-      walkSection(context, section, absolute, relative, depth + 1)
+      await walkSection(context, section, absolute, relative, depth + 1)
       continue
     }
     if (!stat.isFile()) continue
@@ -144,6 +157,20 @@ function walkSection(
       context.fs.readBytes(absolute),
       section,
     )
+    context.onProgress?.({
+      phase: 'scan',
+      files: context.builder.entries.length,
+      totalFiles: 0,
+      bytes: context.builder.bytes,
+      totalBytes: 0,
+      currentFile: `game/${relative}`,
+    })
+    context.pending += 1
+    if (context.pending >= 8) {
+      context.pending = 0
+      await yieldToLoop()
+      abortIfCancelled(context.signal)
+    }
   }
 }
 
@@ -221,13 +248,24 @@ function planIcon(fs: FsPort, instanceDir: string, icon: string | null): IconPla
  * folders; `manifest.json` records what was included and which credential
  * material was stripped (evidence only, never values).
  */
-export function createSharePack(input: CreateSharePackInput): ShareExportResult {
+export async function createSharePack(input: CreateSharePackInput): Promise<ShareExportResult> {
   const now = input.now ?? Date.now
   const fs = input.fs
   const selection = normalizeShareSelection(input.include)
+  const report = (phase: ShareTransferProgress['phase'], currentFile: string | null = null): void => {
+    input.onProgress?.({
+      phase,
+      files: builder.entries.length,
+      totalFiles: 0,
+      bytes: builder.bytes,
+      totalBytes: 0,
+      currentFile,
+    })
+  }
   if (input.settings.isolation !== 'isolated') {
     throw new AppError('INSTANCE.SHARE_EXPORT_UNSUPPORTED', '只有「隔离」实例可以导出分享包')
   }
+  abortIfCancelled(input.signal)
 
   const profilePath = path.join(input.instanceDir, `${input.dirName}.json`)
   if (!fs.exists(profilePath)) {
@@ -274,6 +312,9 @@ export function createSharePack(input: CreateSharePackInput): ShareExportResult 
     instanceRoot: input.instanceDir,
     builder,
     visitedDirs: new Set<string>(),
+    ...(input.signal ? { signal: input.signal } : {}),
+    ...(input.onProgress ? { onProgress: input.onProgress } : {}),
+    pending: 0,
   }
   const sections: Array<keyof ShareContentSelection> = [
     'mods',
@@ -282,19 +323,22 @@ export function createSharePack(input: CreateSharePackInput): ShareExportResult 
     'shaderpacks',
     'saves',
   ]
+  report('scan')
   for (const section of sections) {
     if (!selection[section]) continue
     for (const folder of SHARE_SECTION_FOLDERS[section]) {
       const absolute = path.join(input.instanceDir, folder)
-      if (fs.exists(absolute)) walkSection(context, section, absolute, folder)
+      if (fs.exists(absolute)) await walkSection(context, section, absolute, folder)
     }
   }
   if (selection.options) {
     const optionsPath = path.join(input.instanceDir, 'options.txt')
     if (fs.stat(optionsPath)?.isFile()) {
       addSanitizedFile(builder, 'game/options.txt', fs.readBytes(optionsPath), 'options')
+      report('scan', 'game/options.txt')
     }
   }
+  abortIfCancelled(input.signal)
 
   if (iconPlan.entry) builder.add(iconPlan.entry.name, iconPlan.entry.data, null)
 
@@ -353,6 +397,8 @@ export function createSharePack(input: CreateSharePackInput): ShareExportResult 
     throw new AppError('INSTANCE.SHARE_EXPORT_UNSUPPORTED', '分享包清单生成失败')
   }
 
+  report('write', null)
+  abortIfCancelled(input.signal)
   const buffer = createStoredZip(
     [
       {
@@ -363,6 +409,7 @@ export function createSharePack(input: CreateSharePackInput): ShareExportResult 
     ],
     { now: new Date(now()), maxEntries: MAX_SHARE_FILES, maxTotalBytes: MAX_SHARE_BYTES },
   )
+  abortIfCancelled(input.signal)
 
   const timestamp = new Date(now()).toISOString().replace(/[:.]/g, '-')
   const defaultTarget = path.join(
@@ -376,8 +423,22 @@ export function createSharePack(input: CreateSharePackInput): ShareExportResult 
   const finalPath = requested.toLowerCase().endsWith(SHARE_PACK_EXTENSION)
     ? requested
     : `${requested}${SHARE_PACK_EXTENSION}`
+  const partPath = `${finalPath}.part`
   fs.mkdirp(path.dirname(finalPath))
-  fs.writeBytes(finalPath, buffer)
+  input.onArtifact?.(finalPath)
+  try {
+    fs.writeBytes(partPath, buffer)
+    abortIfCancelled(input.signal)
+    fs.rename(partPath, finalPath)
+  } catch (error) {
+    try {
+      fs.remove(partPath)
+    } catch {
+      /* best effort */
+    }
+    throw error
+  }
+  report('done', null)
 
   const summary = {
     path: finalPath,

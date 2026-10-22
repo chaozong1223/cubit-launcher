@@ -16,6 +16,12 @@ import { defaultInstanceSettings, writeInstanceSettings } from '../settings'
 import { resolvePathConflict, sanitizePathName, uniquePathName } from '../../fs/conflict'
 import { RollbackStack } from '../../fs/rollback'
 import { readShareManifest, SHARE_MANIFEST_ENTRY } from './manifest'
+import {
+  abortIfCancelled,
+  yieldToLoop,
+  type ShareManifest,
+  type ShareTransferProgress,
+} from './manifest'
 import { redactShareJsonValue } from './sanitize'
 
 /** Import limits; the exporter never produces archives beyond these. */
@@ -46,6 +52,31 @@ export interface ExtractSharePackInput {
   isTargetRunning?: (dirName: string) => boolean
   now?: () => number
   log?: ShareImportLogger
+  signal?: AbortSignal
+  onProgress?: (progress: ShareTransferProgress) => void
+  /** Notified once the hidden staging directory exists (job cleanup hook). */
+  onStaging?: (path: string) => void
+  /** Reuse the archive opened by the synchronous conflict precheck. */
+  preview?: ShareImportPreview
+}
+
+/**
+ * Result of the synchronous precheck the service performs before starting the
+ * import job. It opens the archive and decides the target name (or returns the
+ * conflict/skip result) without writing anything.
+ */
+export interface ShareImportPreview {
+  archive: ZipArchive
+  manifest: ShareManifest
+  displayName: string
+  baseDirName: string
+  targetDir: string
+  dirName: string
+  overwriteExisting: boolean
+  renamed: boolean
+  warnings: string[]
+  baseResult: Omit<ShareImportResult, 'status' | 'instanceId' | 'dirName'>
+  conflictResult: ShareImportResult | null
 }
 
 function parseJsonObject(data: Buffer, label: string): Record<string, unknown> {
@@ -62,30 +93,25 @@ function parseJsonObject(data: Buffer, label: string): Record<string, unknown> {
 }
 
 /**
- * Imports a `.cubitpack` as a new isolated instance.
- *
- * Everything is unpacked into a hidden staging directory inside `versions/`
- * first; an existing same-name instance is only moved aside during the final
- * rename. Any failure unwinds the `RollbackStack`, restoring the previous
- * instance and deleting the staging directory (acceptance: 失败可回滚).
+ * Read-only precheck: opens the archive, reads the manifest and resolves the
+ * target name. Conflict/skip decisions are returned without any filesystem
+ * write, so a rejection leaves the game directory untouched.
  */
-export async function extractSharePack(input: ExtractSharePackInput): Promise<ShareImportResult> {
+export function previewShareImport(
+  input: Omit<ExtractSharePackInput, 'signal' | 'onProgress' | 'preview'>,
+): ShareImportPreview {
   const fs = input.fs
-  const now = input.now ?? Date.now
   const file = path.resolve(input.filePath)
   if (!fs.exists(file)) {
     throw new AppError('INSTANCE.SHARE_NOT_FOUND', `找不到分享包: ${input.filePath}`)
   }
-  const archive: ZipArchive = openZipFile(fs, file, SHARE_ZIP_LIMITS)
+  const archive = openZipFile(fs, file, SHARE_ZIP_LIMITS)
   const manifest = readShareManifest(archive)
   const versionsDir = path.join(input.mcRoot, 'versions')
-  fs.mkdirp(versionsDir)
-
   const displayName = input.name?.trim() || manifest.name
   const baseDirName = sanitizePathName(displayName, 'share')
   const baseTarget = path.join(versionsDir, baseDirName)
   const occupied = fs.exists(baseTarget)
-
   const baseResult: Omit<ShareImportResult, 'status' | 'instanceId' | 'dirName'> = {
     name: displayName,
     mcVersion: manifest.mcVersion,
@@ -100,31 +126,51 @@ export async function extractSharePack(input: ExtractSharePackInput): Promise<Sh
     warnings: [...manifest.warnings],
     redactions: manifest.redactions,
   }
-
-  // Conflict without a decision: report it and write nothing, so the UI can
-  // offer 覆盖/跳过/改名 and call again with the chosen strategy.
   if (occupied && input.conflict === undefined) {
     return {
-      ...baseResult,
-      status: 'conflict',
-      instanceId: null,
+      archive,
+      manifest,
+      displayName,
+      baseDirName,
+      targetDir: baseTarget,
       dirName: baseDirName,
-      warnings: [
-        ...baseResult.warnings,
-        `同名实例「${baseDirName}」已存在；请选择覆盖、跳过或改名后重试。`,
-      ],
+      overwriteExisting: false,
+      renamed: false,
+      warnings: baseResult.warnings,
+      baseResult,
+      conflictResult: {
+        ...baseResult,
+        status: 'conflict',
+        instanceId: null,
+        dirName: baseDirName,
+        warnings: [
+          ...baseResult.warnings,
+          `同名实例「${baseDirName}」已存在；请选择覆盖、跳过或改名后重试。`,
+        ],
+      },
     }
   }
   if (occupied && input.conflict === 'skip') {
     return {
-      ...baseResult,
-      status: 'skipped',
-      instanceId: null,
+      archive,
+      manifest,
+      displayName,
+      baseDirName,
+      targetDir: baseTarget,
       dirName: baseDirName,
-      warnings: [...baseResult.warnings, `同名实例「${baseDirName}」已存在，已按“跳过”处理。`],
+      overwriteExisting: false,
+      renamed: false,
+      warnings: baseResult.warnings,
+      baseResult,
+      conflictResult: {
+        ...baseResult,
+        status: 'skipped',
+        instanceId: null,
+        dirName: baseDirName,
+        warnings: [...baseResult.warnings, `同名实例「${baseDirName}」已存在，已按“跳过”处理。`],
+      },
     }
   }
-
   const resolution = resolvePathConflict({
     target: baseTarget,
     strategy: input.conflict ?? 'rename',
@@ -135,12 +181,44 @@ export async function extractSharePack(input: ExtractSharePackInput): Promise<Sh
   const dirName = path.basename(resolution.target)
   const targetDir = resolution.target
   const overwriteExisting = resolution.strategy === 'overwrite' && occupied
-  const warnings = [...baseResult.warnings]
   if (overwriteExisting && input.isTargetRunning?.(dirName)) {
     throw new AppError('INSTANCE.RUNNING', '要覆盖的实例正在运行，请先结束游戏后再导入', {
       details: { instanceId: dirName },
     })
   }
+  return {
+    archive,
+    manifest,
+    displayName,
+    baseDirName,
+    targetDir,
+    dirName,
+    overwriteExisting,
+    renamed: resolution.renamed,
+    warnings: [...baseResult.warnings],
+    baseResult,
+    conflictResult: null,
+  }
+}
+
+/**
+ * Imports a `.cubitpack` as a new isolated instance.
+ *
+ * Everything is unpacked into a hidden staging directory inside `versions/`
+ * first; an existing same-name instance is only moved aside during the final
+ * rename. Any failure unwinds the `RollbackStack`, restoring the previous
+ * instance and deleting the staging directory (acceptance: 失败可回滚).
+ */
+export async function extractSharePack(input: ExtractSharePackInput): Promise<ShareImportResult> {
+  const fs = input.fs
+  const now = input.now ?? Date.now
+  const prepared = input.preview ?? previewShareImport(input)
+  if (prepared.conflictResult) return prepared.conflictResult
+  const { archive, manifest, displayName, dirName, targetDir, overwriteExisting } = prepared
+  const versionsDir = path.join(input.mcRoot, 'versions')
+  fs.mkdirp(versionsDir)
+  const warnings = [...prepared.warnings]
+  abortIfCancelled(input.signal)
 
   // Leftovers can only come from a crashed import; never reuse them. A fresh
   // staging dir from another launcher process is young and left alone.
@@ -171,7 +249,8 @@ export async function extractSharePack(input: ExtractSharePackInput): Promise<Sh
     }
   }
 
-  const staging = path.join(versionsDir, `${STAGING_PREFIX}${process.pid}-${randomUUID()}`)
+    const staging = path.join(versionsDir, `${STAGING_PREFIX}${process.pid}-${randomUUID()}`)
+    input.onStaging?.(staging)
   const rollback = new RollbackStack()
   const record = { files: 0, bytes: 0 }
 
@@ -190,8 +269,29 @@ export async function extractSharePack(input: ExtractSharePackInput): Promise<Sh
     let instanceJsonData: Buffer | null = null
     const extraInstanceFiles = new Map<string, Buffer>()
     const seen = new Set<string>()
+    const totalFiles = archive.entries.length
+    let totalBytes = 0
+    for (const entry of archive.entries) totalBytes += entry.size
+    const report = (phase: ShareTransferProgress['phase'], currentFile: string | null = null): void => {
+      input.onProgress?.({
+        phase,
+        files: record.files,
+        totalFiles,
+        bytes: record.bytes,
+        totalBytes,
+        currentFile,
+      })
+    }
+    report('import')
 
-    for (const entry of archive.entries) {
+    for (let index = 0; index < archive.entries.length; index += 1) {
+      const entry = archive.entries[index]!
+      abortIfCancelled(input.signal)
+      if (index % 8 === 0) {
+        await yieldToLoop()
+        abortIfCancelled(input.signal)
+      }
+      report('import', entry.name)
       if (entry.isDirectory) continue
       if (seen.has(entry.name)) {
         warnings.push(`忽略重复条目: ${entry.name}`)
@@ -334,6 +434,8 @@ export async function extractSharePack(input: ExtractSharePackInput): Promise<Sh
     record.bytes += Buffer.byteLength(JSON.stringify(sanitizedSettings.value, null, 2), 'utf8')
 
     // ---- commit ------------------------------------------------------------
+    report('commit', null)
+    abortIfCancelled(input.signal)
     if (overwriteExisting) {
       fs.rename(targetDir, backupDir)
       rollback.push('恢复原有实例', () => {
@@ -355,6 +457,7 @@ export async function extractSharePack(input: ExtractSharePackInput): Promise<Sh
         /* best effort */
       }
     })
+    abortIfCancelled(input.signal)
 
     rollback.commit()
     if (overwriteExisting && fs.exists(backupDir)) {
@@ -400,14 +503,14 @@ export async function extractSharePack(input: ExtractSharePackInput): Promise<Sh
     }
 
     const result: ShareImportResult = {
-      ...baseResult,
+      ...prepared.baseResult,
       status: 'imported',
       instanceId: dirName,
       dirName,
       files: record.files,
       bytes: record.bytes,
       overwritten: overwriteExisting,
-      renamed: resolution.renamed,
+      renamed: prepared.renamed,
       needsBaseInstall,
       launchable,
       missingLibraries,

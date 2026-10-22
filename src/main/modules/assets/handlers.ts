@@ -12,13 +12,16 @@ export function makeHandlers(service: AssetsModuleService) {
     backupSave: (input: { instanceId: string; name: string; outPath?: string }) =>
       service.backupSave(input),
     deleteSaves: (input: { instanceId: string; names: string[] }) => service.deleteSaves(input),
-    copySave: (input: {
+    copySaveJob: (input: {
       instanceId: string
       name: string
       targetInstanceId: string
       targetName?: string
       conflict?: SaveConflictStrategy
-    }) => service.copySave(input),
+    }) => service.copySaveJob(input),
+    cancelCopySave: (input: { jobId: string }) => service.cancelCopySave(input.jobId),
+    copySaveStatus: (input: { jobId: string }) => service.copySaveStatus(input.jobId),
+    copySaveResult: (input: { jobId: string }) => service.copySaveResult(input.jobId),
     listSchematics: (input: { instanceId: string }) => service.listSchematics(input),
     importSchematic: (input: {
       instanceId: string

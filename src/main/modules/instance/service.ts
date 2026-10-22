@@ -13,9 +13,15 @@ import type {
   RemoveInstanceResult,
   SetGameDirResult,
   ShareExportInput,
+  ShareExportFinished,
+  ShareExportProgress,
   ShareExportResult,
+  ShareExportStart,
+  ShareImportFinished,
   ShareImportInput,
+  ShareImportProgress,
   ShareImportResult,
+  ShareImportStart,
 } from '@shared/instance'
 import type { TrashItem } from '@shared/assets'
 import type { ScopedLogger } from '../../kernel/logger'
@@ -43,6 +49,7 @@ import {
   createSharePack,
   describeShareRedactions,
   extractSharePack,
+  previewShareImport,
 } from '../../core/instance/share'
 import { discoverMinecraftRoots, type DiscoveryOptions } from './discovery'
 import { TrashStore } from '../assets/trash'
@@ -75,6 +82,10 @@ export interface InstanceServiceOptions extends DiscoveryOptions {
   /** Forward asynchronous copy progress to the module IPC layer. */
   onCopyProgress?: (progress: InstanceCopyProgress) => void
   onCopyFinished?: (finished: InstanceCopyFinished) => void
+  onShareExportProgress?: (progress: ShareExportProgress) => void
+  onShareExportFinished?: (finished: ShareExportFinished) => void
+  onShareImportProgress?: (progress: ShareImportProgress) => void
+  onShareImportFinished?: (finished: ShareImportFinished) => void
   /** Test seam; defaults to the t39 TrashStore layout under dataRoot/trash. */
   trash?: TrashStore
 }
@@ -83,6 +94,8 @@ export class InstanceModuleService {
   private readonly fs = nodeFsPort()
   private readonly now: () => number
   private readonly copyJobs = new JobRegistry<InstanceSummary>()
+  private readonly shareExportJobs = new JobRegistry<ShareExportResult>()
+  private readonly shareImportJobs = new JobRegistry<ShareImportResult>()
 
   constructor(
     private readonly roots: ModuleRoots,
@@ -105,6 +118,52 @@ export class InstanceModuleService {
         error: outcome.error,
         durationMs: outcome.durationMs,
         instanceId: job.meta.instanceId ?? '',
+        result: outcome.result,
+      })
+    })
+    this.shareExportJobs.onProgress((progress, job) => {
+      this.options.onShareExportProgress?.({
+        ...progress,
+        phase: progress.stage,
+        files: progress.done,
+        totalFiles: progress.total,
+        bytes: progress.bytesDone,
+        totalBytes: progress.bytesTotal,
+        instanceId: job.meta.instanceId ?? '',
+        name: job.meta.name ?? '',
+      })
+    })
+    this.shareExportJobs.onFinished((outcome, job) => {
+      this.options.onShareExportFinished?.({
+        jobId: outcome.jobId,
+        state: outcome.state,
+        ok: outcome.ok,
+        error: outcome.error,
+        durationMs: outcome.durationMs,
+        instanceId: job.meta.instanceId ?? '',
+        name: job.meta.name ?? '',
+        result: outcome.result,
+      })
+    })
+    this.shareImportJobs.onProgress((progress, job) => {
+      this.options.onShareImportProgress?.({
+        ...progress,
+        phase: progress.stage,
+        files: progress.done,
+        totalFiles: progress.total,
+        bytes: progress.bytesDone,
+        totalBytes: progress.bytesTotal,
+        filePath: job.meta.filePath ?? '',
+      })
+    })
+    this.shareImportJobs.onFinished((outcome, job) => {
+      this.options.onShareImportFinished?.({
+        jobId: outcome.jobId,
+        state: outcome.state,
+        ok: outcome.ok,
+        error: outcome.error,
+        durationMs: outcome.durationMs,
+        filePath: job.meta.filePath ?? '',
         result: outcome.result,
       })
     })
@@ -497,11 +556,12 @@ export class InstanceModuleService {
   }
 
   /**
-   * Packs one isolated instance (version profile, mods/configs, optionally
-   * saves) into a single `.cubitpack`. Credential material is stripped before
-   * writing and every redaction is logged as evidence (values never logged).
+   * Starts packing an isolated instance into a `.cubitpack` job.
+   *
+   * All synchronous validation (instance exists, isolated layout, not running)
+   * happens before the job starts, so a rejected request returns immediately.
    */
-  async exportSharePack(input: ShareExportInput): Promise<ShareExportResult> {
+  exportSharePackJob(input: ShareExportInput): ShareExportStart {
     const root = this.root()
     const instance = scanInstances(this.fs, root).find(
       (item) => item.id === input.instanceId || item.dirName === input.instanceId,
@@ -536,49 +596,126 @@ export class InstanceModuleService {
         isolation: 'isolated',
         source: 'ours',
       })
-    const result = createSharePack({
-      fs: this.fs,
-      mcRoot: root,
-      dataRoot: this.roots.dataRoot,
-      instanceDir: instance.dir,
-      dirName: instance.dirName,
-      settings,
-      ...(input.include ? { include: input.include } : {}),
-      ...(input.outPath ? { outPath: input.outPath } : {}),
-      now: this.now,
-      log: {
-        info: (message, fields) => this.log.info(message, fields),
-        warn: (message, fields) => this.log.warn(message, fields),
+    const jobId = randomUUID()
+    let artifactPath: string | null = null
+    this.shareExportJobs.start(
+      { id: jobId, stage: 'scan', meta: { instanceId: instance.dirName, name: settings.name } },
+      async (job) => {
+        const result = await createSharePack({
+          fs: this.fs,
+          mcRoot: root,
+          dataRoot: this.roots.dataRoot,
+          instanceDir: instance.dir,
+          dirName: instance.dirName,
+          settings,
+          ...(input.include ? { include: input.include } : {}),
+          ...(input.outPath ? { outPath: input.outPath } : {}),
+          now: this.now,
+          signal: job.signal,
+          onProgress: (progress) => {
+            job.update({
+              stage: progress.phase,
+              done: progress.files,
+              total: progress.totalFiles,
+              bytesDone: progress.bytes,
+              bytesTotal: progress.totalBytes,
+              currentFile: progress.currentFile,
+            })
+          },
+          onArtifact: (path) => {
+            artifactPath = path
+          },
+          log: {
+            info: (message, fields) => this.log.info(message, fields),
+            warn: (message, fields) => this.log.warn(message, fields),
+          },
+        })
+        const redacted = result.redactions.filter((record) => record.action === 'redacted').length
+        const skipped = result.redactions.filter((record) => record.action === 'skipped').length
+        this.log.info('share pack exported', {
+          instanceId: instance.dirName,
+          path: result.path,
+          files: result.files,
+          bytes: result.bytes,
+          redacted,
+          skipped,
+        })
+        if (result.redactions.length > 0) {
+          this.log.warn('share pack credentials stripped', {
+            instanceId: instance.dirName,
+            ...describeShareRedactions(result.redactions),
+          })
+        }
+        return result
       },
-    })
-    const redacted = result.redactions.filter((record) => record.action === 'redacted').length
-    const skipped = result.redactions.filter((record) => record.action === 'skipped').length
-    this.log.info('share pack exported', {
-      instanceId: instance.dirName,
-      path: result.path,
-      files: result.files,
-      bytes: result.bytes,
-      redacted,
-      skipped,
-    })
-    if (result.redactions.length > 0) {
-      // Evidence log: paths and field names only, never values.
-      this.log.warn('share pack credentials stripped', {
-        instanceId: instance.dirName,
-        ...describeShareRedactions(result.redactions),
-      })
+      {
+        failureCode: 'INSTANCE.SHARE_EXPORT_FAILED',
+        cleanup: () => {
+          if (!artifactPath) return
+          for (const target of [artifactPath, `${artifactPath}.part`]) {
+            try {
+              this.fs.remove(target)
+            } catch {
+              /* best effort */
+            }
+          }
+        },
+      },
+    )
+    return { jobId, instanceId: instance.dirName, name: settings.name }
+  }
+
+  cancelShareExport(jobId: string): { cancelled: boolean } {
+    return { cancelled: this.shareExportJobs.cancel(jobId) }
+  }
+
+  shareExportStatus(jobId: string): ShareExportProgress | null {
+    const progress = this.shareExportJobs.status(jobId)
+    if (!progress) return null
+    const meta = this.shareExportJobs.meta(jobId) ?? {}
+    return {
+      ...progress,
+      phase: progress.stage,
+      files: progress.done,
+      totalFiles: progress.total,
+      bytes: progress.bytesDone,
+      totalBytes: progress.bytesTotal,
+      instanceId: meta.instanceId ?? '',
+      name: meta.name ?? '',
     }
-    return result
+  }
+
+  shareExportResult(jobId: string): ShareExportFinished | null {
+    const outcome = this.shareExportJobs.outcome(jobId)
+    if (!outcome) return null
+    const meta = this.shareExportJobs.meta(jobId) ?? {}
+    return {
+      jobId: outcome.jobId,
+      state: outcome.state,
+      ok: outcome.ok,
+      error: outcome.error,
+      durationMs: outcome.durationMs,
+      instanceId: meta.instanceId ?? '',
+      name: meta.name ?? '',
+      result: outcome.result,
+    }
+  }
+
+  /** Test seam: waits for an export job. */
+  waitForShareExport(
+    jobId: string,
+    timeoutMs?: number,
+  ): Promise<JobOutcome<ShareExportResult>> {
+    return this.shareExportJobs.waitFor(jobId, timeoutMs)
   }
 
   /**
-   * Imports a `.cubitpack` as a new isolated instance. Everything is staged
-   * first; a same-name instance is only moved aside for the final rename and
-   * is restored if anything fails (see `RollbackStack`).
+   * Prechecks the archive/conflict synchronously (no writes), then starts the
+   * cancellable import job. Conflict/skip are returned directly.
    */
-  async importSharePack(input: ShareImportInput): Promise<ShareImportResult> {
+  importSharePackJob(input: ShareImportInput): ShareImportStart {
     const root = this.root()
-    const result = await extractSharePack({
+    const preview = previewShareImport({
       fs: this.fs,
       mcRoot: root,
       filePath: input.filePath,
@@ -589,21 +726,116 @@ export class InstanceModuleService {
         return item ? Boolean(this.options.isInstanceRunning?.(item.id, item.dirName)) : false
       },
       now: this.now,
-      log: {
-        info: (message, fields) => this.log.info(message, fields),
-        warn: (message, fields) => this.log.warn(message, fields),
-      },
     })
-    if (result.status === 'imported' && result.instanceId) {
-      this.options.onChanged?.(result.instanceId)
+    if (preview.conflictResult) {
+      return {
+        kind: preview.conflictResult.status === 'skipped' ? 'skipped' : 'conflict',
+        result: preview.conflictResult,
+      }
     }
-    this.log.info('share pack import result', {
-      status: result.status,
-      instanceId: result.instanceId,
-      files: result.files,
-      launchable: result.launchable,
-    })
-    return result
+    const jobId = randomUUID()
+    let stagingPath: string | null = null
+    this.shareImportJobs.start(
+      { id: jobId, stage: 'import', meta: { filePath: input.filePath } },
+      async (job) => {
+        const result = await extractSharePack({
+          fs: this.fs,
+          mcRoot: root,
+          filePath: input.filePath,
+          ...(input.name ? { name: input.name } : {}),
+          ...(input.conflict ? { conflict: input.conflict } : {}),
+          preview,
+          signal: job.signal,
+          onStaging: (staging) => {
+            stagingPath = staging
+          },
+          onProgress: (progress) => {
+            job.update({
+              stage: progress.phase,
+              done: progress.files,
+              total: progress.totalFiles,
+              bytesDone: progress.bytes,
+              bytesTotal: progress.totalBytes,
+              currentFile: progress.currentFile,
+            })
+          },
+          now: this.now,
+          log: {
+            info: (message, fields) => this.log.info(message, fields),
+            warn: (message, fields) => this.log.warn(message, fields),
+          },
+        })
+        if (result.status === 'imported' && result.instanceId) {
+          this.options.onChanged?.(result.instanceId)
+        }
+        this.log.info('share pack import result', {
+          status: result.status,
+          instanceId: result.instanceId,
+          files: result.files,
+          launchable: result.launchable,
+        })
+        return result
+      },
+      {
+        failureCode: 'INSTANCE.SHARE_IMPORT_FAILED',
+        cleanup: () => {
+          if (!stagingPath) return
+          try {
+            this.fs.remove(stagingPath)
+          } catch {
+            /* best effort */
+          }
+        },
+      },
+    )
+    return {
+      kind: 'started',
+      jobId,
+      filePath: input.filePath,
+      name: preview.displayName,
+    }
+  }
+
+  cancelShareImport(jobId: string): { cancelled: boolean } {
+    return { cancelled: this.shareImportJobs.cancel(jobId) }
+  }
+
+  shareImportStatus(jobId: string): ShareImportProgress | null {
+    const progress = this.shareImportJobs.status(jobId)
+    if (!progress) return null
+    const meta = this.shareImportJobs.meta(jobId) ?? {}
+    return {
+      ...progress,
+      phase: progress.stage,
+      files: progress.done,
+      totalFiles: progress.total,
+      bytes: progress.bytesDone,
+      totalBytes: progress.bytesTotal,
+      filePath: meta.filePath ?? '',
+    }
+  }
+
+  shareImportResult(jobId: string): ShareImportFinished | null {
+    const outcome = this.shareImportJobs.outcome(jobId)
+    if (!outcome) return null
+    const meta = this.shareImportJobs.meta(jobId) ?? {}
+    return {
+      jobId: outcome.jobId,
+      state: outcome.state,
+      ok: outcome.ok,
+      error: outcome.error,
+      durationMs: outcome.durationMs,
+      filePath: meta.filePath ?? '',
+      result: outcome.result,
+    }
+  }
+
+  /** Test seam: waits for an import job. */
+  waitForShareImport(
+    jobId: string,
+    timeoutMs?: number,
+  ): Promise<JobOutcome<ShareImportResult>> {
+    return this.shareImportJobs.waitFor(jobId, timeoutMs)
   }
 
   async update(id: string, patch: InstancePatch): Promise<InstanceSummary> {

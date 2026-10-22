@@ -31,6 +31,12 @@ export function register(ctx: ModuleContext): void {
       }
       return false
     },
+    onCopySaveProgress: (progress) => {
+      moduleIpc.emit(moduleId, 'copySaveProgress', progress)
+    },
+    onCopySaveFinished: (finished) => {
+      moduleIpc.emit(moduleId, 'copySaveFinished', finished)
+    },
   })
 
   publishService(moduleId, service)

@@ -80,37 +80,56 @@ function fixture(running = false) {
   writeFile(path.join(instanceDir, 'mods', 'a.jar'), 'mod')
   writeFile(path.join(instanceDir, 'config', 'x.json'), '{"token":"SERVICE-SECRET"}')
   const changed: Array<string | null> = []
+  const events: string[] = []
   const service = createInstanceService({ dataRoot, mcRoot }, logger, {
     now: () => 1_700_000_000_000,
     isInstanceRunning: () => running,
     onChanged: (instanceId) => changed.push(instanceId),
+    onShareExportProgress: (progress) => {
+      expect(progress.files).toBeGreaterThanOrEqual(0)
+      expect(progress.bytes).toBeGreaterThanOrEqual(0)
+      expect(progress.phase.length).toBeGreaterThan(0)
+      events.push(`export:${progress.phase}`)
+    },
+    onShareImportProgress: (progress) => {
+      expect(progress.files).toBeGreaterThanOrEqual(0)
+      expect(progress.bytes).toBeGreaterThanOrEqual(0)
+      events.push(`import:${progress.phase}`)
+    },
+    onShareExportFinished: (finished) => events.push(`export-finished:${finished.state}`),
+    onShareImportFinished: (finished) => events.push(`import-finished:${finished.state}`),
   })
-  return { root, mcRoot, dataRoot, instanceDir, service, changed }
+  return { root, mcRoot, dataRoot, instanceDir, service, changed, events }
 }
 
 describe('instance service share pack API', () => {
   it('exports and re-imports through the service, emitting changed', async () => {
     const h = fixture()
-    const exported = await h.service.exportSharePack({
+    const exportStart = h.service.exportSharePackJob({
       instanceId: 'Example',
       outPath: path.join(h.root, 'share.cubitpack'),
       include: { saves: true },
     })
+    const exported = (await h.service.waitForShareExport(exportStart.jobId)).result!
     expect(exported.format).toBe('cubitpack')
     expect(fs.existsSync(exported.path)).toBe(true)
     expect(exported.redactions.some((record) => record.path === 'game/config/x.json')).toBe(true)
 
-    const conflict = await h.service.importSharePack({
+    const conflictStart = h.service.importSharePackJob({
       filePath: exported.path,
       name: 'Example',
     })
-    expect(conflict.status).toBe('conflict')
+    expect(conflictStart.kind).toBe('conflict')
+    if (conflictStart.kind === 'conflict') expect(conflictStart.result.status).toBe('conflict')
 
-    const imported = await h.service.importSharePack({
+    const importStart = h.service.importSharePackJob({
       filePath: exported.path,
       name: 'Example',
       conflict: 'rename',
     })
+    expect(importStart.kind).toBe('started')
+    if (importStart.kind !== 'started') throw new Error('import did not start')
+    const imported = (await h.service.waitForShareImport(importStart.jobId)).result!
     expect(imported).toMatchObject({
       status: 'imported',
       instanceId: 'Example-2',
@@ -123,9 +142,45 @@ describe('instance service share pack API', () => {
     ) as { name: string; isolation: string }
     expect(settings.name).toBe('Example')
     expect(settings.isolation).toBe('isolated')
+    expect(h.events).toContain('export-finished:done')
+    expect(h.events).toContain('import-finished:done')
+    expect(h.events.some((event) => event.startsWith('export:scan'))).toBe(true)
+    expect(h.events.some((event) => event.startsWith('import:import'))).toBe(true)
   })
 
-  it('refuses to export shared-isolation or running instances', async () => {
+  it('cancels export/import jobs without leaving artifacts or staging dirs', async () => {
+    const h = fixture()
+    const exportStart = h.service.exportSharePackJob({
+      instanceId: 'Example',
+      outPath: path.join(h.root, 'cancelled.cubitpack'),
+    })
+    expect(h.service.cancelShareExport(exportStart.jobId).cancelled).toBe(true)
+    const exportOutcome = await h.service.waitForShareExport(exportStart.jobId)
+    expect(exportOutcome.state).toBe('cancelled')
+    expect(fs.existsSync(path.join(h.root, 'cancelled.cubitpack'))).toBe(false)
+
+    const exported = (
+      await h.service.waitForShareExport(
+        h.service.exportSharePackJob({
+          instanceId: 'Example',
+          outPath: path.join(h.root, 'source.cubitpack'),
+        }).jobId,
+      )
+    ).result!
+    const importStart = h.service.importSharePackJob({
+      filePath: exported.path,
+      conflict: 'rename',
+    })
+    if (importStart.kind !== 'started') throw new Error('import did not start')
+    expect(h.service.cancelShareImport(importStart.jobId).cancelled).toBe(true)
+    const importOutcome = await h.service.waitForShareImport(importStart.jobId)
+    expect(importOutcome.state).toBe('cancelled')
+    const versions = fs.readdirSync(path.join(h.mcRoot, 'versions'))
+    expect(versions.filter((name) => name.startsWith('.share-'))).toEqual([])
+    expect(versions).not.toContain('Example-2')
+  })
+
+  it('refuses to export shared-isolation or running instances', () => {
     const shared = fixture()
     const sharedDir = path.join(shared.mcRoot, 'versions', 'Shared')
     writeFile(path.join(sharedDir, 'Shared.json'), versionJson('Shared'))
@@ -138,13 +193,13 @@ describe('instance service share pack API', () => {
       now: 1,
     })
     writeFile(path.join(sharedDir, 'instance.json'), JSON.stringify(sharedSettings))
-    await expect(
-      shared.service.exportSharePack({ instanceId: 'Shared' }),
-    ).rejects.toMatchObject({ code: 'INSTANCE.SHARE_EXPORT_UNSUPPORTED' })
+    expect(() => shared.service.exportSharePackJob({ instanceId: 'Shared' })).toThrowError(
+      expect.objectContaining({ code: 'INSTANCE.SHARE_EXPORT_UNSUPPORTED' }),
+    )
 
     const running = fixture(true)
-    await expect(
-      running.service.exportSharePack({ instanceId: 'Example' }),
-    ).rejects.toMatchObject({ code: 'INSTANCE.RUNNING' })
+    expect(() => running.service.exportSharePackJob({ instanceId: 'Example' })).toThrowError(
+      expect.objectContaining({ code: 'INSTANCE.RUNNING' }),
+    )
   })
 })

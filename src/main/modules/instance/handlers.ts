@@ -25,16 +25,22 @@ export function makeHandlers(service: InstanceModuleService) {
     resumeCopy: async (input: { jobId: string }) => service.resumeCopy(input.jobId),
     copyStatus: async (input: { jobId: string }) => service.copyStatus(input.jobId),
     copyResult: async (input: { jobId: string }) => service.copyResult(input.jobId),
-    exportSharePack: async (input: {
+    exportSharePackJob: async (input: {
       instanceId: string
       outPath?: string
-      include?: Parameters<InstanceModuleService['exportSharePack']>[0]['include']
-    }) => service.exportSharePack(input),
-    importSharePack: async (input: {
+      include?: Parameters<InstanceModuleService['exportSharePackJob']>[0]['include']
+    }) => service.exportSharePackJob(input),
+    cancelShareExport: async (input: { jobId: string }) => service.cancelShareExport(input.jobId),
+    shareExportStatus: async (input: { jobId: string }) => service.shareExportStatus(input.jobId),
+    shareExportResult: async (input: { jobId: string }) => service.shareExportResult(input.jobId),
+    importSharePackJob: async (input: {
       filePath: string
       name?: string
-      conflict?: Parameters<InstanceModuleService['importSharePack']>[0]['conflict']
-    }) => service.importSharePack(input),
+      conflict?: Parameters<InstanceModuleService['importSharePackJob']>[0]['conflict']
+    }) => service.importSharePackJob(input),
+    cancelShareImport: async (input: { jobId: string }) => service.cancelShareImport(input.jobId),
+    shareImportStatus: async (input: { jobId: string }) => service.shareImportStatus(input.jobId),
+    shareImportResult: async (input: { jobId: string }) => service.shareImportResult(input.jobId),
     discover: async () => service.discover(),
     setGameDir: async (input: { path: string }) => service.setGameDir(input),
     import: async (input: { path: string }) => service.importRoot(input),

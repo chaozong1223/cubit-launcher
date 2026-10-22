@@ -3,7 +3,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AppError } from '@shared/errors'
-import { contract } from '@shared/instance'
+import {
+  ShareExportResultSchema,
+  ShareImportResultSchema,
+} from '@shared/instance'
 import { nodeFsPort } from '../ports'
 import { defaultInstanceSettings } from '../instance/settings'
 import { createSharePack } from '../instance/share/export'
@@ -140,7 +143,7 @@ function createFixture(): Fixture {
   return { root, mcRoot, dataRoot, instanceDir, dirName }
 }
 
-function exportFixture(fixture: Fixture, include?: Record<string, boolean>) {
+async function exportFixture(fixture: Fixture, include?: Record<string, boolean>) {
   const settings = readInstanceSettings(fsPort, fixture.instanceDir).settings!
   return createSharePack({
     fs: fsPort,
@@ -157,13 +160,13 @@ function exportFixture(fixture: Fixture, include?: Record<string, boolean>) {
 }
 
 describe('share pack export', () => {
-  it('packs the instance, strips credentials and keeps evidence without values', () => {
+  it('packs the instance, strips credentials and keeps evidence without values', async () => {
     const fixture = createFixture()
-    const result = exportFixture(fixture, { saves: true })
+    const result = await exportFixture(fixture, { saves: true })
     expect(result.format).toBe('cubitpack')
     expect(result.files).toBeGreaterThan(0)
     expect(fs.existsSync(result.path)).toBe(true)
-    expect(contract.methods.exportSharePack.output.safeParse(result).success).toBe(true)
+    expect(ShareExportResultSchema.safeParse(result).success).toBe(true)
 
     const archive = openZipFile(fsPort, result.path)
     const manifest = readShareManifest(archive)
@@ -221,9 +224,9 @@ describe('share pack export', () => {
     expect(logs.some((line) => line.startsWith('warn:share pack credentials stripped'))).toBe(true)
   })
 
-  it('honours the content selection', () => {
+  it('honours the content selection', async () => {
     const fixture = createFixture()
-    const result = exportFixture(fixture, {
+    const result = await exportFixture(fixture, {
       mods: false,
       config: false,
       resourcepacks: false,
@@ -244,7 +247,7 @@ describe('share pack export', () => {
 describe('share pack import', () => {
   it('imports a pack as a launchable isolated instance and resets unsafe settings', async () => {
     const fixture = createFixture()
-    const exported = exportFixture(fixture, { saves: true })
+    const exported = await exportFixture(fixture, { saves: true })
     const result = await extractSharePack({
       fs: fsPort,
       mcRoot: fixture.mcRoot,
@@ -264,7 +267,7 @@ describe('share pack import', () => {
       launchable: true,
       missingLibraries: 0,
     })
-    expect(contract.methods.importSharePack.output.safeParse(result).success).toBe(true)
+    expect(ShareImportResultSchema.safeParse(result).success).toBe(true)
 
     const importedDir = path.join(fixture.mcRoot, 'versions', 'Imported')
     expect(fs.existsSync(path.join(importedDir, 'mods', 'example.jar'))).toBe(true)
@@ -303,7 +306,7 @@ describe('share pack import', () => {
 
   it('reports a conflict before touching disk and supports skip/rename/overwrite', async () => {
     const fixture = createFixture()
-    const exported = exportFixture(fixture)
+    const exported = await exportFixture(fixture)
     const versionsDir = path.join(fixture.mcRoot, 'versions')
     const sourceBefore = fs.readFileSync(
       path.join(fixture.instanceDir, 'mods', 'example.jar'),
@@ -440,7 +443,7 @@ describe('share pack import', () => {
 
   it('reports missing base versions without failing the import', async () => {
     const fixture = createFixture()
-    const exported = exportFixture(fixture)
+    const exported = await exportFixture(fixture)
     fs.rmSync(path.join(fixture.mcRoot, 'versions', '1.20.1'), { recursive: true, force: true })
 
     const result = await extractSharePack({

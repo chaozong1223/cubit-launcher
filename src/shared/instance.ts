@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { defineContract } from './kernel'
 import { TrashItemSchema, type TrashItem } from './assets'
-import { JobFinishedSchema, JobProgressSchema } from './job'
+import { JobFinishedSchema, JobProgressSchema, FileJobProgressSchema } from './job'
 
 /** Four-state instance recognition from docs/01 §5.1 / docs/03 §6.1. */
 export const InstanceState = z.enum([
@@ -242,6 +242,49 @@ export const ShareImportResultSchema = z.object({
 })
 export type ShareImportResult = z.infer<typeof ShareImportResultSchema>
 
+export const ShareExportStartSchema = z.object({
+  jobId: z.string().min(1),
+  instanceId: z.string().min(1),
+  name: z.string().min(1),
+})
+export type ShareExportStart = z.infer<typeof ShareExportStartSchema>
+
+export const ShareExportProgressSchema = FileJobProgressSchema.extend({
+  instanceId: z.string().min(1),
+  name: z.string().min(1),
+})
+export type ShareExportProgress = z.infer<typeof ShareExportProgressSchema>
+
+export const ShareExportFinishedSchema = JobFinishedSchema.extend({
+  instanceId: z.string().min(1),
+  name: z.string().min(1),
+  result: ShareExportResultSchema.nullable(),
+})
+export type ShareExportFinished = z.infer<typeof ShareExportFinishedSchema>
+
+export const ShareImportStartSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('conflict'), result: ShareImportResultSchema }),
+  z.object({ kind: z.literal('skipped'), result: ShareImportResultSchema }),
+  z.object({
+    kind: z.literal('started'),
+    jobId: z.string().min(1),
+    filePath: z.string().min(1),
+    name: z.string().nullable(),
+  }),
+])
+export type ShareImportStart = z.infer<typeof ShareImportStartSchema>
+
+export const ShareImportProgressSchema = FileJobProgressSchema.extend({
+  filePath: z.string().min(1),
+})
+export type ShareImportProgress = z.infer<typeof ShareImportProgressSchema>
+
+export const ShareImportFinishedSchema = JobFinishedSchema.extend({
+  filePath: z.string().min(1),
+  result: ShareImportResultSchema.nullable(),
+})
+export type ShareImportFinished = z.infer<typeof ShareImportFinishedSchema>
+
 /** Removing an instance only moves versions/<dir> into dataRoot/trash. */
 export const RemoveInstanceResultSchema = z.object({
   trashId: z.string(),
@@ -303,15 +346,42 @@ export const contract = defineContract({
       input: z.object({ jobId: z.string().min(1) }),
       output: InstanceCopyFinishedSchema.nullable(),
     },
-    /** Pack one isolated instance (profile + selected content) as a `.cubitpack`. */
-    exportSharePack: {
+    /** Start packing an isolated instance; progress/finished arrive as events. */
+    exportSharePackJob: {
       input: ShareExportInputSchema,
-      output: ShareExportResultSchema,
+      output: ShareExportStartSchema,
     },
-    /** Import a `.cubitpack` as a new isolated instance (with conflict policy). */
-    importSharePack: {
+    cancelShareExport: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ cancelled: z.boolean() }),
+    },
+    shareExportStatus: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: ShareExportProgressSchema.nullable(),
+    },
+    shareExportResult: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: ShareExportFinishedSchema.nullable(),
+    },
+    /**
+     * Prechecks the archive/conflict synchronously; returns conflict/skip
+     * without writing, otherwise starts the import job.
+     */
+    importSharePackJob: {
       input: ShareImportInputSchema,
-      output: ShareImportResultSchema,
+      output: ShareImportStartSchema,
+    },
+    cancelShareImport: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ cancelled: z.boolean() }),
+    },
+    shareImportStatus: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: ShareImportProgressSchema.nullable(),
+    },
+    shareImportResult: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: ShareImportFinishedSchema.nullable(),
     },
     scan: {
       input: z.object({ mcRoot: z.string().optional() }),
@@ -349,6 +419,20 @@ export const contract = defineContract({
     },
     copyFinished: {
       payload: InstanceCopyFinishedSchema,
+    },
+    shareExportProgress: {
+      payload: ShareExportProgressSchema,
+      throttleMs: 100,
+    },
+    shareExportFinished: {
+      payload: ShareExportFinishedSchema,
+    },
+    shareImportProgress: {
+      payload: ShareImportProgressSchema,
+      throttleMs: 100,
+    },
+    shareImportFinished: {
+      payload: ShareImportFinishedSchema,
     },
   },
 })
