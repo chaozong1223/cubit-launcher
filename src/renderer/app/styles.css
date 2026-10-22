@@ -1267,6 +1267,11 @@
 }
 .hero-more__item:hover { background: var(--surface-2); color: var(--text); }
 .hero-more__item .ico { color: var(--text-3); }
+.hero-more__sep {
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--border-subtle);
+}
 .memory-bar {
   margin-bottom: 16px;
   padding: 14px 16px;

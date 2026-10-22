@@ -45,6 +45,12 @@ const DETAIL_LINKS: ReadonlyArray<{ section: string; label: string; icon: Parame
   { section: 'export', label: '导出', icon: 'upload' },
 ]
 
+/** Page-level destinations that used to live in the sidebar. */
+const PAGE_LINKS: ReadonlyArray<{ path: string; label: string; icon: Parameters<typeof Icon>[0]['name'] }> = [
+  { path: '#/saves', label: '存档', icon: 'cube' },
+  { path: '#/schematics', label: '投影管理', icon: 'schematic' },
+]
+
 function launchUiState(instance: InstanceSummary, status: LaunchState | null): LaunchUiState {
   if (instance.state !== 'ready') return instance.state === 'missing-json' || instance.state === 'corrupt-json' ? 'blocked' : 'not-installed'
   if (!status) return 'unknown'
@@ -390,6 +396,22 @@ function Hero({ instance }: { instance: InstanceSummary }) {
                     onClick={() => {
                       setDetailMenuOpen(false)
                       navigate(`/instances/${encodeURIComponent(instance.id)}/${entry.section}`)
+                    }}
+                  >
+                    <Icon name={entry.icon} className="ico ico--sm" />
+                    <span>{entry.label}</span>
+                  </button>
+                ))}
+                <div className="hero-more__sep" aria-hidden="true" />
+                {PAGE_LINKS.map((entry) => (
+                  <button
+                    key={entry.path}
+                    type="button"
+                    role="menuitem"
+                    className="hero-more__item"
+                    onClick={() => {
+                      setDetailMenuOpen(false)
+                      navigate(entry.path)
                     }}
                   >
                     <Icon name={entry.icon} className="ico ico--sm" />
