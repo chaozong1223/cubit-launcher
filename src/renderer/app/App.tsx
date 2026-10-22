@@ -53,6 +53,19 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: st
   ] },
 ]
 
+/**
+ * Page-level sections, shown inside the secondary panel like StarCloud does:
+ * the panel describes the *current page*, it is not a copy of the whole menu.
+ * Pages without sections collapse the panel and let the content breathe.
+ */
+const PAGE_SECTIONS: Partial<Record<Route['name'], ReadonlyArray<{ id: string; label: string; hint?: string }>>> = {
+  download: [
+    { id: 'dl-versions', label: '版本选择', hint: '正式版 / 快照 / 远古' },
+    { id: 'dl-install', label: '安装与加载器', hint: '原版 · Forge · Fabric' },
+    { id: 'dl-tasks', label: '下载任务', hint: '进度与取消' },
+  ],
+}
+
 function readGlobal(name: 'require' | 'process'): unknown {
   return (window as unknown as Record<string, unknown>)[name]
 }
@@ -163,38 +176,55 @@ function Rail({ route, collapsed, onToggle }: { route: Route; collapsed: boolean
 }
 
 /**
- * Secondary column, modelled after StarCloud Launcher: a context card on top and
- * the full navigation menu underneath (all sections, grouped), so the icon rail
- * can stay icon-only while labels live here.
+ * Secondary column, modelled after StarCloud Launcher: it describes the page you
+ * are on (its sections), not the whole navigation. Pages without sections return
+ * null so the panel collapses and the content gets the width back — the icon
+ * rail already carries every destination.
  */
 function SubNav({ route }: { route: Route }) {
-  const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
+  const sections = PAGE_SECTIONS[route.name]
+  const [active, setActive] = useState<string | null>(null)
+
+  useEffect(() => {
+    setActive(null)
+    if (!sections || sections.length === 0) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+        if (visible) setActive(visible.target.id)
+      },
+      { rootMargin: '-15% 0px -65% 0px' },
+    )
+    for (const section of sections) {
+      const element = document.getElementById(section.id)
+      if (element) observer.observe(element)
+    }
+    return () => observer.disconnect()
+  }, [route.name, sections])
+
+  if (!sections || sections.length === 0) return null
 
   return (
-    <aside className="subnav" id="subnav" aria-label="主导航">
-      {NAV_GROUPS.map((group) => (
-        <div className="subnav__group" key={group.label}>
-          <div className="subnav__title">{group.label}</div>
-          <div className="subnav__list">
-            {group.items.map((item) => (
-              <a
-                className="subnav__item"
-                href={item.path}
-                key={item.path}
-                aria-current={navActive === item.name ? 'page' : undefined}
-              >
-                <Icon name={item.icon} className="ico ico--sm" />
-                <span>{item.label}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      ))}
-      <div className="subnav__footer">
-        <button className="subnav__item subnav__item--button" type="button" onClick={() => navigate('/components')}>
-          <Icon name="flask" className="ico ico--sm" />
-          <span>界面规范</span>
-        </button>
+    <aside className="subnav" id="subnav" aria-label="页面小节">
+      <div className="subnav__title">{routeTitle(route)}</div>
+      <div className="subnav__list">
+        {sections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            className="subnav__item subnav__item--button"
+            aria-current={active === section.id ? 'page' : undefined}
+            onClick={() => {
+              document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              setActive(section.id)
+            }}
+          >
+            <span className="subnav__item-label">{section.label}</span>
+            {section.hint ? <span className="subnav__item-meta">{section.hint}</span> : null}
+          </button>
+        ))}
       </div>
     </aside>
   )

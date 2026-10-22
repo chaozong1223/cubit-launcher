@@ -351,7 +351,7 @@ export function DownloadPage() {
         </Banner>
       ) : null}
 
-      <div className="ver-picker">
+      <div className="ver-picker" id="dl-versions">
         <div className="ver-pills">
           {MC_TABS.map((tab) => (
             <button
@@ -434,7 +434,7 @@ export function DownloadPage() {
         </div>
       </div>
 
-      <div className="download-grid">
+      <div className="download-grid" id="dl-install">
         <Card className="install-card">
           <div className="tabs install-type-tabs" role="tablist" aria-label="安装类型">
             {TYPES.map((option) => (
@@ -567,7 +567,7 @@ export function DownloadPage() {
           {loaderError ? <div className="nw-inline-error">{loaderError.title}：{loaderError.detail}</div> : null}
         </Card>
 
-        <Card className="task-panel">
+        <Card className="task-panel" id="dl-tasks">
           <div className="task-panel__head">
             <div>
               <div className="task-panel__title">{loaderProgress ? '加载器安装任务' : '下载任务'}</div>
