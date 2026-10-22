@@ -98,6 +98,13 @@ function versionTypeLabel(type: string): string {
   }
 }
 
+/** Icon tier follows the manifest type: release = green, snapshot = purple, legacy = grey. */
+function versionIconClass(type: string): string {
+  if (type === 'snapshot') return ' ver-row__icon--snap'
+  if (type !== 'release') return ' ver-row__icon--old'
+  return ''
+}
+
 function TaskCard({ progress, onPause, onResume, onCancel }: {
   progress: DownloadProgress
   onPause: () => void
@@ -412,7 +419,7 @@ export function DownloadPage() {
                 onClick={() => pickVersion(version.id)}
               >
                 <span
-                  className={`ver-row__icon${version.type === 'snapshot' ? ' ver-row__icon--snap' : ''}`}
+                  className={`ver-row__icon${versionIconClass(version.type)}`}
                   aria-hidden="true"
                 />
                 <span className="ver-row__main">
