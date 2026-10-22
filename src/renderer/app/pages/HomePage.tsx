@@ -4,7 +4,10 @@ import type { LaunchExitReport, LaunchPlan, LaunchState } from '@shared/launch'
 import { useBackend } from '../data/BackendContext'
 import { useCurrentAccount } from '../data/useAccount'
 import { BackendError, describeError, type LaunchExitedEvent, type LaunchStageEvent, type LaunchStatusEvent, type UiErrorInfo } from '../data/backend'
+import { DeleteInstanceDialog } from './DeleteInstanceDialog'
 import { useAsync } from '../data/useAsync'
+import { useInstanceRunning } from '../data/useInstanceRunning'
+
 import { useSystem } from '../system'
 import { navigate } from '../router'
 import {
@@ -562,6 +565,10 @@ export function HomePage() {
   const currentAccount = accountState.data?.accounts.find((account) => account.id === accountState.data?.selectedId) ?? accountState.data?.accounts[0] ?? null
   const instances = useAsync(() => backend.instances.list(), [])
   const [selectedId, setSelectedId] = useState<string | null>(() => localStorage.getItem('mcl.global.instanceId'))
+  const [pendingDelete, setPendingDelete] = useState<InstanceSummary | null>(null)
+  const pendingDeleteRunning = useInstanceRunning(pendingDelete?.id ?? null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState<UiErrorInfo | null>(null)
 
   const selected = useMemo(() => {
     if (!instances.data || instances.data.length === 0) return null
@@ -593,15 +600,18 @@ export function HomePage() {
 
   /** Move an instance to the recycle bin; it can be restored from 回收站. */
   const removeInstance = async (instance: InstanceSummary) => {
-    if (!window.confirm(`把「${instance.name}」移入回收站？可在回收站恢复。`)) return
+    setDeleteBusy(true)
+    setDeleteError(null)
     try {
       await backend.instances.removeInstance(instance.id)
       window.dispatchEvent(new CustomEvent('mcl:instances-changed'))
       await instances.reload()
       if (selectedId === instance.id) setSelectedId(null)
+      setPendingDelete(null)
     } catch (cause) {
-      const info = describeError(cause)
-      window.alert(`${info.title}：${info.detail}`)
+      setDeleteError(describeError(cause))
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -709,7 +719,7 @@ export function HomePage() {
                       icon="trash"
                       aria-label={`删除实例 ${instance.name}`}
                       title="移入回收站（可在回收站恢复）"
-                      onClick={() => void removeInstance(instance)}
+                      onClick={() => setPendingDelete(instance)}
                     >
                       删除
                     </Button>
@@ -810,6 +820,20 @@ export function HomePage() {
           </Card>
         </aside>
       </div>
+
+      <DeleteInstanceDialog
+        instance={pendingDelete}
+        running={pendingDeleteRunning}
+        busy={deleteBusy}
+        error={deleteError}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+        onConfirm={() => {
+          if (pendingDelete) void removeInstance(pendingDelete)
+        }}
+      />
     </>
   )
 }
