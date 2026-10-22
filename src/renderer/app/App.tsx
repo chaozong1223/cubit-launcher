@@ -150,7 +150,7 @@ function Page({ route }: { route: Route }) {
     case 'instances': return <InstancesPage />
     case 'instance': return <InstanceDetailPage />
     case 'download': return <DownloadPage />
-    case 'catalog': return <CatalogPage mode="search" />
+    case 'catalog': return <CatalogPage mode="search" category={route.section} />
     case 'updates': return <CatalogPage mode="updates" />
     case 'saves': return <SavesPage />
     case 'schematics': return <SchematicsPage />

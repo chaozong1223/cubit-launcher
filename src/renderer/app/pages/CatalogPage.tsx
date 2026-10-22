@@ -23,7 +23,7 @@ import { CatalogUpdates } from './CatalogUpdates'
 
 export type CatalogMode = 'search' | 'updates'
 
-export function CatalogPage({ mode }: { mode: CatalogMode }) {
+export function CatalogPage({ mode, category }: { mode: CatalogMode; category?: string }) {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
   const [selectedId, setSelectedId] = useState('')
@@ -136,7 +136,7 @@ export function CatalogPage({ mode }: { mode: CatalogMode }) {
       ) : null}
 
       {mode === 'search' ? (
-        <CatalogSearch instance={selected} />
+        <CatalogSearch instance={selected} category={category} />
       ) : (
         <CatalogUpdates instance={selected} />
       )}

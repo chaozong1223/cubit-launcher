@@ -383,7 +383,7 @@
 .catalog-results__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .catalog-results__head h2 { margin: 0; font-size: 14px; color: var(--text); }
 .catalog-results__head span { display: block; margin-top: 2px; font-size: 10.5px; color: var(--text-3); }
-.catalog-row-list { display: flex; flex-direction: column; gap: 2px; }
+.catalog-row-list { display: flex; flex-direction: column; gap: 2px; animation: nw-fade-in 260ms var(--ease-out); }
 .catalog-type-chips { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 .catalog-type-chip {
   display: inline-flex;

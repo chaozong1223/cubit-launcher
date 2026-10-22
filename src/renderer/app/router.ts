@@ -25,7 +25,9 @@ export function parseHash(hash: string): Route {
     case 'download':
       return { path: '#/download', name: 'download' }
     case 'catalog':
-      return { path: '#/catalog', name: 'catalog' }
+      return second
+        ? { path: `#/catalog/${second}`, name: 'catalog', section: second }
+        : { path: '#/catalog', name: 'catalog' }
     case 'updates':
       return { path: '#/updates', name: 'updates' }
     case 'saves':

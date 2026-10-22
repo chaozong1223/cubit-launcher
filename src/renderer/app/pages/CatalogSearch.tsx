@@ -27,6 +27,7 @@ import {
   Tag,
 } from '../ui'
 import { Icon } from '../icons'
+import { navigate } from '../router'
 import {
   formatBytes,
   formatDate,
@@ -313,10 +314,12 @@ function ProjectDetail({
   )
 }
 
-export function CatalogSearch({ instance }: { instance: InstanceSummary | null }) {
+export function CatalogSearch({ instance, category }: { instance: InstanceSummary | null; category?: string }) {
+  const isProjectType = (value: string | undefined): value is CatalogProjectType =>
+    value === 'mod' || value === 'modpack' || value === 'resourcepack' || value === 'shader'
   const backend = useBackend()
   const [query, setQuery] = useState('')
-  const [projectType, setProjectType] = useState<CatalogProjectType>('mod')
+  const [projectType, setProjectType] = useState<CatalogProjectType>(isProjectType(category) ? category : 'mod')
   const [loader, setLoader] = useState('')
   const [gameVersion, setGameVersion] = useState('')
   const [filters, setFilters] = useState<SearchFilters>({ query: '', projectType: 'mod', loaders: [], offset: 0 })
@@ -435,7 +438,13 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
             role="tab"
             aria-selected={projectType === option.value}
             className="catalog-type-chip"
-            onClick={() => setProjectType(option.value)}
+            onClick={() => {
+              // Each category is its own route: clicking a chip switches the
+              // page, so the list always shows exactly one project type.
+              setProjectType(option.value)
+              setFilters({ query: '', projectType: option.value, loaders: [], gameVersion: undefined, offset: 0 })
+              navigate(`/catalog/${option.value}`)
+            }}
           >
             <Icon name={TYPE_ICONS[option.value] ?? 'package'} className="ico ico--sm" />
             <span>{option.label}</span>
@@ -529,7 +538,7 @@ export function CatalogSearch({ instance }: { instance: InstanceSummary | null }
         ) : search.data?.hits.length === 0 ? (
           <EmptyState icon="search" title="没有找到项目" description="换一个关键词或清空筛选条件；结果只来自 Modrinth 实时 API。" />
         ) : (
-          <div className="catalog-row-list">
+          <div className="catalog-row-list" key={projectType}>
             {search.data?.hits.map((hit) => (
               <HitCard
                 key={hit.projectId}
