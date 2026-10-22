@@ -53,19 +53,6 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: st
   ] },
 ]
 
-/**
- * Page-level sections, shown inside the secondary panel like StarCloud does:
- * the panel describes the *current page*, it is not a copy of the whole menu.
- * Pages without sections collapse the panel and let the content breathe.
- */
-const PAGE_SECTIONS: Partial<Record<Route['name'], ReadonlyArray<{ id: string; label: string; hint?: string }>>> = {
-  download: [
-    { id: 'dl-versions', label: '版本选择', hint: '正式版 / 快照 / 远古' },
-    { id: 'dl-install', label: '安装与加载器', hint: '原版 · Forge · Fabric' },
-    { id: 'dl-tasks', label: '下载任务', hint: '进度与取消' },
-  ],
-}
-
 function readGlobal(name: 'require' | 'process'): unknown {
   return (window as unknown as Record<string, unknown>)[name]
 }
@@ -176,62 +163,12 @@ function Rail({ route, collapsed, onToggle }: { route: Route; collapsed: boolean
 }
 
 /**
- * Secondary column, modelled after StarCloud Launcher: it describes the page you
- * are on (its sections), not the whole navigation. Pages without sections return
- * null so the panel collapses and the content gets the width back — the icon
- * rail already carries every destination.
+ * Secondary column, modelled after StarCloud Launcher: it is the full navigation
+ * menu (one primary list, a divider, then the system group). Per-page categories
+ * live inside the page, not here — the panel never changes shape between pages.
  */
 function SubNav({ route }: { route: Route }) {
-  const sections = PAGE_SECTIONS[route.name]
-  const [active, setActive] = useState<string | null>(null)
-
-  useEffect(() => {
-    setActive(null)
-    if (!sections || sections.length === 0) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-        if (visible) setActive(visible.target.id)
-      },
-      { rootMargin: '-15% 0px -65% 0px' },
-    )
-    for (const section of sections) {
-      const element = document.getElementById(section.id)
-      if (element) observer.observe(element)
-    }
-    return () => observer.disconnect()
-  }, [route.name, sections])
-
   const navActive = route.name === 'instance' ? 'instances' : route.name === 'spec' ? 'about' : route.name
-
-  // Pages with their own sections (download) describe those; every other page
-  // falls back to the full menu, exactly like StarCloud's expanded panel.
-  if (sections && sections.length > 0) {
-    return (
-      <aside className="subnav" id="subnav" aria-label="页面小节">
-        <div className="subnav__title">{routeTitle(route)}</div>
-        <div className="subnav__list">
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              className="subnav__item subnav__item--button"
-              aria-current={active === section.id ? 'page' : undefined}
-              onClick={() => {
-                document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                setActive(section.id)
-              }}
-            >
-              <span className="subnav__item-label">{section.label}</span>
-              {section.hint ? <span className="subnav__item-meta">{section.hint}</span> : null}
-            </button>
-          ))}
-        </div>
-      </aside>
-    )
-  }
 
   const primary = NAV_GROUPS.filter((group) => group.label !== '系统')
   const secondary = NAV_GROUPS.filter((group) => group.label === '系统')
