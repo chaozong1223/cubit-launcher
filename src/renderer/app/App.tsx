@@ -237,23 +237,11 @@ function Page({ route }: { route: Route }) {
 export default function App() {
   const backend = useBackend()
   const route = useRoute()
-  const [navCollapsed, setNavCollapsed] = useState(() => {
-    try {
-      return window.localStorage.getItem('cubit.nav.collapsed') === '1'
-    } catch {
-      return false
-    }
-  })
+  // Always starts expanded: a remembered collapsed state made the app look
+  // "broken" on launch (only the icon rail) because the toggle lives in the rail.
+  const [navCollapsed, setNavCollapsed] = useState(false)
   const toggleNav = useCallback(() => {
-    setNavCollapsed((previous) => {
-      const next = !previous
-      try {
-        window.localStorage.setItem('cubit.nav.collapsed', next ? '1' : '0')
-      } catch {
-        /* storage unavailable: the toggle still works for this session */
-      }
-      return next
-    })
+    setNavCollapsed((previous) => !previous)
   }, [])
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [version, setVersion] = useState<string | null>(null)

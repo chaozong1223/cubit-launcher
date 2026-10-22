@@ -1099,6 +1099,7 @@
 .rail-btn--menu {
   margin-bottom: 6px;
   color: var(--text-2);
+  -webkit-app-region: no-drag;
 }
 .shell--nav-collapsed .subnav {
   display: none;
