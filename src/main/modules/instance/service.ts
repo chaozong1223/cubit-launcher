@@ -25,6 +25,7 @@ import {
   readInstanceSettings,
   writeInstanceSettings,
 } from '../../core/instance/settings'
+import { copyInstanceDirectory } from '../../core/instance/copy'
 import { discoverMinecraftRoots, type DiscoveryOptions } from './discovery'
 import { TrashStore } from '../assets/trash'
 
@@ -293,6 +294,64 @@ export class InstanceModuleService {
     writeInstanceSettings(this.fs, dir, settings)
     this.log.info('instance created', { dirName: input.dirName, mcVersion: input.mcVersion })
     return this.get(settings.id)
+  }
+
+  /**
+   * Duplicates an isolated instance into a new directory (version files, mods,
+   * configs and optionally saves). Shared-isolation instances have no dedicated
+   * directory, so they are rejected instead of copying the whole .minecraft.
+   */
+  async copyInstance(
+    id: string,
+    input: { newName?: string; includeWorlds?: boolean } = {},
+  ): Promise<InstanceSummary> {
+    const root = this.root()
+    const instance = scanInstances(this.fs, root).find(
+      (item) => item.id === id || item.dirName === id,
+    )
+    if (!instance) {
+      throw new CoreError('INSTANCE.NOT_FOUND', {
+        message: `instance not found: ${id}`,
+        userMessage: '要复制的实例不存在或已被删除。',
+        details: { instanceId: id },
+      })
+    }
+    const sourceSettings = readInstanceSettings(this.fs, instance.dir).settings
+    if (sourceSettings?.isolation === 'shared' || instance.isolation === 'shared') {
+      throw new CoreError('INSTANCE.COPY_SHARED_UNSUPPORTED', {
+        message: 'shared isolation has no per-instance directory to copy',
+        userMessage: '这个实例使用「共享」隔离，没有独立目录可复制；请先把隔离方式改为「隔离」再复制。',
+        details: { instanceId: id },
+      })
+    }
+    // Imported PCL instances usually have no instance.json; fall back to the
+    // scanned summary so copying still works for them.
+    const settingsForCopy =
+      sourceSettings ??
+      defaultInstanceSettings({
+        dirName: instance.dirName,
+        name: instance.name,
+        mcVersion: instance.mcVersion,
+        loader: instance.loader,
+        isolation: 'isolated',
+        source: 'ours',
+      })
+
+    const result = copyInstanceDirectory(this.fs, {
+      sourceDirName: instance.dirName,
+      sourceSettings: settingsForCopy,
+      newName: input.newName,
+      includeWorlds: input.includeWorlds,
+      mcRoot: root,
+      exists: (target) => this.fs.exists(target),
+      now: () => Date.now(),
+    })
+    this.log.info('instance copied', {
+      source: instance.dirName,
+      target: result.dirName,
+      includeWorlds: input.includeWorlds !== false,
+    })
+    return this.get(result.dirName)
   }
 
   async update(id: string, patch: InstancePatch): Promise<InstanceSummary> {

@@ -18,6 +18,8 @@ export function makeHandlers(service: InstanceModuleService) {
       loader: Parameters<InstanceModuleService['create']>[0]['loader']
       isolation: 'shared' | 'isolated'
     }) => service.create(input),
+    copyInstance: async (input: { id: string; newName?: string; includeWorlds?: boolean }) =>
+      service.copyInstance(input.id, { newName: input.newName, includeWorlds: input.includeWorlds }),
     discover: async () => service.discover(),
     setGameDir: async (input: { path: string }) => service.setGameDir(input),
     import: async (input: { path: string }) => service.importRoot(input),

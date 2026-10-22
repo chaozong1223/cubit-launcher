@@ -170,6 +170,15 @@ export const contract = defineContract({
       input: z.object({ id: z.string(), patch: InstancePatchSchema }),
       output: InstanceSummarySchema,
     },
+    /** Duplicates an isolated instance (version files, mods, configs, optionally saves). */
+    copyInstance: {
+      input: z.object({
+        id: z.string().min(1),
+        newName: z.string().min(1).max(64).optional(),
+        includeWorlds: z.boolean().optional(),
+      }),
+      output: InstanceSummarySchema,
+    },
     scan: {
       input: z.object({ mcRoot: z.string().optional() }),
       output: z.object({ count: z.number().int() }),

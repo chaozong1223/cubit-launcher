@@ -64,6 +64,16 @@ export const CORE_ERRORS = {
     userMessage: '实例不存在',
     retryable: false,
   },
+  'INSTANCE.SETTINGS_UNREADABLE': {
+    category: 'version',
+    userMessage: '实例配置读取失败，无法复制',
+    retryable: false,
+  },
+  'INSTANCE.COPY_SHARED_UNSUPPORTED': {
+    category: 'version',
+    userMessage: '共享隔离的实例没有独立目录，无法复制',
+    retryable: false,
+  },
   'JAVA.NOT_FOUND': {
     category: 'java',
     userMessage: '找不到可用的 Java 运行时',
