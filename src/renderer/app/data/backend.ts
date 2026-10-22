@@ -92,6 +92,8 @@ import type {
   LogLevel,
   LogSource,
   RestoreResult,
+  SaveConflictStrategy,
+  SaveCopyResult,
   SaveEntry,
   ScreenshotEntry,
   TrashItem,
@@ -415,6 +417,7 @@ const CH = {
   assetsListSaves: channelOf('assets', 'listSaves'),
   assetsBackupSave: channelOf('assets', 'backupSave'),
   assetsDeleteSaves: channelOf('assets', 'deleteSaves'),
+  assetsCopySave: channelOf('assets', 'copySave'),
   assetsListScreenshots: channelOf('assets', 'listScreenshots'),
   assetsPreviewScreenshot: channelOf('assets', 'previewScreenshot'),
   assetsDeleteScreenshots: channelOf('assets', 'deleteScreenshots'),
@@ -622,8 +625,8 @@ export interface Backend {
   }
   launch: {
     status(instanceId: string): Promise<LaunchStatus>
-    plan(instanceId: string, accountId?: string | null): Promise<LaunchPlan>
-    start(instanceId: string, accountId?: string | null): Promise<{ sessionId: string }>
+    plan(instanceId: string, accountId?: string | null, world?: string | null): Promise<LaunchPlan>
+    start(instanceId: string, accountId?: string | null, world?: string | null): Promise<{ sessionId: string }>
     stop(sessionId: string): Promise<{ ok: boolean }>
     lastReport(instanceId: string): Promise<LaunchExitReport | null>
     subscribeStatus(callback: (event: LaunchStatusEvent) => void): () => void
@@ -665,6 +668,13 @@ export interface Backend {
     listSaves(instanceId: string): Promise<{ gameDir: string; saves: SaveEntry[] }>
     backupSave(instanceId: string, name: string, outPath?: string): Promise<BackupResult>
     deleteSaves(instanceId: string, names: string[]): Promise<BatchTrashResult>
+    copySave(
+      instanceId: string,
+      name: string,
+      targetInstanceId: string,
+      targetName?: string,
+      conflict?: SaveConflictStrategy,
+    ): Promise<SaveCopyResult>
     listScreenshots(instanceId: string): Promise<{ gameDir: string; screenshots: ScreenshotEntry[] }>
     previewScreenshot(instanceId: string, name: string): Promise<{ dataUrl: string; mime: string; size: number }>
     deleteScreenshots(instanceId: string, names: string[]): Promise<BatchTrashResult>
@@ -850,18 +860,20 @@ export const ipcBackend: Backend = {
   },
   launch: {
     status: (instanceId) => invoke<LaunchStatus>('启动状态', CH.launchStatus, { instanceId }),
-    plan: (instanceId, accountId = null) =>
-      invoke<LaunchPlan>('文件 ${result.downloaded} 新 / ${result.skipped} 跳过 · ${evidence}${warnings.length ?', CH.launchPlan, {
+    plan: (instanceId, accountId = null, world = null) =>
+      invoke<LaunchPlan>('启动参数预览', CH.launchPlan, {
         instanceId,
         accountId,
         server: null,
+        world,
         dryRun: true,
       }),
-    start: (instanceId, accountId = null) =>
-      invoke<{ sessionId: string }>('游戏运行中，不能删除；请先结束游戏', CH.launchStart, {
+    start: (instanceId, accountId = null, world = null) =>
+      invoke<{ sessionId: string }>('启动游戏', CH.launchStart, {
         instanceId,
         accountId,
         server: null,
+        world,
       }),
     stop: (sessionId) => invoke<{ ok: boolean }>('结束游戏', CH.launchStop, { sessionId }),
     lastReport: (instanceId) =>
@@ -915,6 +927,14 @@ export const ipcBackend: Backend = {
       invoke<BackupResult>('备份存档', CH.assetsBackupSave, { instanceId, name, ...(outPath ? { outPath } : {}) }),
     deleteSaves: (instanceId, names) =>
       invoke<BatchTrashResult>('删除存档到回收站', CH.assetsDeleteSaves, { instanceId, names }),
+    copySave: (instanceId, name, targetInstanceId, targetName, conflict) =>
+      invoke<SaveCopyResult>('复制存档到其他版本', CH.assetsCopySave, {
+        instanceId,
+        name,
+        targetInstanceId,
+        ...(targetName ? { targetName } : {}),
+        ...(conflict ? { conflict } : {}),
+      }),
     listScreenshots: (instanceId) =>
       invoke<{ gameDir: string; screenshots: ScreenshotEntry[] }>('进入「局域网世界」（LAN 世界）列表', CH.assetsListScreenshots, { instanceId }),
     previewScreenshot: (instanceId, name) =>

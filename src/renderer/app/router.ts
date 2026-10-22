@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 export interface Route {
   path: string
-  name: 'home' | 'instances' | 'instance' | 'download' | 'catalog' | 'updates' | 'saves' | 'screenshots' | 'trash' | 'link' | 'logs' | 'settings' | 'about' | 'spec'
+  name: 'home' | 'instances' | 'instance' | 'download' | 'catalog' | 'updates' | 'saves' | 'schematics' | 'screenshots' | 'trash' | 'link' | 'logs' | 'settings' | 'about' | 'spec'
   id?: string
   section?: string
 }
@@ -24,6 +24,8 @@ export function parseHash(hash: string): Route {
       return { path: '#/updates', name: 'updates' }
     case 'saves':
       return { path: '#/saves', name: 'saves' }
+    case 'schematics':
+      return { path: '#/schematics', name: 'schematics' }
     case 'screenshots':
       return { path: '#/screenshots', name: 'screenshots' }
     case 'trash':
@@ -74,6 +76,7 @@ export function routeTitle(route: Route): string {
     case 'catalog': return '资源库'
     case 'updates': return '模组更新'
     case 'saves': return '存档'
+    case 'schematics': return '投影管理'
     case 'screenshots': return '截图'
     case 'trash': return '回收站'
     case 'link': return '联机'

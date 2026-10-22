@@ -15,6 +15,7 @@ import { InstanceDetailPage } from './pages/InstanceDetailPage'
 import { DownloadPage } from './pages/DownloadPage'
 import { CatalogPage } from './pages/CatalogPage'
 import { SavesPage } from './pages/SavesPage'
+import { SchematicsPage } from './pages/SchematicsPage'
 import { ScreenshotsPage } from './pages/ScreenshotsPage'
 import { TrashPage } from './pages/TrashPage'
 import { LinkPage } from './pages/LinkPage'
@@ -29,6 +30,7 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: st
     { path: '#/home', name: 'home', label: '主页', icon: 'home' },
     { path: '#/instances', name: 'instances', label: '实例', icon: 'instances' },
     { path: '#/saves', name: 'saves', label: '存档', icon: 'cube' },
+    { path: '#/schematics', name: 'schematics', label: '投影管理', icon: 'schematic' },
     { path: '#/screenshots', name: 'screenshots', label: '截图', icon: 'package' },
   ] },
   { label: '获取', items: [
@@ -203,6 +205,7 @@ function Page({ route }: { route: Route }) {
     case 'catalog': return <CatalogPage mode="search" />
     case 'updates': return <CatalogPage mode="updates" />
     case 'saves': return <SavesPage />
+    case 'schematics': return <SchematicsPage />
     case 'screenshots': return <ScreenshotsPage />
     case 'trash': return <TrashPage />
     case 'link': return <LinkPage />

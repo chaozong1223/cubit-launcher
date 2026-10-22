@@ -35,6 +35,7 @@ export type IconName =
   | 'shield'
   | 'flask'
   | 'cube'
+  | 'schematic'
   | 'wifi'
   | 'network'
   | 'activity'
@@ -81,6 +82,7 @@ const ICONS: Record<IconName, ReactNode> = {
   shield: <><path d="M12 3 20 6v5.7c0 4.4-3.2 7.6-8 9.3-4.8-1.7-8-4.9-8-9.3V6l8-3Z" /><path d="m8.5 11.8 2.3 2.3 4.7-4.9" /></>,
   flask: <><path d="M9 3.5h6M10 3.5v6L4.8 18a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3L14 9.5v-6" /><path d="M7 14h10" /></>,
   cube: <><path d="M12 2.6 21 7.5v9L12 21.4 3 16.5v-9L12 2.6Z" /><path d="M3 7.5 12 12.4l9-4.9M12 12.4v9" opacity=".68" /></>,
+  schematic: <><path d="m12 3 8.6 4.5L12 12 3.4 7.5 12 3Z" /><path d="m3.4 12.2 8.6 4.5 8.6-4.5" /><path d="m3.4 16.9 8.6 4.5 8.6-4.5" /></>,
   wifi: <><path d="M3.5 9.2a12.6 12.6 0 0 1 17 0M6.5 12.7a8 8 0 0 1 11 0M9.5 16.2a3.5 3.5 0 0 1 5 0" /><circle cx="12" cy="19.2" r="1.1" fill="currentColor" stroke="none" /></>,
   network: <><circle cx="12" cy="12" r="8.8" /><path d="M3.4 12h17.2M12 3.2c2.4 2.6 3.6 5.6 3.6 8.8S14.4 18.2 12 20.8c-2.4-2.6-3.6-5.6-3.6-8.8S9.6 5.8 12 3.2Z" /></>,
   activity: <path d="M3 12h4l2.3-6 4 12 2.2-6H21" />,

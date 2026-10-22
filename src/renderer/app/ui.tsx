@@ -76,6 +76,15 @@ export function Button({
   )
 }
 
+/**
+ * `.btn[disabled]` uses `pointer-events: none`, so a `title` on the disabled
+ * button itself never opens. This wrapper keeps the explanation ("等 xx 接入")
+ * reachable without changing the button shape or making it clickable.
+ */
+export function DisabledHint({ hint, children }: { hint: string; children: ReactNode }) {
+  return <span className="btn-hint" title={hint}>{children}</span>
+}
+
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'outline' | 'neutral'
 
 export function Badge({ children, tone = 'neutral', dot = false }: { children: ReactNode; tone?: Tone; dot?: boolean }) {
