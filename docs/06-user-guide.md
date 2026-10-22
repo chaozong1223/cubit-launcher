@@ -109,12 +109,28 @@ powershell -ExecutionPolicy Bypass -File .\launch.ps1 --data-dir D:\mcl-data --m
 2. 页面会显示 `verification_uri` 与 `user_code`；在浏览器打开地址并输入代码。
 3. 成功后账户列表出现 microsoft 账户。
 
-**未配置/未获批时**：
+**client id 已内置（分发说明）**
 
-- `MS_CLIENT_ID_MISSING`：没有注入 Azure client id；
-- `MS_AUTH_NOT_APPROVED`（或接口 403）：Azure 应用尚未获得 Minecraft API（MCE）权限。
+本构建把 Application (client) ID（`66a65f38-49c2-47d9-a655-677dd877a1e9`）作为默认值编译进程序。它是 public client 的公开标识（会出现在授权 URL 里），不是密钥，因此：
 
-这两种情况**不会伪造登录**。MCE 审批是外部流程（以周计；本机已提交，结果未回），审批到货前请用离线/Authlib。client id 可在账户页“微软应用配置”里填写（public client，无 secret）。
+- 别人拿到发布包后**直接点「开始微软登录」即可**，用自己的微软账号登录；
+- **不需要**自己申请 Azure 应用、**不需要**填任何 client id；
+- 想换成自己的 Azure 应用时，仍可用环境变量或账户页覆盖。
+
+优先级：`MCL_MS_CLIENT_ID` 环境变量 → `data/modules/auth/config.json` 里填的值 → 内置默认。
+
+**分发给别人时必须注意**：
+
+1. redirect URI 必须是 Azure 应用里登记的 `http://localhost:53117/`；改端口会得到 `AADSTS50011`。
+2. 不要删除 `data/modules/auth/`：用户的登录态与配置在这里。
+3. 若对方带来一份把 clientId 写成空字符串的旧配置，程序会回落到内置默认值，不会出现“未配置”。
+
+**失败时的含义**：
+
+- `MS_CLIENT_ID_MISSING`：仅在手动清空配置且未注入环境变量时出现（正常发布包不会）；
+- `MS_AUTH_NOT_APPROVED`（或接口 403）：Azure 应用当前没有 Minecraft API（MCE）权限——本应用已获批，若复现说明换了 app 或租户。
+
+这些情况**不会伪造登录**。
 
 ### 5.3 Authlib（第三方皮肤站）
 
