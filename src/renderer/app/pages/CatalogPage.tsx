@@ -23,6 +23,14 @@ import { CatalogUpdates } from './CatalogUpdates'
 
 export type CatalogMode = 'search' | 'updates'
 
+/** One page title per category, so the header names what the list shows. */
+const CATEGORY_TITLES: Record<string, string> = {
+  mod: '模组',
+  modpack: '整合包',
+  resourcepack: '资源包',
+  shader: '光影',
+}
+
 export function CatalogPage({ mode, category }: { mode: CatalogMode; category?: string }) {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
@@ -48,10 +56,10 @@ export function CatalogPage({ mode, category }: { mode: CatalogMode; category?: 
   return (
     <>
       <PageHeader
-        title={mode === 'updates' ? '模组更新' : '资源库'}
+        title={mode === 'updates' ? '模组更新' : CATEGORY_TITLES[category ?? 'mod'] ?? '资源库'}
         subtitle={mode === 'updates'
           ? '检查已装模组的可更新项、风险与更新日志；更新前会把旧文件移入回收站，可手动回滚。'
-          : 'Modrinth 实时搜索、详情与安装；所有结果与进度来自 mc:catalog:*，CurseForge 只打开项目页。'}
+          : `只显示${CATEGORY_TITLES[category ?? 'mod'] ?? '资源库'}；换类别请点上方标签，切走会清空筛选。`}
         actions={
           <>
             <Badge tone="accent" dot>{mode === 'updates' ? 'SHA-1 反查' : 'Modrinth 实时'}</Badge>

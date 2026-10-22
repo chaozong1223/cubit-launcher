@@ -318,11 +318,14 @@ export function CatalogSearch({ instance, category }: { instance: InstanceSummar
   const isProjectType = (value: string | undefined): value is CatalogProjectType =>
     value === 'mod' || value === 'modpack' || value === 'resourcepack' || value === 'shader'
   const backend = useBackend()
+  const initialType: CatalogProjectType = isProjectType(category) ? category : 'mod'
   const [query, setQuery] = useState('')
-  const [projectType, setProjectType] = useState<CatalogProjectType>(isProjectType(category) ? category : 'mod')
+  const [projectType, setProjectType] = useState<CatalogProjectType>(initialType)
   const [loader, setLoader] = useState('')
   const [gameVersion, setGameVersion] = useState('')
-  const [filters, setFilters] = useState<SearchFilters>({ query: '', projectType: 'mod', loaders: [], offset: 0 })
+  // Start from the route's category, otherwise the fetch would run as "mod"
+  // while the chip says "光影" and the page looks like nothing switched.
+  const [filters, setFilters] = useState<SearchFilters>({ query: '', projectType: initialType, loaders: [], offset: 0 })
   const [selectedHit, setSelectedHit] = useState<CatalogSearchHit | null>(null)
   const [installing, setInstalling] = useState<string | null>(null)
   const [installed, setInstalled] = useState<CatalogInstallResult | null>(null)
@@ -371,6 +374,21 @@ export function CatalogSearch({ instance, category }: { instance: InstanceSummar
       offUpdated()
     }
   }, [backend])
+
+  // Route is the source of truth for the category: back/forward or a chip click
+  // must both end with the same type in state and in the query.
+  useEffect(() => {
+    if (!isProjectType(category)) return
+    setProjectType((current) => {
+      if (current === category) return current
+      setQuery('')
+      setLoader('')
+      setGameVersion('')
+      setFilters({ query: '', projectType: category, loaders: [], offset: 0 })
+      return category
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category])
 
   const apply = (nextOffset = 0) => {
     setSelectedHit(null)
