@@ -280,10 +280,28 @@ function createMainWindow(): void {
   win.setMenuBarVisibility(false)
   applyWindowSecurity(win)
 
-  win.once('ready-to-show', () => {
+  // The window is shown only after the renderer has painted two frames.
+  // Showing on `ready-to-show` alone still lets the compositor present one
+  // blank (white) surface before the React tree lands — that was the flash.
+  let shown = false
+  const reveal = (reason: string) => {
+    if (shown) return
+    shown = true
     win.show()
-    logger.info('window', 'shown', { title: win.getTitle() })
+    logger.info('window', 'shown', { title: win.getTitle(), reason })
+  }
+  win.once('ready-to-show', () => {
+    void Promise.race([
+      win.webContents
+        .executeJavaScript(
+          'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))',
+        )
+        .catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]).finally(() => reveal('painted'))
   })
+  // Failsafe: never leave the app invisible if the renderer hangs.
+  setTimeout(() => reveal('timeout'), 4000)
 
   win.on('closed', () => {
     mainWindow = null
