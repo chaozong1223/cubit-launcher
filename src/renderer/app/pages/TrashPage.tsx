@@ -59,6 +59,31 @@ export function TrashPage() {
   const restorable = items.filter((item) => item.canRestore)
   const chosenRestorable = restorable.filter((item) => chosen.has(item.id))
 
+  /** Permanently remove trash entries; asks first because it cannot be undone. */
+  const purge = async (ids: string[]) => {
+    if (ids.length === 0) return
+    if (!window.confirm(`永久删除 ${ids.length} 项？此操作不可撤销。`)) return
+    setBusy('purge')
+    setError(null)
+    setResult(null)
+    try {
+      const result = await backend.assets.purgeTrash(ids)
+      setChosen(new Set())
+      if (result.failed.length > 0) {
+        setError({
+          title: `有 ${result.failed.length} 项未能删除`,
+          detail: result.failed.map((entry) => entry.message).join('；'),
+          retryable: true,
+        } as never)
+      }
+      await trash.reload()
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const restore = async (ids?: string[]) => {
     const targets = ids
       ? items.filter((item) => ids.includes(item.id) && item.canRestore)
@@ -128,6 +153,7 @@ export function TrashPage() {
               <>
                 <Button size="sm" variant="secondary" icon="close" onClick={() => setChosen(new Set())}>取消选择</Button>
                 <Button size="sm" variant="primary" icon="refresh" loading={busy === 'all'} onClick={() => void restore(chosenRestorable.map((item) => item.id))}>恢复所选（{chosenRestorable.length}）</Button>
+                <Button size="sm" variant="danger-ghost" icon="trash" loading={busy === 'purge'} onClick={() => void purge(chosenRestorable.map((item) => item.id))}>永久删除（{chosenRestorable.length}）</Button>
               </>
             ) : null}
             <Button size="sm" variant="primary" icon="refresh" loading={busy === 'all'} disabled={restorable.length === 0} onClick={() => void restore()}>一键恢复全部</Button>

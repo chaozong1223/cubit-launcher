@@ -188,4 +188,26 @@ export class TrashStore {
     }
     return { restored, failed }
   }
+
+  /**
+   * Permanently delete trash entries (payload + manifest). Irreversible, so the
+   * UI must confirm first.
+   */
+  purge(ids?: string[]): { purged: string[]; failed: Array<{ id: string; message: string }> } {
+    const wanted = ids && ids.length > 0 ? new Set(ids) : null
+    const purged: string[] = []
+    const failed: Array<{ id: string; message: string }> = []
+    for (const item of this.list()) {
+      if (wanted && !wanted.has(item.id)) continue
+      try {
+        const payload = this.payloadPath(item.id)
+        if (this.fs.exists(payload)) this.fs.remove(payload)
+        this.fs.remove(path.dirname(this.manifestPath(item.id)))
+        purged.push(item.id)
+      } catch (error) {
+        failed.push({ id: item.id, message: error instanceof Error ? error.message : String(error) })
+      }
+    }
+    return { purged, failed }
+  }
 }

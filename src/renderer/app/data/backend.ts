@@ -483,6 +483,7 @@ const CH = {
   assetsOpenFile: channelOf('assets', 'openFile'),
   assetsListTrash: channelOf('assets', 'listTrash'),
   assetsRestoreTrash: channelOf('assets', 'restoreTrash'),
+  assetsPurgeTrash: channelOf('assets', 'purgeTrash'),
   crashAnalyze: channelOf('crash', 'analyze'),
   crashApplyFix: channelOf('crash', 'applyFix'),
   crashExportReport: channelOf('crash', 'exportReport'),
@@ -781,6 +782,7 @@ export interface Backend {
     openFile(instanceId: string, kind: 'save' | 'screenshot', name: string): Promise<{ ok: boolean }>
     listTrash(): Promise<{ items: TrashItem[] }>
     restoreTrash(ids?: string[]): Promise<RestoreResult>
+    purgeTrash(ids?: string[]): Promise<{ purged: string[]; failed: Array<{ id: string; message: string }> }>
     subscribeChanged(callback: (event: AssetsChangedEvent) => void): () => void
   }
   perf: {
@@ -1126,6 +1128,8 @@ export const ipcBackend: Backend = {
     listTrash: () => invoke<{ items: TrashItem[] }>('回收站列。', CH.assetsListTrash),
     restoreTrash: (ids) =>
       invoke<RestoreResult>('恢复实例失败', CH.assetsRestoreTrash, ids ? { ids } : {}),
+    purgeTrash: (ids) =>
+      invoke<{ purged: string[]; failed: Array<{ id: string; message: string }> }>('永久删除失败', CH.assetsPurgeTrash, ids ? { ids } : {}),
     subscribeChanged: (callback) => on('mc:assets:evt:changed', callback),
   },
   perf: {

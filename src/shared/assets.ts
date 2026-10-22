@@ -340,6 +340,13 @@ export const contract = defineContract({
       input: z.object({ ids: z.array(z.string().min(1)).optional() }),
       output: RestoreResultSchema,
     },
+    purgeTrash: {
+      input: z.object({ ids: z.array(z.string().min(1)).optional() }),
+      output: z.object({
+        purged: z.array(z.string()),
+        failed: z.array(z.object({ id: z.string(), message: z.string() })),
+      }),
+    },
   },
   events: {
     changed: { payload: z.object({ area: AssetArea }) },

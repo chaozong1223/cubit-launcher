@@ -1396,6 +1396,17 @@ export class AssetsModuleService {
     }
     return result
   }
+
+  async purgeTrash(input: { ids?: string[] } = {}): Promise<{
+    purged: string[]
+    failed: Array<{ id: string; message: string }>
+  }> {
+    const result = this.trash.purge(input.ids)
+    if (result.purged.length > 0) {
+      for (const area of ['saves', 'screenshots', 'schematics', 'game-logs'] as const) this.emit(area)
+    }
+    return result
+  }
 }
 
 export function createAssetsService(options: AssetsServiceOptions): AssetsModuleService {

@@ -70,6 +70,7 @@ export function makeHandlers(service: AssetsModuleService) {
     }) => service.openFile(input),
     listTrash: () => service.listTrash(),
     restoreTrash: (input: { ids?: string[] }) => service.restoreTrash(input),
+    purgeTrash: (input: { ids?: string[] }) => service.purgeTrash(input),
   }
 }
 
