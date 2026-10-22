@@ -7,7 +7,7 @@ import { catalogContract } from '@shared/catalog'
 import type { ScopedLogger } from '../../../kernel/logger'
 import type { CurseForgeClient } from '../../../core/curseforge/client'
 import type { CurseForgeConfig } from '../../../core/curseforge/settings'
-import { saveCurseForgeConfig } from '../../../core/curseforge/settings'
+import { configureCurseForgeCipher, saveCurseForgeConfig } from '../../../core/curseforge/settings'
 import { ModrinthClient } from '../core/modrinth'
 import { CatalogModuleService } from '../service'
 import {
@@ -21,10 +21,21 @@ import {
 const packBytes = Buffer.from('fake-mrpack-archive')
 const cfPackBytes = Buffer.from('fake-cf-archive')
 const originalEnvKey = process.env.MCL_CF_API_KEY
+const testCipher = {
+  available: true,
+  backend: 'dpapi',
+  async encrypt(plain: string): Promise<Buffer> {
+    return Buffer.from(`enc:${plain}`, 'utf8')
+  },
+  async decrypt(encrypted: Buffer): Promise<{ plain: string; shouldReEncrypt: boolean }> {
+    return { plain: encrypted.toString('utf8').replace(/^enc:/, ''), shouldReEncrypt: false }
+  },
+}
 
 const cleanup: string[] = []
 afterEach(() => {
   for (const dir of cleanup.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
+  configureCurseForgeCipher(null)
   if (originalEnvKey === undefined) delete process.env.MCL_CF_API_KEY
   else process.env.MCL_CF_API_KEY = originalEnvKey
 })
@@ -109,7 +120,10 @@ async function setup(
   const mcRoot = tempDir('mcl-link-mc-')
   const gameDir = path.join(mcRoot, 'versions', '1.20.1')
   fs.mkdirSync(gameDir, { recursive: true })
-  if (options.cfConfig) saveCurseForgeConfig(dataRoot, options.cfConfig)
+  if (options.cfConfig) {
+    configureCurseForgeCipher(testCipher)
+    await saveCurseForgeConfig(dataRoot, options.cfConfig, { cipher: testCipher, restrictAcl: null })
+  }
   delete process.env.MCL_CF_API_KEY
 
   const release = packVersion(server, 'v1', { published: '2026-01-01T00:00:00Z' })
@@ -360,6 +374,7 @@ describe('catalog link import — CurseForge', () => {
 
   it('updates key/mirror without exposing or logging the key', async () => {
     const h = await setup()
+    configureCurseForgeCipher(testCipher)
     const updated = await h.service.updateCurseForgeConfig({
       apiKey: 'super-secret-key',
       mirrorBase: 'https://mirror.example.com/api/v1',
@@ -367,13 +382,15 @@ describe('catalog link import — CurseForge', () => {
     expect(updated).toEqual({
       hasApiKey: true,
       mirrorBase: 'https://mirror.example.com/api/v1',
+      secureStorageAvailable: true,
+      persisted: true,
     })
     expect(JSON.stringify(h.logs)).not.toContain('super-secret-key')
     await expect(
       h.service.updateCurseForgeConfig({ mirrorBase: 'http://insecure.example.com' }),
     ).rejects.toMatchObject({ code: 'CATALOG.CF_MIRROR_INVALID' })
     const cleared = await h.service.updateCurseForgeConfig({ clearApiKey: true })
-    expect(cleared.hasApiKey).toBe(false)
+    expect(cleared).toMatchObject({ hasApiKey: false, persisted: false })
     await h.server.close()
   })
 })

@@ -340,7 +340,12 @@ export function ImportPackDialog({
               <div className="import-pack__cf-body">
                 <p>
                   Key 只作为 <code>x-api-key</code> 请求头发给 CurseForge API 主机，不会写入 URL、日志或分享包。
-                  {cf ? cf.hasApiKey ? ' 当前已保存一个 Key。' : ' 当前未配置 Key。' : ''}
+                  {cf ? (cf.hasApiKey ? ' 当前已保存一个 Key。' : ' 当前未配置 Key。') : ''}
+                  {cf && !cf.secureStorageAvailable
+                    ? ' 本机没有可用的安全存储（safeStorage），Key 只保留在本次会话，重启后需重新填写。'
+                    : cf?.hasApiKey && !cf.persisted
+                      ? ' 当前 Key 未加密持久化，重启后需重新填写。'
+                      : ''}
                 </p>
                 <Field label="API Key" hint="留空保持不变；不会回显已保存的 Key。">
                   <Input

@@ -711,13 +711,32 @@ export class CatalogModuleService {
 
   // ------------------------------------------------------- CurseForge config
 
+  private curseForgeStoreOptions(): {
+    log: { info: (message: string, fields?: Record<string, unknown>) => void; warn: (message: string, fields?: Record<string, unknown>) => void }
+  } {
+    return {
+      log: {
+        info: (message, fields) => this.log.info(message, fields),
+        warn: (message, fields) => this.log.warn(message, fields),
+      },
+    }
+  }
+
   async getCurseForgeConfig(): Promise<CurseForgeConfigView> {
-    // The key itself never leaves the main process.
-    return maskCurseForgeConfig(loadCurseForgeConfig(this.options.roots.dataRoot))
+    // The key itself never leaves the main process. Loading may migrate a
+    // legacy plaintext key to safeStorage (logged without the value).
+    const state = await loadCurseForgeConfig(
+      this.options.roots.dataRoot,
+      this.curseForgeStoreOptions(),
+    )
+    return maskCurseForgeConfig(state)
   }
 
   async updateCurseForgeConfig(patch: CurseForgeConfigPatch): Promise<CurseForgeConfigView> {
-    const current = loadStoredCurseForgeConfig(this.options.roots.dataRoot)
+    const current = await loadStoredCurseForgeConfig(
+      this.options.roots.dataRoot,
+      this.curseForgeStoreOptions(),
+    )
     let apiKey = current.apiKey
     if (patch.clearApiKey === true) {
       apiKey = null
@@ -735,13 +754,26 @@ export class CatalogModuleService {
         allowInsecureHosts: this.allowInsecureHosts,
       })
     }
-    saveCurseForgeConfig(this.options.roots.dataRoot, { apiKey, mirrorBase })
+    const state = await saveCurseForgeConfig(
+      this.options.roots.dataRoot,
+      { apiKey, mirrorBase },
+      {
+        ...this.curseForgeStoreOptions(),
+        preserveEncryptedKey:
+          patch.apiKey === undefined &&
+          patch.clearApiKey !== true &&
+          current.apiKey === null &&
+          current.encryptedOnDisk,
+      },
+    )
     this.log.info('curseforge config updated', {
       hasApiKey: Boolean(apiKey),
       mirrorConfigured: Boolean(mirrorBase),
       apiKeyChanged: patch.apiKey !== undefined || patch.clearApiKey === true,
+      secureStorageAvailable: state.secureStorageAvailable,
+      persisted: state.persisted,
     })
-    return this.getCurseForgeConfig()
+    return maskCurseForgeConfig(state)
   }
 
   // ------------------------------------------------------------- link import
@@ -884,7 +916,10 @@ export class CatalogModuleService {
   }
 
   private async planCurseForgeLink(parsed: ParsedPackLink): Promise<PackLinkPlan> {
-    const config = loadCurseForgeConfig(this.options.roots.dataRoot)
+    const config = await loadCurseForgeConfig(
+      this.options.roots.dataRoot,
+      this.curseForgeStoreOptions(),
+    )
     const planId = randomUUID()
     const base: PackLinkPlan = {
       planId,

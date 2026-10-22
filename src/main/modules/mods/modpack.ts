@@ -387,6 +387,7 @@ export interface CurseForgeResolverOptions {
   userAgent?: string
   allowInsecureHosts?: string[]
   log?: {
+    info?(message: string, fields?: Record<string, unknown>): void
     debug?(message: string, fields?: Record<string, unknown>): void
     warn?(message: string, fields?: Record<string, unknown>): void
   }
@@ -405,7 +406,16 @@ export function createCurseForgeResolver(
   return async (projectID, fileID, options = {}) => {
     if (options.signal?.aborted) throw new JobCancelledError()
     const config = defaults.dataRoot
-      ? loadCurseForgeConfig(defaults.dataRoot)
+      ? await loadCurseForgeConfig(defaults.dataRoot, {
+          ...(defaults.log
+            ? {
+                log: {
+                  info: defaults.log.info ?? (() => undefined),
+                  warn: defaults.log.warn ?? (() => undefined),
+                },
+              }
+            : {}),
+        })
       : { apiKey: process.env.MCL_CF_API_KEY ?? null, mirrorBase: null }
     if (!config.apiKey) {
       throw new AppError(

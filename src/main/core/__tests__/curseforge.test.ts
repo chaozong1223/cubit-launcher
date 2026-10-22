@@ -8,11 +8,14 @@ import {
   type CfFile,
 } from '../curseforge/client'
 import {
+  clearCurseForgeSession,
   loadCurseForgeConfig,
   loadStoredCurseForgeConfig,
   maskCurseForgeConfig,
   normalizeMirrorBase,
   saveCurseForgeConfig,
+  settingsFilePath,
+  type CurseForgeCipher,
 } from '../curseforge/settings'
 import { startServer, type TestServer } from '../../modules/catalog/__tests__/support/harness'
 
@@ -98,15 +101,237 @@ function file(id = 456, overrides: Record<string, unknown> = {}) {
 }
 
 describe('CurseForge settings', () => {
-  it('stores the key locally, masks it and never puts it in the view', () => {
+  function mockCipher(
+    options: { available?: boolean; failDecrypt?: boolean; failEncrypt?: boolean; shouldReEncrypt?: boolean } = {},
+  ): CurseForgeCipher {
+    const available = options.available ?? true
+    return {
+      available,
+      backend: available ? 'dpapi' : 'basic_text',
+      async encrypt(plain: string): Promise<Buffer> {
+        if (options.failEncrypt) throw new Error('encryption failed')
+        return Buffer.from(`enc:${plain}`, 'utf8')
+      },
+      async decrypt(encrypted: Buffer): Promise<{ plain: string; shouldReEncrypt: boolean }> {
+        if (options.failDecrypt) throw new Error('decryption failed')
+        return {
+          plain: encrypted.toString('utf8').replace(/^enc:/, ''),
+          shouldReEncrypt: options.shouldReEncrypt ?? false,
+        }
+      },
+    }
+  }
+
+  it('encrypts the key at rest and never puts it in the view or config file', async () => {
     const root = dataRoot()
-    expect(loadCurseForgeConfig(root)).toEqual({ apiKey: null, mirrorBase: null })
-    saveCurseForgeConfig(root, { apiKey: 'my-secret', mirrorBase: 'https://cf.example.com/api/v1' })
-    const stored = loadStoredCurseForgeConfig(root)
-    expect(stored).toEqual({ apiKey: 'my-secret', mirrorBase: 'https://cf.example.com/api/v1' })
-    const view = maskCurseForgeConfig(loadCurseForgeConfig(root))
-    expect(view).toEqual({ hasApiKey: true, mirrorBase: 'https://cf.example.com/api/v1' })
-    expect(JSON.stringify(view)).not.toContain('my-secret')
+    const cipher = mockCipher()
+    const saved = await saveCurseForgeConfig(
+      root,
+      { apiKey: 'my-secret-key', mirrorBase: 'https://cf.example.com/api/v1' },
+      { cipher, restrictAcl: null, env: {} },
+    )
+    expect(saved).toMatchObject({
+      apiKey: 'my-secret-key',
+      secureStorageAvailable: true,
+      persisted: true,
+      encryptedOnDisk: true,
+    })
+    const raw = fs.readFileSync(settingsFilePath(root), 'utf8')
+    expect(raw).toContain('apiKeyEnc')
+    expect(raw).not.toContain('my-secret-key')
+    expect(raw).not.toContain('"apiKey"')
+
+    const loaded = await loadCurseForgeConfig(root, { cipher, env: {} })
+    expect(loaded).toMatchObject({
+      apiKey: 'my-secret-key',
+      secureStorageAvailable: true,
+      persisted: true,
+      decryptFailed: false,
+    })
+    const view = maskCurseForgeConfig(loaded)
+    expect(view).toEqual({
+      hasApiKey: true,
+      mirrorBase: 'https://cf.example.com/api/v1',
+      secureStorageAvailable: true,
+      persisted: true,
+    })
+    expect(JSON.stringify(view)).not.toContain('my-secret-key')
+    clearCurseForgeSession(root)
+  })
+
+  it('keeps the key in memory only when secure storage is unavailable (no plaintext)', async () => {
+    const root = dataRoot()
+    const cipher = mockCipher({ available: false })
+    const saved = await saveCurseForgeConfig(
+      root,
+      { apiKey: 'session-only-key', mirrorBase: null },
+      { cipher, restrictAcl: null, env: {} },
+    )
+    expect(saved).toMatchObject({
+      secureStorageAvailable: false,
+      persisted: false,
+      encryptedOnDisk: false,
+    })
+    const raw = fs.readFileSync(settingsFilePath(root), 'utf8')
+    expect(raw).not.toContain('session-only-key')
+    expect(raw).not.toContain('apiKeyEnc')
+    expect(raw).not.toContain('"apiKey"')
+
+    // Same process/session: still usable.
+    const loaded = await loadCurseForgeConfig(root, { cipher, env: {} })
+    expect(loaded.apiKey).toBe('session-only-key')
+    expect(maskCurseForgeConfig(loaded)).toMatchObject({
+      hasApiKey: true,
+      persisted: false,
+      secureStorageAvailable: false,
+    })
+
+    // Restart: session memory is gone, nothing was persisted.
+    clearCurseForgeSession(root)
+    const afterRestart = await loadCurseForgeConfig(root, { cipher, env: {} })
+    expect(afterRestart.apiKey).toBeNull()
+    expect(maskCurseForgeConfig(afterRestart).hasApiKey).toBe(false)
+  })
+
+  it('reports a decrypt failure without throwing or leaking the key', async () => {
+    const root = dataRoot()
+    await saveCurseForgeConfig(
+      root,
+      { apiKey: 'unreadable-key', mirrorBase: null },
+      { cipher: mockCipher(), restrictAcl: null, env: {} },
+    )
+    const lines: Array<{ message: string; fields?: Record<string, unknown> }> = []
+    const loaded = await loadCurseForgeConfig(root, {
+      cipher: mockCipher({ failDecrypt: true }),
+      env: {},
+      log: {
+        info: (message, fields) => lines.push({ message, ...(fields ? { fields } : {}) }),
+        warn: (message, fields) => lines.push({ message, ...(fields ? { fields } : {}) }),
+      },
+    })
+    expect(loaded.apiKey).toBeNull()
+    expect(loaded.decryptFailed).toBe(true)
+    expect(loaded.persisted).toBe(false)
+    expect(JSON.stringify(lines)).not.toContain('unreadable-key')
+    clearCurseForgeSession(root)
+  })
+
+  it('migrates a legacy plaintext apiKey to encrypted storage with one evidence log', async () => {
+    const root = dataRoot()
+    fs.mkdirSync(path.dirname(settingsFilePath(root)), { recursive: true })
+    fs.writeFileSync(
+      settingsFilePath(root),
+      JSON.stringify({ schemaVersion: 1, apiKey: 'legacy-plain-key', mirrorBase: null }),
+    )
+    const lines: Array<{ message: string; fields?: Record<string, unknown> }> = []
+    const loaded = await loadCurseForgeConfig(root, {
+      cipher: mockCipher(),
+      env: {},
+      log: {
+        info: (message, fields) => lines.push({ message, ...(fields ? { fields } : {}) }),
+        warn: (message, fields) => lines.push({ message, ...(fields ? { fields } : {}) }),
+      },
+    })
+    expect(loaded).toMatchObject({
+      apiKey: 'legacy-plain-key',
+      migrated: true,
+      persisted: true,
+    })
+    const raw = fs.readFileSync(settingsFilePath(root), 'utf8')
+    expect(raw).toContain('apiKeyEnc')
+    expect(raw).not.toContain('legacy-plain-key')
+    expect(raw).not.toContain('"apiKey"')
+    expect(lines.some((line) => line.message.includes('migrated to encrypted storage'))).toBe(true)
+    expect(JSON.stringify(lines)).not.toContain('legacy-plain-key')
+    clearCurseForgeSession(root)
+  })
+
+  it('removes a legacy plaintext key when encryption is unavailable', async () => {
+    const root = dataRoot()
+    fs.mkdirSync(path.dirname(settingsFilePath(root)), { recursive: true })
+    fs.writeFileSync(
+      settingsFilePath(root),
+      JSON.stringify({ schemaVersion: 1, apiKey: 'legacy-no-dpapi', mirrorBase: null }),
+    )
+    const loaded = await loadCurseForgeConfig(root, {
+      cipher: mockCipher({ available: false }),
+      env: {},
+      restrictAcl: null,
+    })
+    expect(loaded.apiKey).toBe('legacy-no-dpapi')
+    expect(loaded.plaintextRemoved).toBe(true)
+    expect(loaded.persisted).toBe(false)
+    const raw = fs.readFileSync(settingsFilePath(root), 'utf8')
+    expect(raw).not.toContain('legacy-no-dpapi')
+    clearCurseForgeSession(root)
+  })
+
+  it('clears both ciphertext and the in-memory copy and hardens file ACLs', async () => {
+    const root = dataRoot()
+    const aclFiles: string[] = []
+    await saveCurseForgeConfig(
+      root,
+      { apiKey: 'clear-me', mirrorBase: null },
+      { cipher: mockCipher(), restrictAcl: (file) => aclFiles.push(file), env: {} },
+    )
+    expect(aclFiles).toEqual([settingsFilePath(root)])
+    const cleared = await saveCurseForgeConfig(
+      root,
+      { apiKey: null, mirrorBase: null },
+      { cipher: mockCipher(), restrictAcl: null, env: {} },
+    )
+    expect(cleared).toMatchObject({ apiKey: null, persisted: false })
+    const raw = fs.readFileSync(settingsFilePath(root), 'utf8')
+    expect(raw).not.toContain('apiKeyEnc')
+    expect((await loadStoredCurseForgeConfig(root, { cipher: mockCipher(), env: {} })).apiKey).toBeNull()
+    clearCurseForgeSession(root)
+  })
+
+  it('re-encrypts when safeStorage reports shouldReEncrypt', async () => {
+    const root = dataRoot()
+    await saveCurseForgeConfig(
+      root,
+      { apiKey: 'rotate-me', mirrorBase: null },
+      { cipher: mockCipher(), restrictAcl: null, env: {} },
+    )
+    await loadCurseForgeConfig(root, {
+      cipher: {
+        available: true,
+        backend: 'dpapi',
+        async encrypt(plain: string): Promise<Buffer> {
+          return Buffer.from(`rotated:${plain}`, 'utf8')
+        },
+        async decrypt(): Promise<{ plain: string; shouldReEncrypt: boolean }> {
+          return { plain: 'rotate-me', shouldReEncrypt: true }
+        },
+      },
+      env: {},
+    })
+    const after = fs.readFileSync(settingsFilePath(root), 'utf8')
+    expect(after).toContain(Buffer.from('rotated:rotate-me').toString('base64'))
+    expect(after).not.toContain('rotate-me')
+    clearCurseForgeSession(root)
+  })
+
+  it('keeps the key in memory when encryption throws (no plaintext fallback)', async () => {
+    const root = dataRoot()
+    const lines: Array<{ message: string }> = []
+    const saved = await saveCurseForgeConfig(
+      root,
+      { apiKey: 'cannot-encrypt', mirrorBase: null },
+      {
+        cipher: mockCipher({ failEncrypt: true }),
+        restrictAcl: null,
+        env: {},
+        log: { info: (message) => lines.push({ message }), warn: (message) => lines.push({ message }) },
+      },
+    )
+    expect(saved).toMatchObject({ persisted: false, encryptedOnDisk: false })
+    const raw = fs.readFileSync(settingsFilePath(root), 'utf8')
+    expect(raw).not.toContain('cannot-encrypt')
+    expect(raw).not.toContain('apiKeyEnc')
+    expect(JSON.stringify(lines)).not.toContain('cannot-encrypt')
+    clearCurseForgeSession(root)
   })
 
   it('validates mirror URLs and drops the official base', () => {

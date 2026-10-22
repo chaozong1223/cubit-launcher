@@ -207,6 +207,10 @@ export type CatalogPageResult = z.infer<typeof CatalogPageResultSchema>
 export const CurseForgeConfigViewSchema = z.object({
   hasApiKey: z.boolean(),
   mirrorBase: z.string().nullable(),
+  /** safeStorage is usable (not Linux `basic_text`): keys are encrypted at rest. */
+  secureStorageAvailable: z.boolean(),
+  /** The current key is encrypted on disk; false means session-only. */
+  persisted: z.boolean(),
 })
 export type CurseForgeConfigView = z.infer<typeof CurseForgeConfigViewSchema>
 
