@@ -591,8 +591,63 @@
 .btn-hint { display: inline-flex; min-width: 0; }
 .btn-hint > .btn { cursor: default; }
 
-/* Schematic manager (t10 skeleton): list on the left, target-version actions on the right. */
-.schematic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 292px; gap: 12px; align-items: start; }
+/* Page-level secondary menu (t14): underline tabs + left source list. */
+.page-subnav { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.page-subnav--tabs {
+  flex-direction: row; align-items: center; gap: 18px;
+  border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px;
+}
+.page-subnav__tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 1px; margin-bottom: -1px;
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: transparent; color: var(--text-3);
+  font: 600 12.5px/1 var(--font-sans); cursor: pointer;
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.page-subnav__tab:hover { color: var(--text); }
+.page-subnav__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.page-subnav__tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.page-subnav__tab .ico { width: 14px; height: 14px; flex: none; }
+.page-subnav__count {
+  min-width: 16px; padding: 1px 4px; border-radius: var(--radius-xs);
+  background: var(--surface-2); color: var(--text-3);
+  font-size: 9.5px; font-variant-numeric: tabular-nums;
+}
+.page-subnav__tab[aria-selected="true"] .page-subnav__count { background: var(--accent-subtle); color: var(--accent-text); }
+.page-subnav--list { gap: 2px; }
+.page-subnav__item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; padding: 7px 9px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-2); text-align: left;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.page-subnav__item:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.page-subnav__item:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.page-subnav__item[aria-current="page"] { background: var(--accent-subtle); color: var(--accent-text); font-weight: 600; }
+.page-subnav__item:disabled { opacity: .5; cursor: not-allowed; }
+.page-subnav__item-label {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px;
+}
+.page-subnav__item-label .ico { width: 13px; height: 13px; flex: none; }
+.page-subnav__item-meta {
+  width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-3); font-size: 9.5px; line-height: 13px; font-weight: 400;
+}
+.page-subnav__item[aria-current="page"] .page-subnav__item-meta { color: var(--accent-text); opacity: .82; }
+
+/* Schematic manager: source rail (left) + file list + target actions (right). */
+.schematic-page { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 12px; align-items: start; }
+.schematic-source {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; position: sticky; top: 8px;
+}
+.schematic-source__head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.schematic-source__head strong { color: var(--text-3); font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.schematic-source__hint { margin: 0; color: var(--text-3); font-size: 9.5px; line-height: 14px; }
+.schematic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; align-items: start; }
 /* Page-level secondary menu: a slim rail inside the page, not the global sidebar. */
 .page-split { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 14px; align-items: start; }
 .page-nav { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 8px; }
@@ -616,27 +671,30 @@
   .page-nav { flex-direction: row; flex-wrap: wrap; position: static; }
   .page-nav__item { width: auto; }
 }
+@media (max-width: 1240px) {
+  .schematic-layout { grid-template-columns: minmax(0, 1fr); }
+  .schematic-side__actions { flex-direction: row; flex-wrap: wrap; }
+  .schematic-side__actions .btn { width: auto; }
+}
+@media (max-width: 1000px) {
+  .schematic-page { grid-template-columns: minmax(0, 1fr); }
+  .schematic-source { position: static; }
+  .page-subnav--list { flex-direction: row; flex-wrap: wrap; }
+  .page-subnav__item { width: auto; }
+  .page-subnav__item-meta { display: none; }
+}
 .schematic-list { overflow: hidden; }
 .schematic-search { width: 180px; }
 .schematic-search .input { height: 28px; font-size: 12px; }
-.schematic-table th { white-space: nowrap; }
-.schematic-table { table-layout: fixed; font-size: 11px; }
-.schematic-table th, .schematic-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.schematic-table th:nth-child(1) { width: 42%; }
-.schematic-table th:nth-child(2) { width: 22%; }
-.schematic-table th:nth-child(3) { width: 14%; }
-.schematic-table th:nth-child(4) { width: 22%; }
+.schematic-table { table-layout: fixed; font-size: 10.5px; }
+.schematic-table th, .schematic-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 7px 6px; }
+.schematic-table th:nth-child(1) { width: 39%; }
+.schematic-table th:nth-child(2) { width: 24%; }
+.schematic-table th:nth-child(3) { width: 13%; }
+.schematic-table th:nth-child(4) { width: 24%; }
 .schematic-table .asset-name { min-width: 0; }
 .schematic-table .asset-name strong { flex: 1; min-width: 0; max-width: none; overflow: hidden; text-overflow: ellipsis; }
 .schematic-table .asset-name .badge { flex: none; }
-/* The schematic page needs more horizontal room for four columns at the app's
-   default 1280px window: turn its in-page rail into a compact row earlier than
-   the shared page-split breakpoint, without changing other pages. */
-@media (max-width: 1360px) {
-  .page-split--schematic { grid-template-columns: minmax(0, 1fr); }
-  .page-split--schematic .page-nav { flex-direction: row; flex-wrap: wrap; position: static; }
-  .page-split--schematic .page-nav__item { width: auto; }
-}
 .schematic-table .asset-name__icon,
 .schematic-selected .asset-name__icon { background: var(--accent-subtle); color: var(--accent-text); }
 .schematic-row { cursor: pointer; }

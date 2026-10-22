@@ -16,7 +16,7 @@ import {
   Field,
   Input,
   PageHeader,
-  PageNav,
+  PageSubNav,
   Segmented,
   Select,
   Skeleton,
@@ -367,27 +367,8 @@ export function LinkPage() {
         : '未选择账户'
   const room = link.data
 
-  // Page-level secondary menu: anchors to the three blocks of a live room.
-  const [section, setSection] = useState<'room' | 'lan' | 'info'>('room')
-  const jumpTo = (key: string) => {
-    setSection(key as 'room' | 'lan' | 'info')
-    document.getElementById(`link-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-  useEffect(() => {
-    if (!room) return
-    const elements = ['room', 'lan', 'info']
-      .map((key) => document.getElementById(`link-${key}`))
-      .filter((element): element is HTMLElement => Boolean(element))
-    if (elements.length === 0) return
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
-      if (visible) setSection(visible.target.id.replace('link-', '') as 'room' | 'lan' | 'info')
-    }, { rootMargin: '-16% 0px -64% 0px', threshold: 0 })
-    elements.forEach((element) => observer.observe(element))
-    return () => observer.disconnect()
-  }, [room])
+  // Page-level secondary tabs: the two real networking surfaces on this page.
+  const [section, setSection] = useState<'room' | 'lan'>('room')
   const pending = link.status === 'not-wired' || link.status === 'error'
   const info = pending ? describeError(link.error) : null
 
@@ -593,37 +574,44 @@ export function LinkPage() {
 
       {link.status === 'loading' ? (
         <Card className="nw-loading"><Skeleton className="skeleton--title" style={{ width: '34%' }} /><Skeleton className="skeleton--text" style={{ width: '72%', marginTop: 12 }} /><Skeleton className="skeleton--block" style={{ height: 80, marginTop: 16 }} /></Card>
-      ) : room ? (
-        <div className="page-split">
-          <PageNav
+      ) : (
+        <>
+          <PageSubNav
+            variant="tabs"
             label="联机页面导航"
             active={section}
-            onChange={jumpTo}
+            onChange={(key) => setSection(key as 'room' | 'lan')}
             items={[
-              { key: 'room', label: '房间', icon: 'link', count: room.members.length },
+              { key: 'room', label: '房间', icon: 'link', count: room?.members.length },
               { key: 'lan', label: '局域网', icon: 'network' },
-              { key: 'info', label: '隧道与说明', icon: 'info' },
             ]}
           />
-        <div className="link-grid">
+          {room ? (
+            <div className="link-grid">
           <div className="link-main">
-            {guideOpen ? (
-              <EnterWorldGuide
-                room={room}
-                instanceName={selectedInstance?.name ?? '当前实例'}
-                accountLabel={accountLabel}
-                premium={premium}
-                onClose={() => setGuideOpen(false)}
-              />
-            ) : guideReady ? (
-              <Button size="sm" variant="secondary" icon="info" onClick={() => setGuideOpen(true)}>显示进世界步骤</Button>
+            {section === 'room' ? (
+              <>
+                {guideOpen ? (
+                  <EnterWorldGuide
+                    room={room}
+                    instanceName={selectedInstance?.name ?? '当前实例'}
+                    accountLabel={accountLabel}
+                    premium={premium}
+                    onClose={() => setGuideOpen(false)}
+                  />
+                ) : guideReady ? (
+                  <Button size="sm" variant="secondary" icon="info" onClick={() => setGuideOpen(true)}>显示进世界步骤</Button>
+                ) : null}
+                <div id="link-room">
+                  <RoomView room={room} isHost={role === 'host'} onCopy={copyInvite} onLeave={() => void run(() => backend.link.leave())} onEnter={enterWorld} busy={busy || starting} enterLabel={premium ? '启动游戏并进服' : '启动游戏并进入多人菜单'} />
+                </div>
+              </>
             ) : null}
-            <div id="link-room">
-              <RoomView room={room} isHost={role === 'host'} onCopy={copyInvite} onLeave={() => void run(() => backend.link.leave())} onEnter={enterWorld} busy={busy || starting} enterLabel={premium ? '启动游戏并进服' : '启动游戏并进入多人菜单'} />
-            </div>
-            <div id="link-lan">
-              <LanWorldPanel instanceId={selectedInstance?.id ?? null} instanceName={selectedInstance?.name} premium={premium} onStartGuided={() => void startGuided()} />
-            </div>
+            {section === 'lan' ? (
+              <div id="link-lan">
+                <LanWorldPanel instanceId={selectedInstance?.id ?? null} instanceName={selectedInstance?.name} premium={premium} onStartGuided={() => void startGuided()} />
+              </div>
+            ) : null}
             {copied ? <div className="nw-copy-note"><Icon name="check" />完整邀请已复制到剪贴板（不会写入日志）。</div> : null}
             {actionError ? <div className="nw-inline-error">{actionError.title}：{actionError.detail}</div> : null}
           </div>
@@ -655,10 +643,10 @@ export function LinkPage() {
             </Card>
           </aside>
         </div>
-        </div>
       ) : (
         <div className="link-grid">
           <div className="link-main">
+            {section === 'room' ? (
             <Card className="room-card">
               <div className="room-head">
                 <div>
@@ -733,7 +721,12 @@ export function LinkPage() {
 
               {actionError ? <div className="nw-inline-error">{actionError.title}：{actionError.detail}</div> : null}
             </Card>
-            <LanWorldPanel instanceId={selectedInstance?.id ?? null} instanceName={selectedInstance?.name} premium={premium} onStartGuided={() => void startGuided()} />
+            ) : null}
+            {section === 'lan' ? (
+              <div id="link-lan">
+                <LanWorldPanel instanceId={selectedInstance?.id ?? null} instanceName={selectedInstance?.name} premium={premium} onStartGuided={() => void startGuided()} />
+              </div>
+            ) : null}
           </div>
 
           <aside className="link-aside">
@@ -756,6 +749,8 @@ export function LinkPage() {
             </Card>
           </aside>
         </div>
+          )}
+        </>
       )}
     </>
   )

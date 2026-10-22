@@ -3,6 +3,7 @@ import type {
   ButtonHTMLAttributes,
   CSSProperties,
   InputHTMLAttributes,
+  KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
@@ -221,6 +222,103 @@ export function PageNav({
         </button>
       ))}
     </nav>
+  )
+}
+
+export interface PageSubNavItem {
+  key: string
+  label: ReactNode
+  icon?: IconName
+  /** Secondary line for the list variant (MC version · loader / shared hint). */
+  meta?: ReactNode
+  count?: number
+  disabled?: boolean
+  /** Tooltip / explanation, especially for disabled entries that need a backend. */
+  hint?: string
+}
+
+/**
+ * Reusable page-level secondary menu. Two shapes, matching the reference:
+ * - `tabs`: text + 2px accent underline, no filled block (role=tablist/tab).
+ * - `list`: left-hand source list with an active row (aria-current=page).
+ *
+ * Items must come from real page data; do not invent placeholder tabs.
+ */
+export function PageSubNav({
+  variant = 'tabs',
+  items,
+  active,
+  onChange,
+  label = '页面导航',
+  className,
+}: {
+  variant?: 'tabs' | 'list'
+  items: PageSubNavItem[]
+  active: string
+  onChange: (key: string) => void
+  label?: string
+  className?: string
+}) {
+  const isTabs = variant === 'tabs'
+  const moveFocus = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    let next = -1
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % items.length
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + items.length) % items.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = items.length - 1
+    if (next < 0) return
+    const target = items[next]
+    if (!target || target.disabled) return
+    event.preventDefault()
+    onChange(target.key)
+    const children = event.currentTarget.parentElement?.children
+    const button = children?.[next] as HTMLButtonElement | undefined
+    button?.focus()
+  }
+
+  return (
+    <div
+      className={cx('page-subnav', `page-subnav--${variant}`, className)}
+      role={isTabs ? 'tablist' : undefined}
+      aria-label={label}
+    >
+      {items.map((item, index) => (
+        isTabs ? (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            className="page-subnav__tab"
+            aria-selected={item.key === active}
+            disabled={item.disabled}
+            title={item.hint}
+            onClick={() => onChange(item.key)}
+            onKeyDown={(event) => moveFocus(event, index)}
+          >
+            {item.icon ? <Icon name={item.icon} className="ico ico--sm" /> : null}
+            <span>{item.label}</span>
+            {typeof item.count === 'number' ? <span className="page-subnav__count">{item.count}</span> : null}
+          </button>
+        ) : (
+          <button
+            key={item.key}
+            type="button"
+            className="page-subnav__item"
+            aria-current={item.key === active ? 'page' : undefined}
+            disabled={item.disabled}
+            title={item.hint}
+            onClick={() => onChange(item.key)}
+          >
+            <span className="page-subnav__item-label">
+              {item.icon ? <Icon name={item.icon} className="ico ico--xs" /> : null}
+              {item.label}
+            </span>
+            {item.meta ? <span className="page-subnav__item-meta">{item.meta}</span> : null}
+            {typeof item.count === 'number' ? <span className="page-subnav__count">{item.count}</span> : null}
+          </button>
+        )
+      ))}
+    </div>
   )
 }
 
