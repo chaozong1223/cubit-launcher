@@ -1197,9 +1197,20 @@
   text-decoration: none;
 }
 .nav__item[aria-current="page"] {
-  background: var(--surface-3);
-  color: var(--text);
+  position: relative;
+  background: var(--accent-subtle);
+  color: var(--accent-text);
   font-weight: 600;
+}
+.nav__item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 9px;
+  width: 3px;
+  height: 20px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
 }
 .nav__item[aria-current="page"] .ico {
   color: var(--accent-text);
