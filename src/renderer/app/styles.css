@@ -412,13 +412,14 @@
 .catalog-filters__row--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .catalog-filters__row--two .field { min-width: 0; }
 /* Controlled dropdown: opens below the trigger and eases in. */
-.dropdown { position: relative; }
+.dropdown { position: relative; min-width: 0; max-width: 100%; }
 .dropdown__trigger {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
+  min-width: 0;
   height: 32px;
   padding: 0 10px;
   border: 1px solid var(--border);
@@ -430,6 +431,14 @@
   cursor: pointer;
   transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
 }
+/* Long instance/Java names must truncate, never wrap out of the control. */
+.dropdown__trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dropdown__trigger > .ico { flex: none; }
 .dropdown__trigger:hover { border-color: var(--border-strong); }
 .dropdown__trigger:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
 .dropdown__menu {
@@ -1506,6 +1515,11 @@
 .rename-dialog__field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; font-size: 11.5px; color: var(--text-3); }
 .rename-dialog__error { margin: 10px 0 0; font-size: 11.5px; color: var(--danger-text, #E5484D); }
 .rename-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+/* Keep long names/paths inside their column instead of bleeding over hints. */
+.setting-group > * { min-width: 0; }
+.setting-group__text { min-width: 0; }
+.field { min-width: 0; }
+.field > * { min-width: 0; }
 /* Softer transitions: page switches and instance switches fade in instead of
    snapping, and row selection eases between states. */
 @keyframes nw-fade-in {
