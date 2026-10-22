@@ -256,7 +256,20 @@ interface AuthConfigFile {
   microsoft: AuthConfig
 }
 
-export const DEFAULT_AUTH_CONFIG: AuthConfig = { clientId: null, tenant: 'consumers' }
+/**
+ * Public OAuth client id of Cubit Launcher itself.
+ *
+ * Safe to ship: it is not a secret (it appears in every authorize URL) and the
+ * MCE review was approved for this application. Without a built-in default, a
+ * freshly installed copy cannot sign anyone in, because the id only lived in
+ * the developer's environment. `MCL_MS_CLIENT_ID` still overrides it.
+ */
+export const DEFAULT_MICROSOFT_CLIENT_ID = '66a65f38-49c2-47d9-a655-677dd877a1e9'
+
+export const DEFAULT_AUTH_CONFIG: AuthConfig = {
+  clientId: DEFAULT_MICROSOFT_CLIENT_ID,
+  tenant: 'consumers',
+}
 
 /** `$DATA/modules/auth/config.json`; env overrides are applied by the service. */
 export class AuthConfigStore {
@@ -275,7 +288,7 @@ export class AuthConfigStore {
         clientId:
           typeof microsoft?.clientId === 'string' && microsoft.clientId.length > 0
             ? microsoft.clientId
-            : null,
+            : DEFAULT_AUTH_CONFIG.clientId,
         tenant:
           typeof microsoft?.tenant === 'string' && microsoft.tenant.length > 0
             ? microsoft.tenant

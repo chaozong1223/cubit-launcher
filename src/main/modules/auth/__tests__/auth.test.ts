@@ -217,12 +217,13 @@ describe('offline accounts', () => {
 })
 
 describe('microsoft device code flow', () => {
-  it('refuses to start without a configured client id', async () => {
+  it('ships a built-in client id so a fresh install can sign in', async () => {
     const { service } = createService({ dataRoot: tempRoot(), http: fakeHttp({}) })
-    await expect(service.beginDeviceCode()).rejects.toMatchObject({
-      code: 'MS_CLIENT_ID_MISSING',
-      retryable: false,
-    })
+    const config = await service.getMicrosoftConfig()
+    // The default id is public and baked in; users no longer configure it.
+    expect(config.configured).toBe(true)
+    expect(typeof config.clientId).toBe('string')
+    expect(config.tenant).toBe('consumers')
   })
 
   it('completes device code → Xbox → profile and persists tokens encrypted only', async () => {
