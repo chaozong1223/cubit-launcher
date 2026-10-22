@@ -50,6 +50,7 @@ describe('catalog registration', () => {
       'checkProgress',
       'installProgress',
       'linkDownloadProgress',
+      'linkImportFinished',
       'updated',
     ])
   })

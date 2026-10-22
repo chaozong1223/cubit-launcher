@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { defineContract } from './kernel'
+import { FileJobProgressSchema, JobFinishedSchema } from './job'
 import { ModpackImportStartSchema } from './mods'
 
 /**
@@ -267,6 +268,47 @@ export const LinkImportStartSchema = z.object({
 })
 export type LinkImportStart = z.infer<typeof LinkImportStartSchema>
 
+/** Returned by `startLinkImport`: the download/import job runs in the main process. */
+export const LinkImportJobStartSchema = z.object({
+  jobId: z.string().min(1),
+  planId: z.string().min(1),
+  provider: CatalogProvider,
+})
+export type LinkImportJobStart = z.infer<typeof LinkImportJobStartSchema>
+
+export const LinkDownloadStateSchema = z.enum([
+  'downloading',
+  'verifying',
+  'importing',
+  'cancelled',
+  'done',
+])
+export type LinkDownloadState = z.infer<typeof LinkDownloadStateSchema>
+
+/**
+ * Same shape as t11's FileJobProgress + link identity. `state` is the download
+ * phase (the job's generic state is still available as `phase`/job status).
+ */
+export const LinkDownloadProgressSchema = FileJobProgressSchema.extend({
+  planId: z.string().min(1),
+  provider: CatalogProvider,
+  state: LinkDownloadStateSchema,
+})
+export type LinkDownloadProgress = z.infer<typeof LinkDownloadProgressSchema>
+
+export const LinkImportProgressSchema = FileJobProgressSchema.extend({
+  planId: z.string().min(1),
+  provider: CatalogProvider,
+})
+export type LinkImportProgress = z.infer<typeof LinkImportProgressSchema>
+
+export const LinkImportFinishedSchema = JobFinishedSchema.extend({
+  planId: z.string().min(1),
+  provider: CatalogProvider,
+  result: LinkImportStartSchema.nullable(),
+})
+export type LinkImportFinished = z.infer<typeof LinkImportFinishedSchema>
+
 export const CatalogSearchInputSchema = z.object({
   query: z.string().max(100).default(''),
   loaders: z.array(z.string().min(1).max(32)).default([]),
@@ -336,7 +378,20 @@ export const contract = defineContract({
     /** Starts the download + mods import after explicit user confirmation. */
     startLinkImport: {
       input: LinkImportInputSchema,
-      output: LinkImportStartSchema,
+      output: LinkImportJobStartSchema,
+    },
+    /** Cancels the link job during download/verify/handoff; removes .part files. */
+    cancelLinkImport: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: z.object({ cancelled: z.boolean() }),
+    },
+    linkImportStatus: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: LinkImportProgressSchema.nullable(),
+    },
+    linkImportResult: {
+      input: z.object({ jobId: z.string().min(1) }),
+      output: LinkImportFinishedSchema.nullable(),
     },
   },
   events: {
@@ -370,14 +425,11 @@ export const contract = defineContract({
       }),
     },
     linkDownloadProgress: {
-      payload: z.object({
-        planId: z.string(),
-        provider: CatalogProvider,
-        phase: z.enum(['downloading', 'verifying', 'importing']),
-        bytes: z.number().int().nonnegative(),
-        totalBytes: z.number().int().nonnegative().nullable(),
-      }),
+      payload: LinkDownloadProgressSchema,
       throttleMs: 100,
+    },
+    linkImportFinished: {
+      payload: LinkImportFinishedSchema,
     },
   },
 })
@@ -396,5 +448,8 @@ export interface CatalogService {
   getCurseForgeConfig(): Promise<CurseForgeConfigView>
   updateCurseForgeConfig(input: CurseForgeConfigPatch): Promise<CurseForgeConfigView>
   planLinkImport(input: { link: string }): Promise<PackLinkPlan>
-  startLinkImport(input: LinkImportInput): Promise<LinkImportStart>
+  startLinkImport(input: LinkImportInput): Promise<LinkImportJobStart>
+  cancelLinkImport(jobId: string): Promise<{ cancelled: boolean }>
+  linkImportStatus(jobId: string): Promise<LinkImportProgress | null>
+  linkImportResult(jobId: string): Promise<LinkImportFinished | null>
 }

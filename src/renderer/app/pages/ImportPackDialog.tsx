@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { CurseForgeConfigView, LinkImportStart, PackLinkPlan } from '@shared/catalog'
+import type { CurseForgeConfigView, LinkImportFinished, PackLinkPlan } from '@shared/catalog'
 import type { ModpackImportFinished, ModpackImportProgress } from '@shared/mods'
 import { useBackend } from '../data/BackendContext'
 import {
@@ -50,6 +50,7 @@ export function ImportPackDialog({
   const [planning, setPlanning] = useState(false)
   const [planError, setPlanError] = useState<UiErrorInfo | null>(null)
   const [starting, setStarting] = useState(false)
+  const [linkJobId, setLinkJobId] = useState<string | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobProgress, setJobProgress] = useState<ModpackImportProgress | null>(null)
   const [linkProgress, setLinkProgress] = useState<CatalogLinkProgressEvent | null>(null)
@@ -63,8 +64,8 @@ export function ImportPackDialog({
   const [cfBusy, setCfBusy] = useState(false)
   const [cfMessage, setCfMessage] = useState<string | null>(null)
 
-  const running = starting || picking || jobId !== null
-  const canCancel = jobId !== null && !cancelling
+  const running = starting || picking || jobId !== null || linkJobId !== null
+  const canCancel = (jobId !== null || linkJobId !== null) && !cancelling
 
   useEffect(() => {
     if (!open) return
@@ -102,6 +103,7 @@ export function ImportPackDialog({
     setPlanError(null)
     setPlanning(false)
     setStarting(false)
+    setLinkJobId(null)
     setJobId(null)
     setJobProgress(null)
     setLinkProgress(null)
@@ -163,9 +165,25 @@ export function ImportPackDialog({
     setJobProgress(null)
     setLinkProgress(null)
     try {
-      const started: LinkImportStart = await backend.catalog.startLinkImport(plan.planId)
-      await awaitImportJob(started.import.jobId, `已下载 ${formatBytes(started.downloadBytes)}，开始导入整合包…`)
+      const started = await backend.catalog.startLinkImport(plan.planId)
+      setLinkJobId(started.jobId)
+      setNotice('开始下载整合包…可在下载过程中取消。')
+      const finished = await waitForJob<LinkImportFinished>({
+        jobId: started.jobId,
+        subscribe: backend.catalog.subscribeLinkFinished,
+        fetchResult: () => backend.catalog.linkImportResult(started.jobId),
+      })
+      setLinkJobId(null)
+      if (finished.state === 'cancelled') {
+        setNotice('下载已取消；主进程已清理 .part 与临时文件。')
+        return
+      }
+      assertJobSucceeded(finished, '整合包下载失败')
+      const result = finished.result
+      if (!result) throw new BackendError('CATALOG.LINK_IMPORT_FAILED', '链接导入没有返回结果', false)
+      await awaitImportJob(result.import.jobId, `已下载 ${formatBytes(result.downloadBytes)}，开始导入整合包…`)
     } catch (cause) {
+      setLinkJobId(null)
       setError(describeError(cause))
     } finally {
       setStarting(false)
@@ -195,12 +213,17 @@ export function ImportPackDialog({
   }
 
   const cancelImport = async () => {
-    if (!jobId) return
+    if (!jobId && !linkJobId) return
     setCancelling(true)
     setError(null)
     try {
-      await backend.mods.cancelImport(jobId)
-      setNotice('已请求取消导入，等待主进程停止并清理临时文件…')
+      if (linkJobId) {
+        await backend.catalog.cancelLinkImport(linkJobId)
+        setNotice('已请求取消下载；主进程会停止连接并删除 .part 文件…')
+      } else if (jobId) {
+        await backend.mods.cancelImport(jobId)
+        setNotice('已请求取消导入，等待主进程停止并清理临时文件…')
+      }
     } catch (cause) {
       setError(describeError(cause))
     } finally {
@@ -242,9 +265,9 @@ export function ImportPackDialog({
   const progressLabel = jobProgress
     ? `${jobProgress.stage} · ${jobProgress.done}/${jobProgress.total} 个文件${jobProgress.currentFile ? ` · ${jobProgress.currentFile}` : ''}`
     : linkProgress
-      ? linkProgress.phase === 'downloading'
+      ? linkProgress.state === 'downloading'
         ? `下载整合包 · ${formatBytes(linkProgress.bytes)} / ${formatBytes(linkProgress.totalBytes)}`
-        : linkProgress.phase === 'verifying' ? '校验整合包…' : '准备导入…'
+        : linkProgress.state === 'verifying' ? '校验整合包…' : linkProgress.state === 'importing' ? '准备导入…' : linkProgress.state
       : '正在准备…'
 
   return (

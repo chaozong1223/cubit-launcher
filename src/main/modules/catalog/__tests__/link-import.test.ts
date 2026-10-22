@@ -43,6 +43,15 @@ afterEach(() => {
 function sha1(bytes: Buffer): string {
   return createHash('sha1').update(bytes).digest('hex')
 }
+
+async function waitUntil(predicate: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error('condition not met in time')
+}
 function sha512(bytes: Buffer): string {
   return createHash('sha512').update(bytes).digest('hex')
 }
@@ -113,6 +122,7 @@ async function setup(
   options: {
     cfConfig?: CurseForgeConfig | null
     cf?: { project: unknown; files: unknown[]; file: unknown } | null
+    slow?: boolean
   } = {},
 ): Promise<Fixture> {
   const server = await startServer()
@@ -131,6 +141,29 @@ async function setup(
     versionType: 'beta',
     published: '2026-03-01T00:00:00Z',
   })
+  if (options.slow) {
+    const slowBytes = Buffer.alloc(8 * 1024 * 1024, 7)
+    server.route('/files/slow.mrpack', (req, res) => {
+      res.writeHead(200, {
+        'content-type': 'application/octet-stream',
+        'content-length': slowBytes.length,
+      })
+      let sent = 0
+      const timer = setInterval(() => {
+        if (sent >= slowBytes.length || res.destroyed) {
+          clearInterval(timer)
+          if (!res.destroyed) res.end()
+          return
+        }
+        const chunk = slowBytes.subarray(sent, Math.min(sent + 64 * 1024, slowBytes.length))
+        sent += chunk.length
+        res.write(chunk)
+      }, 20)
+      req.on('close', () => clearInterval(timer))
+    })
+    release.files[0].url = `${server.baseUrl}/files/slow.mrpack`
+    release.files[0].size = slowBytes.length
+  }
   server.json('/v2/project/cool-pack', modpackProject(server))
   server.json('/v2/project/P/version', [beta, release])
   server.json('/v2/version/v1', release)
@@ -229,37 +262,73 @@ describe('catalog link import — Modrinth', () => {
     expect(catalogContract.methods.planLinkImport.output.safeParse(plan).success).toBe(true)
     expect(h.server.count('/files/cool-v1.mrpack')).toBe(0)
 
-    await expect(
+    expect(() =>
       h.service.startLinkImport({ planId: plan.planId, confirm: false }),
-    ).rejects.toMatchObject({ code: 'CATALOG.CONFIRMATION_REQUIRED' })
+    ).toThrowError(expect.objectContaining({ code: 'CATALOG.CONFIRMATION_REQUIRED' }))
     expect(h.mods.packImports).toHaveLength(0)
     expect(h.server.count('/files/cool-v1.mrpack')).toBe(0)
 
-    const started = await h.service.startLinkImport({ planId: plan.planId, confirm: true })
+    const started = h.service.startLinkImport({ planId: plan.planId, confirm: true })
     expect(catalogContract.methods.startLinkImport.output.safeParse(started).success).toBe(true)
-    expect(started).toMatchObject({
+    const outcome = await h.service.waitForLinkImport(started.jobId)
+    expect(outcome.ok).toBe(true)
+    const result = outcome.result!
+    expect(result).toMatchObject({
       provider: 'modrinth',
       planId: plan.planId,
       downloadBytes: packBytes.length,
       import: { jobId: 'job-1' },
     })
+    expect(catalogContract.methods.linkImportResult.output.safeParse(h.service.linkImportResult(started.jobId)).success).toBe(true)
     expect(h.mods.packImports).toHaveLength(1)
     const archive = h.mods.packImports[0]
     expect(archive.startsWith(path.join(h.dataRoot, 'modules', 'catalog', 'packs'))).toBe(true)
     expect(fs.readFileSync(archive)).toEqual(packBytes)
     expect(h.events.some((entry) => entry.event === 'linkDownloadProgress')).toBe(true)
-    const phases = new Set(
+    const states = new Set(
       h.events
         .filter((entry) => entry.event === 'linkDownloadProgress')
-        .map((entry) => (entry.payload as { phase: string }).phase),
+        .map((entry) => (entry.payload as { state: string }).state),
     )
-    expect(phases.has('downloading')).toBe(true)
-    expect(phases.has('importing')).toBe(true)
+    expect(states.has('downloading')).toBe(true)
+    expect(states.has('importing')).toBe(true)
 
     // Plans are single-use.
-    await expect(
+    expect(() =>
       h.service.startLinkImport({ planId: plan.planId, confirm: true }),
-    ).rejects.toMatchObject({ code: 'CATALOG.PLAN_EXPIRED' })
+    ).toThrowError(expect.objectContaining({ code: 'CATALOG.PLAN_EXPIRED' }))
+    await h.server.close()
+  })
+
+  it('cancels an in-flight download and removes every partial pack file', async () => {
+    const h = await setup({ slow: true })
+    const plan = await h.service.planLinkImport({ link: 'https://modrinth.com/modpack/cool-pack' })
+    expect(plan.canProceed).toBe(true)
+    const started = h.service.startLinkImport({ planId: plan.planId, confirm: true })
+    await waitUntil(() =>
+      h.events.some(
+        (entry) =>
+          entry.event === 'linkDownloadProgress' &&
+          (entry.payload as { state?: string; bytes?: number }).state === 'downloading' &&
+          ((entry.payload as { bytes?: number }).bytes ?? 0) > 0,
+      ),
+    )
+    const cancelAt = Date.now()
+    expect(h.service.cancelLinkImport(started.jobId).cancelled).toBe(true)
+    const outcome = await h.service.waitForLinkImport(started.jobId)
+    expect(outcome.state).toBe('cancelled')
+    expect(Date.now() - cancelAt).toBeLessThan(3_000)
+    expect(h.mods.packImports).toHaveLength(0)
+    expect(h.service.linkImportResult(started.jobId)?.result).toBeNull()
+    const packsDir = path.join(h.dataRoot, 'modules', 'catalog', 'packs')
+    const leftovers = fs.existsSync(packsDir)
+      ? fs.readdirSync(packsDir).filter((name) => name.includes(plan.planId))
+      : []
+    expect(leftovers).toEqual([])
+    const cancelledStates = h.events
+      .filter((entry) => entry.event === 'linkDownloadProgress')
+      .map((entry) => (entry.payload as { state?: string }).state)
+    expect(cancelledStates).toContain('cancelled')
     await h.server.close()
   })
 
@@ -343,9 +412,9 @@ describe('catalog link import — CurseForge', () => {
       fileId: 456,
     })
     expect(plan.warnings.join(' ')).toContain('downloadUrl 为 null')
-    await expect(
+    expect(() =>
       h.service.startLinkImport({ planId: plan.planId, confirm: true }),
-    ).rejects.toMatchObject({ code: 'CATALOG.CF_DISTRIBUTION_DISABLED' })
+    ).toThrowError(expect.objectContaining({ code: 'CATALOG.CF_DISTRIBUTION_DISABLED' }))
     await h.server.close()
   })
 
@@ -362,9 +431,11 @@ describe('catalog link import — CurseForge', () => {
       apiKeyConfigured: true,
       apiSourceHost: 'api.curseforge.com',
     })
-    const started = await h.service.startLinkImport({ planId: plan.planId, confirm: true })
-    expect(started.provider).toBe('curseforge')
-    expect(started.downloadBytes).toBe(cfPackBytes.length)
+    const started = h.service.startLinkImport({ planId: plan.planId, confirm: true })
+    const outcome = await h.service.waitForLinkImport(started.jobId)
+    expect(outcome.ok).toBe(true)
+    expect(outcome.result?.provider).toBe('curseforge')
+    expect(outcome.result?.downloadBytes).toBe(cfPackBytes.length)
     expect(fs.readFileSync(h.mods.packImports[0])).toEqual(cfPackBytes)
     // The archive download must not carry the API key.
     const archiveRequest = h.server.requests.find((request) => request.path === '/files/atm9.zip')

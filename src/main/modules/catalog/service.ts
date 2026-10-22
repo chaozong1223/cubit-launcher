@@ -21,7 +21,11 @@ import type {
   CatalogVersionFile,
   CurseForgeConfigPatch,
   CurseForgeConfigView,
+  LinkDownloadState,
+  LinkImportFinished,
   LinkImportInput,
+  LinkImportJobStart,
+  LinkImportProgress,
   LinkImportStart,
   PackLinkPlan,
 } from '@shared/catalog'
@@ -31,6 +35,7 @@ import type { ModuleRoots } from '../_context'
 import { gameDirectory, readInstanceSettings } from '../../core/instance/settings'
 import { scanInstances, type ScannedInstance } from '../../core/instance/scan'
 import { nodeFsPort, type FsPort } from '../../core/ports'
+import { JobRegistry, type JobOutcome } from '../../core/job/kernel'
 import {
   CurseForgeClient,
   chooseLatestPackFile,
@@ -219,6 +224,7 @@ export class CatalogModuleService {
   private readonly log: ScopedLogger
   private readonly userAgent: string
   private readonly linkPlans = new Map<string, StoredLinkPlan>()
+  private readonly linkJobs = new JobRegistry<LinkImportStart>()
 
   constructor(private readonly options: CatalogServiceOptions) {
     this.fs = options.fs ?? nodeFsPort()
@@ -238,6 +244,66 @@ export class CatalogModuleService {
     this.allowInsecureHosts = options.allowInsecureHosts ?? []
     this.userAgent =
       options.userAgent ?? buildUserAgent({ version: options.appVersion ?? '0.1.0' })
+    this.linkJobs.onProgress((progress, job) => {
+      const stage = progress.stage
+      const state: LinkDownloadState =
+        job.state === 'cancelled'
+          ? 'cancelled'
+          : job.state === 'done'
+            ? 'done'
+            : stage === 'verifying' || stage === 'importing'
+              ? stage
+              : 'downloading'
+      this.emit?.('linkDownloadProgress', {
+        ...progress,
+        phase: progress.stage,
+        files: progress.done,
+        totalFiles: progress.total,
+        bytes: progress.bytesDone,
+        totalBytes: progress.bytesTotal,
+        planId: job.meta.planId ?? '',
+        provider: (job.meta.provider === 'curseforge' ? 'curseforge' : 'modrinth') as
+          | 'modrinth'
+          | 'curseforge',
+        state,
+      })
+    })
+    this.linkJobs.onFinished((outcome, job) => {
+      const progress = job.progress()
+      const finalState: LinkDownloadState =
+        outcome.state === 'cancelled'
+          ? 'cancelled'
+          : outcome.state === 'done'
+            ? 'done'
+            : progress.stage === 'verifying' || progress.stage === 'importing'
+              ? progress.stage
+              : 'downloading'
+      this.emit?.('linkDownloadProgress', {
+        ...progress,
+        phase: progress.stage,
+        files: progress.done,
+        totalFiles: progress.total,
+        bytes: progress.bytesDone,
+        totalBytes: progress.bytesTotal,
+        planId: job.meta.planId ?? '',
+        provider: (job.meta.provider === 'curseforge' ? 'curseforge' : 'modrinth') as
+          | 'modrinth'
+          | 'curseforge',
+        state: finalState,
+      })
+      this.emit?.('linkImportFinished', {
+        jobId: outcome.jobId,
+        state: outcome.state,
+        ok: outcome.ok,
+        error: outcome.error,
+        durationMs: outcome.durationMs,
+        planId: job.meta.planId ?? '',
+        provider: (job.meta.provider === 'curseforge' ? 'curseforge' : 'modrinth') as
+          | 'modrinth'
+          | 'curseforge',
+        result: outcome.result,
+      })
+    })
   }
 
   private requireMcRoot(): string {
@@ -1048,8 +1114,13 @@ export class CatalogModuleService {
     return plan
   }
 
-  /** Downloads the confirmed pack archive and hands it to the mods import job. */
-  async startLinkImport(input: LinkImportInput): Promise<LinkImportStart> {
+  /**
+   * Starts the confirmed download + mods handoff as a cancellable catalog job.
+   * Progress follows t11's FileJobProgress shape; cancel deletes `.part` files
+   * and any downloaded archive that was never handed off or whose import was
+   * cancelled.
+   */
+  startLinkImport(input: LinkImportInput): LinkImportJobStart {
     if (!input.confirm) {
       fail('CATALOG.CONFIRMATION_REQUIRED', '下载整合包前需要用户确认', {
         hint: '先展示 planLinkImport 的结果，用户确认后再调用 startLinkImport。',
@@ -1067,72 +1138,150 @@ export class CatalogModuleService {
     }
     const downloadUrl = record.downloadUrl
     const mods = this.requireMods()
+    const planId = record.plan.planId
+    const provider = record.plan.provider
     const packsDir = path.join(this.options.roots.dataRoot, 'modules', 'catalog', 'packs')
-    await fsp.mkdir(packsDir, { recursive: true })
-    await this.prunePackDownloads(packsDir)
     const fileName = safePackFileName(record.fileName)
-    const dest = path.join(packsDir, `${record.plan.planId}-${fileName}`)
-    try {
-      const downloaded = await downloadCatalogFile({
-        http: this.client.httpClient,
-        url: downloadUrl,
-        dest,
-        ...(record.sha1 ? { sha1: record.sha1 } : {}),
-        ...(record.sha256 ? { sha256: record.sha256 } : {}),
-        ...(record.sha512 ? { sha512: record.sha512 } : {}),
-        ...(record.size !== null ? { size: record.size } : {}),
-        maxBytes: MAX_PACK_ARCHIVE_BYTES,
-        allowedHosts: record.allowedHosts,
-        allowInsecureHosts: this.allowInsecureHosts,
-        onProgress: (bytes, totalBytes) => {
-          this.emit?.('linkDownloadProgress', {
-            planId: record.plan.planId,
-            provider: record.plan.provider,
-            phase: 'downloading',
-            bytes,
-            totalBytes: totalBytes ?? record.size,
+    const jobId = randomUUID()
+    let destPath: string | null = null
+    let modsJobId: string | null = null
+    this.linkJobs.start(
+      {
+        id: jobId,
+        stage: 'downloading',
+        total: 1,
+        bytesTotal: record.size ?? 0,
+        meta: { planId, provider },
+      },
+      async (job) => {
+        await fsp.mkdir(packsDir, { recursive: true })
+        await this.prunePackDownloads(packsDir)
+        destPath = path.join(packsDir, `${planId}-${fileName}`)
+        try {
+          const downloaded = await downloadCatalogFile({
+            http: this.client.httpClient,
+            url: downloadUrl,
+            dest: destPath,
+            ...(record.sha1 ? { sha1: record.sha1 } : {}),
+            ...(record.sha256 ? { sha256: record.sha256 } : {}),
+            ...(record.sha512 ? { sha512: record.sha512 } : {}),
+            ...(record.size !== null ? { size: record.size } : {}),
+            maxBytes: MAX_PACK_ARCHIVE_BYTES,
+            allowedHosts: record.allowedHosts,
+            allowInsecureHosts: this.allowInsecureHosts,
+            signal: job.signal,
+            onProgress: (bytes, totalBytes) => {
+              job.update({
+                stage: 'downloading',
+                done: 0,
+                total: 1,
+                bytesDone: bytes,
+                bytesTotal: totalBytes ?? record.size ?? 0,
+                currentFile: fileName,
+              })
+            },
           })
+          job.throwIfCancelled()
+          job.update({
+            stage: 'verifying',
+            done: 1,
+            total: 1,
+            bytesDone: downloaded.bytes,
+            bytesTotal: downloaded.bytes,
+            currentFile: fileName,
+          })
+          job.throwIfCancelled()
+          job.update({
+            stage: 'importing',
+            done: 1,
+            total: 1,
+            bytesDone: downloaded.bytes,
+            bytesTotal: downloaded.bytes,
+            currentFile: fileName,
+          })
+          const start = await mods.importModpack({ filePath: destPath })
+          modsJobId = start.jobId
+          job.throwIfCancelled()
+          this.log.info('pack link imported', {
+            provider,
+            slug: record.plan.slug,
+            versionId: record.plan.versionId,
+            fileId: record.plan.fileId,
+            bytes: downloaded.bytes,
+            jobId: start.jobId,
+          })
+          return {
+            provider,
+            planId,
+            packPath: destPath,
+            downloadBytes: downloaded.bytes,
+            import: start,
+          }
+        } catch (error) {
+          if (modsJobId) {
+            await mods.cancelImport(modsJobId).catch(() => undefined)
+          }
+          throw error
+        }
+      },
+      {
+        failureCode: 'CATALOG.LINK_IMPORT_FAILED',
+        cleanup: async () => {
+          if (modsJobId) {
+            await mods.cancelImport(modsJobId).catch(() => undefined)
+          }
+          if (!destPath) return
+          await fsp.rm(destPath, { force: true }).catch(() => undefined)
+          await fsp.rm(`${destPath}.part`, { force: true }).catch(() => undefined)
         },
-      })
-      this.emit?.('linkDownloadProgress', {
-        planId: record.plan.planId,
-        provider: record.plan.provider,
-        phase: 'verifying',
-        bytes: downloaded.bytes,
-        totalBytes: downloaded.bytes,
-      })
-      this.emit?.('linkDownloadProgress', {
-        planId: record.plan.planId,
-        provider: record.plan.provider,
-        phase: 'importing',
-        bytes: downloaded.bytes,
-        totalBytes: downloaded.bytes,
-      })
-      const start = await mods.importModpack({ filePath: dest })
-      this.log.info('pack link imported', {
-        provider: record.plan.provider,
-        slug: record.plan.slug,
-        versionId: record.plan.versionId,
-        fileId: record.plan.fileId,
-        bytes: downloaded.bytes,
-        jobId: start.jobId,
-      })
-      return {
-        provider: record.plan.provider,
-        planId: record.plan.planId,
-        packPath: dest,
-        downloadBytes: downloaded.bytes,
-        import: start,
-      }
-    } catch (error) {
-      await fsp.rm(dest, { force: true }).catch(() => undefined)
-      if (error instanceof AppError) throw error
-      throw new AppError(
-        'CATALOG.LINK_IMPORT_FAILED',
-        `链接导入失败: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      )
+      },
+    )
+    return { jobId, planId, provider }
+  }
+
+  cancelLinkImport(jobId: string): { cancelled: boolean } {
+    return { cancelled: this.linkJobs.cancel(jobId) }
+  }
+
+  linkImportStatus(jobId: string): LinkImportProgress | null {
+    const progress = this.linkJobs.status(jobId)
+    if (!progress) return null
+    const meta = this.linkJobs.meta(jobId) ?? {}
+    return {
+      ...progress,
+      phase: progress.stage,
+      files: progress.done,
+      totalFiles: progress.total,
+      bytes: progress.bytesDone,
+      totalBytes: progress.bytesTotal,
+      planId: meta.planId ?? '',
+      provider: (meta.provider === 'curseforge' ? 'curseforge' : 'modrinth') as
+        | 'modrinth'
+        | 'curseforge',
     }
+  }
+
+  linkImportResult(jobId: string): LinkImportFinished | null {
+    const outcome = this.linkJobs.outcome(jobId)
+    if (!outcome) return null
+    const meta = this.linkJobs.meta(jobId) ?? {}
+    return {
+      jobId: outcome.jobId,
+      state: outcome.state,
+      ok: outcome.ok,
+      error: outcome.error,
+      durationMs: outcome.durationMs,
+      planId: meta.planId ?? '',
+      provider: (meta.provider === 'curseforge' ? 'curseforge' : 'modrinth') as
+        | 'modrinth'
+        | 'curseforge',
+      result: outcome.result,
+    }
+  }
+
+  /** Test seam: waits for a link job to finish. */
+  waitForLinkImport(jobId: string, timeoutMs?: number): Promise<JobOutcome<LinkImportStart>> {
+    return this.linkJobs.waitFor(jobId, timeoutMs)
   }
 }
 

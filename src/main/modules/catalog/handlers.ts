@@ -26,6 +26,9 @@ export function makeHandlers(service: CatalogModuleService) {
       service.updateCurseForgeConfig(input),
     planLinkImport: async (input: { link: string }) => service.planLinkImport(input),
     startLinkImport: async (input: LinkImportInput) => service.startLinkImport(input),
+    cancelLinkImport: async (input: { jobId: string }) => service.cancelLinkImport(input.jobId),
+    linkImportStatus: async (input: { jobId: string }) => service.linkImportStatus(input.jobId),
+    linkImportResult: async (input: { jobId: string }) => service.linkImportResult(input.jobId),
   }
 }
 
