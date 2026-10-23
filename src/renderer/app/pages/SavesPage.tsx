@@ -341,10 +341,14 @@ export function SavesPage({ initialInstanceId }: { initialInstanceId?: string } 
 
   return (
     <>
+      <div className="back-row">
+        <Button variant="link" icon="arrow-left" onClick={() => navigate('/home')}>主页</Button>
+        <span>/</span>
+        <span>存档</span>
+      </div>
       <PageHeader
         title="存档"
         subtitle="世界列表来自实例的 saves/ 目录；删除只会移入回收站，不提供永久删除。"
-        actions={<Button variant="secondary" icon="chevron-left" onClick={() => navigate('/home')}>返回主页</Button>}
       />
 
       <InstancePicker selection={selection} onRefresh={selection.instances.reload} hint="存档列表、备份和删除都只作用于当前实例的 saves/。" />

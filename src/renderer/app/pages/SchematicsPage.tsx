@@ -473,12 +473,16 @@ export function SchematicsPage({ initialInstanceId }: { initialInstanceId?: stri
           void importPaths(paths)
         }}
       >
+      <div className="back-row">
+        <Button variant="link" icon="arrow-left" onClick={() => navigate('/home')}>主页</Button>
+        <span>/</span>
+        <span>投影管理</span>
+      </div>
       <PageHeader
         title="投影管理"
         subtitle="左侧选择实例来源（全局 = 共享 .minecraft/schematics）；右侧「目标版本」独立决定复制/移动的去向。列表只显示真实目录内容。"
         actions={(
           <>
-            <Button variant="secondary" icon="chevron-left" onClick={() => navigate('/home')}>返回主页</Button>
             <Button variant="secondary" icon="folder" disabled={!sourceInstance} onClick={openFolder}>打开文件夹</Button>
             <Button variant="primary" icon="plus" loading={busy === 'import'} disabled={!sourceInstance} onClick={() => void pickAndImport()}>打开文件…</Button>
           </>
