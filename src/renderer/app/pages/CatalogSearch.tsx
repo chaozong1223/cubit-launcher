@@ -523,9 +523,16 @@ export function CatalogSearch({ instance, category }: { instance: InstanceSummar
 
       {installError ? <div className="nw-inline-error">{installError.title}：{installError.detail}{installError.code ? `（${installError.code}）` : ''}</div> : null}
       {installed ? (
-        <Banner tone="success" title={`已安装 ${installed.filename}`}>
-          目标文件：<span className="mono">{installed.targetPath}</span>；{formatBytes(installed.size)}。
-        </Banner>
+        installed.modpackImport ? (
+          <Banner tone="success" title={`已开始导入整合包「${installed.modpackImport.name}」`}>
+            会在新实例中导入 {installed.modpackImport.totalFiles} 个文件{installed.modpackImport.needsBaseInstall ? '，并自动安装对应原版与加载器' : ''}。
+            <Button size="xs" variant="ghost" icon="instances" onClick={() => navigate('/home')}>回主页查看进度 →</Button>
+          </Banner>
+        ) : (
+          <Banner tone="success" title={`已安装 ${installed.filename}`}>
+            目标文件：<span className="mono">{installed.targetPath}</span>；{formatBytes(installed.size)}。
+          </Banner>
+        )
       ) : null}
       {installProgress && installing ? (
         <div className="catalog-progress"><span className="muted">正在安装 {installProgress.versionId} · {installProgress.stage}</span><Progress value={installProgress.percent} label="资源安装进度" /></div>

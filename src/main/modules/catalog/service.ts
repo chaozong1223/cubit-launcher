@@ -466,11 +466,36 @@ export class CatalogModuleService {
       // module already supports all three kinds, only this call was hardcoded.
       const project = await this.client.project(version.projectId)
       if (project.projectType === 'modpack') {
-        fail(
-          'CATALOG.INSTALL_UNSUPPORTED',
-          '整合包需要按整合包流程导入（会创建新实例），不能当作单个文件安装',
-          { projectId: input.projectId },
-        )
+        // Modpacks are a whole game profile, not one file: hand the archive to
+        // the importer, which creates a new instance (PCL/HMCL behave the same).
+        const started = await mods.importModpack({ filePath: downloaded.tempPath })
+        this.emit?.('installProgress', {
+          projectId: input.projectId,
+          versionId: version.id,
+          stage: 'done',
+          percent: 100,
+          bytes: downloaded.bytes,
+          totalBytes: downloaded.bytes,
+        })
+        return {
+          instanceId: info.instance.dirName,
+          projectId: input.projectId,
+          versionId: version.id,
+          filename: downloaded.file.filename,
+          targetPath: '',
+          sha1: downloaded.sha1,
+          sha512: downloaded.sha512,
+          size: downloaded.bytes,
+          versionType: version.versionType,
+          warnings,
+          modpackImport: {
+            jobId: started.jobId,
+            instanceId: started.instanceId,
+            name: started.name,
+            totalFiles: started.totalFiles,
+            needsBaseInstall: started.needsBaseInstall,
+          },
+        }
       }
       const kind: 'mods' | 'resourcepacks' | 'shaderpacks' =
         project.projectType === 'resourcepack'

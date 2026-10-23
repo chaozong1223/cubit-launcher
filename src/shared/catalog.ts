@@ -112,6 +112,19 @@ export const CatalogInstallResultSchema = z.object({
   size: z.number().int().nonnegative(),
   versionType: z.enum(['release', 'beta', 'alpha']),
   warnings: z.array(z.string()),
+  /**
+   * Present for modpacks: the archive went to the modpack importer, which
+   * creates a NEW instance instead of copying a file into the current one.
+   */
+  modpackImport: z
+    .object({
+      jobId: z.string(),
+      instanceId: z.string(),
+      name: z.string(),
+      totalFiles: z.number().int().nonnegative(),
+      needsBaseInstall: z.boolean(),
+    })
+    .optional(),
 })
 export type CatalogInstallResult = z.infer<typeof CatalogInstallResultSchema>
 
