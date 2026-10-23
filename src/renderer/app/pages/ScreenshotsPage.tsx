@@ -15,6 +15,7 @@ import {
   Skeleton,
 } from '../ui'
 import { Icon } from '../icons'
+import { navigate } from '../router'
 import { InstancePicker } from './InstancePicker'
 
 function formatBytes(bytes: number): string {
@@ -74,9 +75,9 @@ function ShotCard({
   )
 }
 
-export function ScreenshotsPage() {
+export function ScreenshotsPage({ initialInstanceId }: { initialInstanceId?: string } = {}) {
   const backend = useBackend()
-  const selection = useInstanceSelection()
+  const selection = useInstanceSelection(initialInstanceId)
   const { selected } = selection
   const screenshots = useAsync(
     () => selected ? backend.assets.listScreenshots(selected.id) : Promise.resolve(null),
@@ -151,13 +152,16 @@ export function ScreenshotsPage() {
 
   return (
     <>
+      <div className="back-row">
+        <Button variant="link" icon="arrow-left" onClick={() => navigate('/home')}>主页</Button>
+        <span>/</span>
+        <span>截图</span>
+      </div>
       <PageHeader
-        title="截图"
-        subtitle="截图网格来自实例的 screenshots/；缩略图由主进程读取并返回 data URL，不伪造占位图片。"
+        title={selected ? `截图 · ${selected.name}` : '截图'}
+        subtitle="截图网格来自当前实例的 screenshots/；缩略图由主进程读取并返回 data URL，不伪造占位图片。"
         actions={<Button variant="secondary" icon="folder" onClick={openFolder} disabled={!selected}>打开截图目录</Button>}
       />
-
-      <InstancePicker selection={selection} onRefresh={selection.instances.reload} hint="缩略图、打开、在文件夹显示和删除均只作用于当前实例的 screenshots/。" />
 
       {screenshots.status === 'not-wired' || screenshots.status === 'error' ? (
         <DataStateNotice info={describeError(screenshots.error)} onRetry={screenshots.reload} />

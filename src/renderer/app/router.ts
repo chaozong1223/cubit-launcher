@@ -45,7 +45,9 @@ export function parseHash(hash: string): Route {
         ? { path: `#/schematics/${second}`, name: 'schematics', section: decodeURIComponent(second) }
         : { path: '#/schematics', name: 'schematics' }
     case 'screenshots':
-      return { path: '#/screenshots', name: 'screenshots' }
+      return second
+        ? { path: `#/screenshots/${second}`, name: 'screenshots', section: decodeURIComponent(second) }
+        : { path: '#/screenshots', name: 'screenshots' }
     case 'trash':
       return { path: '#/trash', name: 'trash' }
     case 'link':

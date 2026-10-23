@@ -54,6 +54,7 @@ const PAGE_LINKS: ReadonlyArray<{ path: string; label: string; icon: Parameters<
   { path: '#/updates', label: '模组更新', icon: 'refresh' },
   { path: '#/saves', label: '存档', icon: 'cube' },
   { path: '#/schematics', label: '投影管理', icon: 'schematic' },
+  { path: '#/screenshots', label: '截图', icon: 'package' },
 ]
 
 function launchUiState(instance: InstanceSummary, status: LaunchState | null): LaunchUiState {

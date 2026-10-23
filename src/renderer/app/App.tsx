@@ -31,7 +31,6 @@ import { GlobalDropZone } from './GlobalDropZone'
 const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: string; name: Route['name']; label: string; icon: Parameters<typeof Icon>[0]['name'] }> }> = [
   { label: '游玩', items: [
     { path: '#/home', name: 'home', label: '主页', icon: 'home' },
-    { path: '#/screenshots', name: 'screenshots', label: '截图', icon: 'package' },
   ] },
   { label: '获取', items: [
     { path: '#/download', name: 'download', label: '安装与下载', icon: 'download' },
@@ -159,7 +158,7 @@ function Page({ route }: { route: Route }) {
     case 'updates': return <CatalogPage mode="updates" initialInstanceId={route.section} />
     case 'saves': return <SavesPage initialInstanceId={route.section} />
     case 'schematics': return <SchematicsPage initialInstanceId={route.section} />
-    case 'screenshots': return <ScreenshotsPage />
+    case 'screenshots': return <ScreenshotsPage initialInstanceId={route.section} />
     case 'trash': return <TrashPage />
     case 'link': return <LinkPage />
     case 'sdk': return <SdkPage />
