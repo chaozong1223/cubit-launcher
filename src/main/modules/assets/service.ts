@@ -1127,6 +1127,34 @@ export class AssetsModuleService {
     return result
   }
 
+  /**
+   * Delete screenshots for real (no recycle bin). Irreversible, so the UI asks
+   * for confirmation first; the deletion itself never leaves partial files.
+   */
+  async purgeScreenshots(input: {
+    instanceId: string
+    names: string[]
+  }): Promise<{ deleted: string[]; errors: Array<{ name: string; message: string }> }> {
+    const dir = this.gameSubdir(input.instanceId, 'screenshots')
+    const deleted: string[] = []
+    const errors: Array<{ name: string; message: string }> = []
+    for (const name of [...new Set(input.names)]) {
+      try {
+        const target = assertChild(dir, name)
+        if (!this.fs.exists(target)) {
+          errors.push({ name, message: '文件不存在' })
+          continue
+        }
+        this.fs.remove(target)
+        deleted.push(name)
+      } catch (error) {
+        errors.push({ name, message: error instanceof Error ? error.message : String(error) })
+      }
+    }
+    if (deleted.length > 0) this.emit('screenshots')
+    return { deleted, errors }
+  }
+
   private logDirs(instanceId?: string): Array<{ area: 'launcher' | 'game'; dir: string }> {
     const dirs: Array<{ area: 'launcher' | 'game'; dir: string }> = [
       { area: 'launcher', dir: path.join(this.options.roots.dataRoot, 'logs') },

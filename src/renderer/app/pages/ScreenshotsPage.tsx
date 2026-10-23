@@ -86,6 +86,7 @@ export function ScreenshotsPage() {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [deleted, setDeleted] = useState<BatchTrashResult | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<UiErrorInfo | null>(null)
 
   useEffect(() => {
@@ -108,6 +109,26 @@ export function ScreenshotsPage() {
   const openFolder = () => {
     if (!instanceId) return
     void backend.assets.openFolder(instanceId, 'screenshots').catch((cause) => setError(describeError(cause)))
+  }
+
+  const purgeChosen = async () => {
+    if (!instanceId || chosen.size === 0) return
+    const count = chosen.size
+    if (!window.confirm(`永久删除 ${count} 张截图？不会进入回收站，此操作不可撤销。`)) return
+    setConfirming(false)
+    setBusy(true)
+    setError(null)
+    setDeleted(null)
+    try {
+      const result = await backend.assets.purgeScreenshots(instanceId, [...chosen])
+      setNotice(`已永久删除 ${result.deleted.length} 张截图${result.errors.length > 0 ? `，${result.errors.length} 张失败` : ''}`)
+      setChosen(new Set())
+      screenshots.reload()
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setBusy(false)
+    }
   }
 
   const removeChosen = async () => {
@@ -147,18 +168,20 @@ export function ScreenshotsPage() {
           {deleted.errors.length ? `失败 ${deleted.errors.length} 张：${deleted.errors.map((entry) => `${entry.name}（${entry.message}）`).join('；')}` : '可在「回收站」页恢复。'}
         </Banner>
       ) : null}
+      {notice ? <Banner tone="success" title={notice} /> : null}
       {confirming ? (
         <Banner
           tone="warning"
-          title={`确认移入回收站 ${chosen.size} 张截图？`}
+          title={`确认删除 ${chosen.size} 张截图？`}
           actions={(
             <>
-              <Button size="sm" variant="danger-ghost" icon="trash" loading={busy} onClick={() => void removeChosen()}>确认移入回收站</Button>
+              <Button size="sm" variant="secondary" icon="trash" loading={busy} onClick={() => void removeChosen()}>移入回收站</Button>
+              <Button size="sm" variant="danger-ghost" icon="trash" loading={busy} onClick={() => void purgeChosen()}>永久删除</Button>
               <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>取消</Button>
             </>
           )}
         >
-          删除只会移入回收站，不提供永久删除；之后可在回收站恢复。
+          「移入回收站」可从回收站恢复；「永久删除」直接抹掉文件，不可撤销（会再确认一次）。
         </Banner>
       ) : null}
 

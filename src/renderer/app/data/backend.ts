@@ -475,6 +475,7 @@ const CH = {
   assetsListScreenshots: channelOf('assets', 'listScreenshots'),
   assetsPreviewScreenshot: channelOf('assets', 'previewScreenshot'),
   assetsDeleteScreenshots: channelOf('assets', 'deleteScreenshots'),
+  assetsPurgeScreenshots: channelOf('assets', 'purgeScreenshots'),
   assetsListLogs: channelOf('assets', 'listLogs'),
   assetsQueryLogs: channelOf('assets', 'queryLogs'),
   assetsExportLogs: channelOf('assets', 'exportLogs'),
@@ -775,6 +776,7 @@ export interface Backend {
     listScreenshots(instanceId: string): Promise<{ gameDir: string; screenshots: ScreenshotEntry[] }>
     previewScreenshot(instanceId: string, name: string): Promise<{ dataUrl: string; mime: string; size: number }>
     deleteScreenshots(instanceId: string, names: string[]): Promise<BatchTrashResult>
+    purgeScreenshots(instanceId: string, names: string[]): Promise<{ deleted: string[]; errors: Array<{ name: string; message: string }> }>
     listLogs(instanceId?: string): Promise<{ sources: LogSource[] }>
     queryLogs(input: LogQueryInput): Promise<LogQueryResult>
     exportLogs(instanceId?: string, outPath?: string): Promise<BackupResult>
@@ -1106,6 +1108,8 @@ export const ipcBackend: Backend = {
       invoke<{ dataUrl: string; mime: string; size: number }>('文件 ${result.downloaded} 新 / ${result.skipped} 跳过 · ${evidence}${warnings.length ?', CH.assetsPreviewScreenshot, { instanceId, name }),
     deleteScreenshots: (instanceId, names) =>
       invoke<BatchTrashResult>('删除所选 ${selected.size} 个${meta.title}文件？此操作不可撤销。', CH.assetsDeleteScreenshots, { instanceId, names }),
+    purgeScreenshots: (instanceId, names) =>
+      invoke<{ deleted: string[]; errors: Array<{ name: string; message: string }> }>('永久删除失败', CH.assetsPurgeScreenshots, { instanceId, names }),
     listLogs: (instanceId) =>
       invoke<{ sources: LogSource[] }>('日志来源', CH.assetsListLogs, instanceId ? { instanceId } : {}),
     queryLogs: (input) => invoke<LogQueryResult>('查看完整 NOTICE', CH.assetsQueryLogs, input),

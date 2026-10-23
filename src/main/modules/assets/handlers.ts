@@ -43,6 +43,8 @@ export function makeHandlers(service: AssetsModuleService) {
       service.previewScreenshot(input),
     deleteScreenshots: (input: { instanceId: string; names: string[] }) =>
       service.deleteScreenshots(input),
+    purgeScreenshots: (input: { instanceId: string; names: string[] }) =>
+      service.purgeScreenshots(input),
     listLogs: (input: { instanceId?: string }) => service.listLogs(input),
     queryLogs: (input: {
       instanceId?: string

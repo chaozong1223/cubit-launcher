@@ -274,6 +274,14 @@ export const contract = defineContract({
       input: z.object({ instanceId: z.string().min(1), names: z.array(z.string().min(1)).min(1) }),
       output: BatchTrashResultSchema,
     },
+    /** Irreversible local delete (no recycle bin); the UI confirms first. */
+    purgeScreenshots: {
+      input: z.object({ instanceId: z.string().min(1), names: z.array(z.string().min(1)).min(1) }),
+      output: z.object({
+        deleted: z.array(z.string()),
+        errors: z.array(z.object({ name: z.string(), message: z.string() })),
+      }),
+    },
     listLogs: {
       input: z.object({ instanceId: z.string().optional() }),
       output: z.object({ sources: z.array(LogSourceSchema) }),
