@@ -1,4 +1,5 @@
 import { app, shell } from 'electron'
+import { spawn } from 'node:child_process'
 import { catalogContract } from '@shared/catalog'
 import type { ModsService } from '@shared/mods'
 import type { ModuleContext } from '../_registry'
@@ -27,7 +28,18 @@ export function register(ctx: ModuleContext): void {
     log: ctx.log,
     appVersion: app.getVersion(),
     mods: () => getService<ModsService>('mods'),
-    openExternal: (url) => shell.openExternal(url),
+    // `shell.openExternal` resolves successfully but opens nothing on some
+    // Windows installs (broken default-browser association / AV hook). Explorer
+    // hands the URL to the same shell association and actually launches it, and
+    // passing the URL as a spawn argument avoids cmd.exe parsing (& in URLs).
+    openExternal: async (url: string) => {
+      if (!url.startsWith('https://')) throw new Error('refusing to open non-https url')
+      if (process.platform === 'win32') {
+        spawn('explorer.exe', [url], { windowsHide: true, detached: true, stdio: 'ignore' }).unref()
+        return
+      }
+      await shell.openExternal(url)
+    },
     emit: (event, payload) => {
       moduleIpc.emit(moduleId, event, payload)
     },
