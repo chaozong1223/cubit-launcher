@@ -271,7 +271,10 @@ export default function App() {
         <div className={navCollapsed ? 'shell shell--nav-collapsed' : 'shell'}>
           <Nav route={route} collapsed={navCollapsed} onToggle={toggleNav} />
           <main className="content" id="content">
-            <div className="page" key={route.path}>
+            {/* The catalog switches category by route; remounting the whole
+                page there made the entire screen fade. Keep one instance for
+                the catalog so only the result list animates. */}
+            <div className="page" key={route.name === 'catalog' ? 'catalog' : route.path}>
               <Page route={route} />
             </div>
           </main>
