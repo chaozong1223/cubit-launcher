@@ -78,6 +78,28 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
     ? allVersions.filter((version) => version.gameVersions.includes(mcFilter))
     : allVersions
 
+  /**
+   * PCL-style grouping: one collapsible block per (loader, first MC version),
+   * which is how players actually pick — "NeoForge 1.21.1" first, then a file.
+   */
+  const versionGroups = useMemo(() => {
+    const map = new Map<string, { key: string; title: string; versions: CatalogVersion[] }>()
+    for (const version of visible) {
+      const loader = version.loaders[0] ?? '通用'
+      const mc = version.gameVersions[0] ?? '未知版本'
+      const key = `${loader}::${mc}`
+      let bucket = map.get(key)
+      if (!bucket) {
+        bucket = { key, title: `${loaderLabel(loader)} ${mc}`, versions: [] }
+        map.set(key, bucket)
+      }
+      bucket.versions.push(version)
+    }
+    return [...map.values()]
+  }, [visible])
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
   const compatible = (version: CatalogVersion): boolean => {
     if (!instance) return true
     if (instance.mcVersion && !version.gameVersions.includes(instance.mcVersion)) return false
@@ -249,35 +271,64 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
           />
         ) : (
           <div className="project-version-list">
-            {visible.map((version) => {
-              const ok = compatible(version)
-              return (
-                <div key={version.id} className={ok ? 'project-version' : 'project-version is-blocked'}>
-                  <div className="project-version__main">
-                    <div className="project-version__name">{version.name}</div>
-                    <div className="project-version__meta">
-                      <span className="mono">{version.versionNumber}</span>
-                      <span>{version.gameVersions.slice(0, 3).join(', ')}{version.gameVersions.length > 3 ? ` +${version.gameVersions.length - 3}` : ''}</span>
-                      {version.loaders.length > 0 ? <span>{version.loaders.map(loaderLabel).join(' / ')}</span> : null}
-                      {version.datePublished ? <span>{formatDate(version.datePublished)}</span> : null}
-                      <span>{formatDownloads(version.downloads)}</span>
-                      <Badge tone={version.versionType === 'release' ? 'success' : 'outline'}>
-                        {version.versionType === 'release' ? '正式版' : version.versionType === 'beta' ? 'beta' : 'alpha'}
-                      </Badge>
-                      {!ok ? <Badge tone="warning">与当前实例不匹配</Badge> : null}
-                    </div>
+            {versionGroups.map((group) => (
+              <section key={group.key} className="version-group">
+                <button
+                  type="button"
+                  className="version-group__head"
+                  aria-expanded={!collapsed.has(group.key)}
+                  onClick={() => {
+                    setCollapsed((previous) => {
+                      const next = new Set(previous)
+                      if (next.has(group.key)) next.delete(group.key)
+                      else next.add(group.key)
+                      return next
+                    })
+                  }}
+                >
+                  <Icon name={collapsed.has(group.key) ? 'chevron-right' : 'chevron-down'} className="ico ico--xs" />
+                  <strong>{group.title}</strong>
+                  <span className="version-group__count">{group.versions.length} 个</span>
+                </button>
+                {collapsed.has(group.key) ? null : (
+                  <div className="version-group__body">
+                    {group.versions.map((version) => {
+                      const ok = compatible(version)
+                      return (
+                        <div key={version.id} className={ok ? 'project-version' : 'project-version is-blocked'}>
+                          <span
+                            className={`ver-badge ver-badge--${version.versionType}`}
+                            title={version.versionType === 'release' ? '正式版' : version.versionType === 'beta' ? '测试版' : '预览版'}
+                          >
+                            {version.versionType === 'release' ? 'R' : version.versionType === 'beta' ? 'B' : 'A'}
+                          </span>
+                          <div className="project-version__main">
+                            <div className="project-version__name">
+                              {version.name}
+                              {!ok ? <span className="project-version__flag">与当前实例不匹配</span> : null}
+                            </div>
+                            <div className="project-version__meta">
+                              <span className="mono">{version.versionNumber}</span>
+                              <span>{formatDownloads(version.downloads)} 次下载</span>
+                              {version.datePublished ? <span>{formatDate(version.datePublished)}</span> : null}
+                              {version.versionType !== 'release' ? <span>测试版</span> : null}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant={ok ? 'primary' : 'secondary'}
+                            loading={installing === version.id}
+                            onClick={() => void install(version)}
+                          >
+                            {installing === version.id ? '安装中…' : '安装'}
+                          </Button>
+                        </div>
+                      )
+                    })}
                   </div>
-                  <Button
-                    size="sm"
-                    variant={ok ? 'primary' : 'secondary'}
-                    loading={installing === version.id}
-                    onClick={() => void install(version)}
-                  >
-                    {installing === version.id ? '安装中…' : '安装'}
-                  </Button>
-                </div>
-              )
-            })}
+                )}
+              </section>
+            ))}
           </div>
         )}
         {allVersions.length > 60 && mcFilter === null ? (

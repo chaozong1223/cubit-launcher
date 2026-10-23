@@ -552,6 +552,48 @@
   font-size: 11px;
   color: var(--text-3);
 }
+/* Collapsible (loader · MC version) blocks, PCL-style. */
+.version-group { margin-top: 10px; }
+.version-group__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.version-group__head:hover { border-color: var(--border); }
+.version-group__count { margin-left: auto; font-size: 11px; color: var(--text-3); }
+.version-group__body { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+/* R / B / A channel badge in front of each version row. */
+.ver-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ver-badge--release { background: rgb(56 160 96 / 18%); color: #4EC97F; }
+.ver-badge--beta { background: rgb(214 158 46 / 18%); color: #E2B341; }
+.ver-badge--alpha { background: rgb(214 82 82 / 18%); color: #E56B6B; }
+.project-version__flag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgb(214 158 46 / 16%);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #E2B341;
+}
 .catalog-row {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;
