@@ -1609,6 +1609,28 @@
 .ver-picker__title { font-size: 13px; color: var(--text); }
 .ver-picker__sub { display: block; margin-top: 2px; font-size: 11px; color: var(--text-3); }
 .ver-picker__toggle { display: flex; justify-content: flex-end; margin: 12px 0 4px; }
+/* Compact "drop to import" pill instead of a full-screen overlay. */
+.global-drop-mini {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  transform: translateX(-50%);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  color: var(--accent-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  pointer-events: none;
+  animation: nw-fade-in 160ms var(--ease-out);
+}
+.global-drop-mini svg { width: 15px; height: 15px; }
 /* Expanding the version list eases in instead of snapping. */
 .ver-expand { animation: ver-expand-in 460ms var(--ease-out) both; }
 @keyframes ver-expand-in {

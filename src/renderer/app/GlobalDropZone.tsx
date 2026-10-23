@@ -580,25 +580,12 @@ export function GlobalDropZone() {
 
   return (
     <>
+      {/* A small pill while dragging: the old full-screen card blocked the
+          whole window just to say "drop here". */}
       {dragging ? (
-        <div className={`global-drop-overlay${target ? '' : ' global-drop-overlay--missing'}`} aria-hidden="true">
-          <div className="global-drop-card">
-            <div className="global-drop-card__icon"><SvgIcon name="upload" /></div>
-            <div className="global-drop-card__eyebrow">拖入后自动识别 · 任意页面</div>
-            <h2>{target ? `目标实例：${target.name}` : '整合包无需实例；资源包/光影需要一个实例'}</h2>
-            <p>
-              {target
-                ? `${target.mcVersion ?? '版本未知'} · ${target.loader.type} · 先读清单/目录结构，再直接执行安装`
-                : '整合包会自动创建实例；模组/资源包/光影需要先在实例页选择一个实例。'}
-            </p>
-            <div className="global-drop-card__types">
-              <span><Badge tone="outline">.jar</Badge> 模组</span>
-              <span><Badge tone="outline">.zip</Badge> 自动识别整合包 / 资源包 / 光影</span>
-              <span><Badge tone="outline">.mrpack</Badge> 整合包（含原版+加载器）</span>
-              <span><Badge tone="outline">文件夹</Badge> Minecraft 目录</span>
-            </div>
-            <div className="global-drop-card__hint">整合包会按清单自动安装缺失的原版和加载器；只有内容无法判断时才询问一次</div>
-          </div>
+        <div className="global-drop-mini" aria-hidden="true">
+          <SvgIcon name="upload" />
+          <span>松手导入{target ? ` · ${target.name}` : ' · 需要先选实例'}</span>
         </div>
       ) : null}
 
