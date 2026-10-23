@@ -4,7 +4,7 @@ import type { MinecraftCandidate, SetGameDirResult } from '@shared/instance'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
-import { Badge, Banner, Button, Card, DataStateNotice, Field, Input, Skeleton } from '../ui'
+import { Badge, Banner, Button, Card, DataStateNotice, Skeleton } from '../ui'
 import { Icon } from '../icons'
 
 function sourceLabel(source: MinecraftCandidate['source']): string {
@@ -32,25 +32,21 @@ export function MinecraftDirectoryPanel({ onImported }: { onImported?: () => voi
   const [busyPath, setBusyPath] = useState<string | null>(null)
   const [result, setResult] = useState<SetGameDirResult | null>(null)
   const [error, setError] = useState<UiErrorInfo | null>(null)
-  const [creatingDirectory, setCreatingDirectory] = useState(false)
-  const [newDirectory, setNewDirectory] = useState('')
 
   /**
-   * Create the folder the user typed and switch the game root to it, so a
-   * brand-new setup does not require making the directory in Explorer first.
+   * Pick or create the folder in the native dialog (Windows offers “新建文件夹”
+   * right in it), then switch the game root to whatever was chosen.
    */
-  const createDirectory = async () => {
-    const target = newDirectory.trim()
-    if (!target) return
+  const pickOrCreateDirectory = async () => {
     setError(null)
     setResult(null)
-    setBusyPath(target)
+    setBusyPath('create')
     try {
-      const created = await backend.system.ensureDirectory(target)
-      const imported = await backend.instances.importRoot(created.path)
+      const picked = await backend.system.pickDirectory('选择或新建 Minecraft 目录')
+      if (picked.cancelled || !picked.path) return
+      const ensured = await backend.system.ensureDirectory(picked.path)
+      const imported = await backend.instances.importRoot(ensured.path)
       setResult(imported)
-      setCreatingDirectory(false)
-      setNewDirectory('')
       discover.reload()
     } catch (cause) {
       setError(describeError(cause))
@@ -200,8 +196,8 @@ export function MinecraftDirectoryPanel({ onImported }: { onImported?: () => voi
         <Button size="sm" variant="secondary" icon="folder" disabled={busy} onClick={() => openFolderPicker('select')}>
           选择目录
         </Button>
-        <Button size="sm" variant="secondary" icon="plus" disabled={busy} onClick={() => setCreatingDirectory((value) => !value)}>
-          新建目录
+        <Button size="sm" variant="secondary" icon="plus" disabled={busyPath === 'create'} loading={busyPath === 'create'} onClick={() => void pickOrCreateDirectory()}>
+          选择或新建目录
         </Button>
         <Button size="sm" variant="ghost" icon="cube" disabled={busy} onClick={() => openFolderPicker('existing')}>
           使用已有 .minecraft
@@ -209,27 +205,7 @@ export function MinecraftDirectoryPanel({ onImported }: { onImported?: () => voi
         {result ? <span className="mc-dir-saved"><Icon name="check" />已保存，重启后仍生效</span> : null}
       </div>
 
-      {creatingDirectory ? (
-        <div className="mc-dir-create">
-          <Field label="新目录的完整路径" hint="会递归创建；父目录必须存在。例如 E:\MC\.minecraft">
-            <Input
-              value={newDirectory}
-              placeholder="E:\MC\.minecraft"
-              onChange={(event) => setNewDirectory(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void createDirectory()
-                if (event.key === 'Escape') setCreatingDirectory(false)
-              }}
-            />
-          </Field>
-          <div className="row gap-8">
-            <Button size="sm" variant="primary" icon="plus" loading={busy} disabled={!newDirectory.trim()} onClick={() => void createDirectory()}>
-              创建并设为游戏目录
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setCreatingDirectory(false)}>取消</Button>
-          </div>
-        </div>
-      ) : null}
+      {null}
       <div className="mc-dir-note">选择目录会打开系统文件夹选择器；也可以用窗口级拖放直接把 .minecraft 文件夹拖进来。</div>
 
       {error ? <Banner tone="danger" title={error.title}>{error.detail}</Banner> : null}

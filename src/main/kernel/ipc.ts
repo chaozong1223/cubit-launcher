@@ -437,6 +437,30 @@ export function registerIpc(deps: IpcDependencies): void {
   })
 
   /**
+   * Native folder picker. `createDirectory` lets the Windows dialog create a
+   * new folder on the spot, so the user never has to type a path.
+   */
+  register(
+    CHANNELS.systemPickDirectory,
+    z.object({ title: z.string().max(120).optional() }).default({}),
+    z.object({ cancelled: z.boolean(), path: z.string().nullable() }),
+    async (event, input) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const options: Electron.OpenDialogOptions = {
+        properties: ['openDirectory', 'createDirectory'],
+      }
+      if (input.title) options.title = input.title
+      const result = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options)
+      if (result.canceled || result.filePaths.length === 0) {
+        return { cancelled: true, path: null }
+      }
+      return { cancelled: false, path: result.filePaths[0] }
+    },
+  )
+
+  /**
    * Create a directory (recursively) chosen by the user, e.g. a fresh
    * `.minecraft` root. Only an absolute path is accepted; the OS decides
    * whether the location is writable.
