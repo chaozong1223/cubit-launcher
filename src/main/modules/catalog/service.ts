@@ -817,18 +817,41 @@ export class CatalogModuleService {
     const query = input.query.trim()
     if (!query) fail('CATALOG.INVALID_INPUT', '搜索词不能为空')
     const url = `https://www.mcmod.cn/s?key=${encodeURIComponent(query)}`
-    if (!this.openExternal) return { url, opened: false }
-    await this.openExternal(url)
-    return { url, opened: true }
+    if (!this.openExternal) {
+      this.log.warn('openWiki: no external opener wired', { url })
+      return { url, opened: false }
+    }
+    try {
+      await this.openExternal(url)
+      this.log.info('openWiki: external open requested', { url })
+      return { url, opened: true }
+    } catch (error) {
+      this.log.error('openWiki: external open failed', {
+        url,
+        message: error instanceof Error ? error.message : String(error),
+      })
+      throw error
+    }
   }
 
   async openPage(input: CatalogPageInput): Promise<CatalogPageResult> {
     const url = this.pageFor(input)
     if (!this.openExternal) {
+      this.log.warn('openPage: no external opener wired', { url })
       return { provider: input.provider, url, opened: false }
     }
-    await this.openExternal(url)
-    return { provider: input.provider, url, opened: true }
+    try {
+      await this.openExternal(url)
+      this.log.info('openPage: external open requested', { provider: input.provider, url })
+      return { provider: input.provider, url, opened: true }
+    } catch (error) {
+      // shell.openExternal rejects when the OS has no handler for the scheme.
+      this.log.error('openPage: external open failed', {
+        url,
+        message: error instanceof Error ? error.message : String(error),
+      })
+      throw error
+    }
   }
 
   // ------------------------------------------------------- CurseForge config
