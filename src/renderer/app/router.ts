@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 export interface Route {
   path: string
-  name: 'home' | 'instances' | 'instance' | 'download' | 'catalog' | 'updates' | 'saves' | 'schematics' | 'screenshots' | 'trash' | 'link' | 'sdk' | 'logs' | 'settings' | 'about' | 'spec' | 'perf'
+  name: 'home' | 'instances' | 'instance' | 'download' | 'catalog' | 'project' | 'updates' | 'saves' | 'schematics' | 'screenshots' | 'trash' | 'link' | 'sdk' | 'logs' | 'settings' | 'about' | 'spec' | 'perf'
   id?: string
   section?: string
 }
@@ -27,6 +27,10 @@ export function parseHash(hash: string): Route {
     case 'catalog':
       return second
         ? { path: `#/catalog/${second}`, name: 'catalog', section: second }
+        : { path: '#/catalog', name: 'catalog' }
+    case 'project':
+      return second
+        ? { path: `#/project/${second}`, name: 'project', section: second }
         : { path: '#/catalog', name: 'catalog' }
     case 'updates':
       return { path: '#/updates', name: 'updates' }
@@ -86,6 +90,7 @@ export function routeTitle(route: Route): string {
     case 'instance': return '实例详情'
     case 'download': return '安装与下载'
     case 'catalog': return '资源库'
+    case 'project': return '项目详情'
     case 'updates': return '模组更新'
     case 'saves': return '存档'
     case 'schematics': return '投影管理'

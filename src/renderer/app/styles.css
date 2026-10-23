@@ -500,6 +500,58 @@
   color: var(--text-3);
   text-align: center;
 }
+/* Standalone Modrinth project page. */
+.project-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 12px;
+}
+.project-head__text { min-width: 0; flex: 1; }
+.project-head__desc {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 19px;
+  color: var(--text-2);
+}
+.project-target { margin-top: 12px; padding: 12px; }
+.project-target .field { max-width: 420px; }
+.project-versions { margin-top: 12px; padding: 12px; }
+.project-versions__title { font-size: 13px; color: var(--text); margin-right: 4px; }
+.chip--active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+.project-version-list { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.project-version {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+}
+.project-version:hover { background: var(--surface-2); }
+.project-version.is-blocked { opacity: .62; }
+.project-version__main { flex: 1; min-width: 0; }
+.project-version__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.project-version__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-3);
+}
 .catalog-row {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;

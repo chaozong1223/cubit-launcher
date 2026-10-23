@@ -14,6 +14,7 @@ import { InstancesPage } from './pages/InstancesPage'
 import { InstanceDetailPage } from './pages/InstanceDetailPage'
 import { DownloadPage } from './pages/DownloadPage'
 import { CatalogPage } from './pages/CatalogPage'
+import { CatalogProjectPage } from './pages/CatalogProjectPage'
 import { SavesPage } from './pages/SavesPage'
 import { SchematicsPage } from './pages/SchematicsPage'
 import { ScreenshotsPage } from './pages/ScreenshotsPage'
@@ -151,6 +152,10 @@ function Page({ route }: { route: Route }) {
     case 'instance': return <InstanceDetailPage />
     case 'download': return <DownloadPage />
     case 'catalog': return <CatalogPage mode="search" category={route.section} />
+    case 'project':
+      return route.section
+        ? <CatalogProjectPage projectId={route.section} />
+        : <CatalogPage mode="search" />
     case 'updates': return <CatalogPage mode="updates" />
     case 'saves': return <SavesPage />
     case 'schematics': return <SchematicsPage />

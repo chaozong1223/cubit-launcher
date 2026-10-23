@@ -570,7 +570,7 @@ export function CatalogSearch({ instance, category }: { instance: InstanceSummar
                 hit={hit}
                 instance={instance}
                 installing={installing === hit.projectId}
-                onOpen={() => setSelectedHit(hit)}
+                onOpen={() => navigate(`/project/${hit.projectId}`)}
                 onInstall={() => void installLatest(hit)}
               />
             ))}
