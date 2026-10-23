@@ -1596,6 +1596,8 @@
   color: var(--text-3);
 }
 .instance-row__stat { white-space: nowrap; }
+/* Quick actions directly under the page title. */
+.quick-row--top { margin: 12px 0 16px; }
 /* Rename dialog: same shape as the delete dialog, smaller. */
 .rename-backdrop {
   position: fixed;

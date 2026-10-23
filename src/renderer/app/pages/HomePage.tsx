@@ -707,13 +707,27 @@ export function HomePage() {
       <PageHeader
         title="欢迎回来"
         subtitle="从实例列表启动游戏；真实数据通过 adapter 读取，未接入时明确提示。"
-        actions={(
-          <>
-            <Button variant="secondary" icon="package" onClick={() => navigate('/instances')}>导入整合包</Button>
-            <Button variant="primary" icon="plus" onClick={() => navigate('/download')}>安装新版本</Button>
-          </>
-        )}
       />
+
+      {/* Quick actions live right under the title (was a row of header buttons
+          plus a second block at the bottom of the page). */}
+      <div className="quick-row quick-row--top">
+        <button className="quick-tile" type="button" onClick={() => navigate('/download')}>
+          <span className="quick-tile__icon"><Icon name="download" /></span>
+          <span className="quick-tile__text"><span className="quick-tile__title">安装新版本</span><span className="quick-tile__sub">原版或加载器，进入安装与下载</span></span>
+          <Icon name="chevron-right" />
+        </button>
+        <button className="quick-tile" type="button" onClick={() => navigate('/instances')}>
+          <span className="quick-tile__icon"><Icon name="package" /></span>
+          <span className="quick-tile__text"><span className="quick-tile__title">导入整合包</span><span className="quick-tile__sub">从链接或本地文件创建实例</span></span>
+          <Icon name="chevron-right" />
+        </button>
+        <button className="quick-tile" type="button" onClick={() => navigate('/settings/java')}>
+          <span className="quick-tile__icon"><Icon name="coffee" /></span>
+          <span className="quick-tile__text"><span className="quick-tile__title">管理 Java</span><span className="quick-tile__sub">检测与指定运行时</span></span>
+          <Icon name="chevron-right" />
+        </button>
+      </div>
 
       {system.error ? (
         <Banner tone="danger" title="系统信息读取失败" actions={<Button size="sm" variant="secondary" onClick={system.reload}>重试</Button>}>
@@ -815,24 +829,6 @@ export function HomePage() {
             </Card>
           )}
 
-          <SectionHead title="快速开始" />
-          <div className="quick-row">
-            <button className="quick-tile" type="button" onClick={() => navigate('/download')}>
-              <span className="quick-tile__icon"><Icon name="download" /></span>
-              <span className="quick-tile__text"><span className="quick-tile__title">安装新版本</span><span className="quick-tile__sub">原版 / 加载器，等待安装后端</span></span>
-              <Icon name="chevron-right" />
-            </button>
-            <button className="quick-tile" type="button" onClick={() => navigate('/instances')}>
-              <span className="quick-tile__icon"><Icon name="package" /></span>
-              <span className="quick-tile__text"><span className="quick-tile__title">导入整合包</span><span className="quick-tile__sub">等待整合包扫描后端</span></span>
-              <Icon name="chevron-right" />
-            </button>
-            <button className="quick-tile" type="button" onClick={() => navigate('/settings/java')}>
-              <span className="quick-tile__icon"><Icon name="coffee" /></span>
-              <span className="quick-tile__text"><span className="quick-tile__title">管理 Java</span><span className="quick-tile__sub">等待 Java 检测通道</span></span>
-              <Icon name="chevron-right" />
-            </button>
-          </div>
         </div>
       </div>
 
