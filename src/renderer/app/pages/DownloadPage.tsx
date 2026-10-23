@@ -423,7 +423,7 @@ export function DownloadPage() {
             aria-label="搜索版本 ID"
           />
         </div>
-        <div className="ver-list" role="listbox" aria-label="Minecraft 版本">
+        <div className="ver-list ver-list-cut" key={mcTab} role="listbox" aria-label="Minecraft 版本">
           {tabVersions.length === 0 ? (
             <div className="ver-list__empty">
               {manifest.status === 'loading' ? '正在读取版本清单…' : '这个分类下没有可显示的版本'}

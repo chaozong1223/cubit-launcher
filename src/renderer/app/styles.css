@@ -1862,40 +1862,46 @@
 .ver-pills {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 6px;
   flex-wrap: wrap;
-  border-bottom: 1px solid var(--border-subtle);
+  /* Boxed segment control instead of bare underline tabs. */
+  margin: 12px 0 2px;
+  padding: 5px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 11px;
+  background: var(--surface-2);
 }
-/* Version-type switch as underline tabs (好友/联机 style in the reference). */
+/* Version-type switch as pills inside that box. */
 .ver-pill {
-  height: 36px;
-  padding: 0;
-  margin-bottom: -1px;
-  border: 0;
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
+  height: 30px;
+  padding: 0 14px;
+  margin-bottom: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-3);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+  transition: color 160ms var(--ease-out), background 160ms var(--ease-out), border-color 160ms var(--ease-out);
 }
 .ver-pill:hover {
-  background: transparent;
+  background: var(--surface-3);
   color: var(--text);
 }
 .ver-pill.is-active {
-  background: transparent;
-  border-color: transparent;
-  border-bottom-color: var(--accent);
-  color: var(--text);
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent-text);
 }
 .ver-search {
   margin-left: auto;
-  margin-bottom: 6px;
-  width: 260px;
+  margin-bottom: 0;
+  width: 240px;
   max-width: 100%;
+  height: 30px;
 }
+/* Switching a category eases the list in rather than swapping instantly. */
+.ver-list-cut { animation: ver-expand-in 240ms var(--ease-out) both; }
 .ver-heroes {
   display: grid;
   grid-template-columns: 1fr 1fr;
