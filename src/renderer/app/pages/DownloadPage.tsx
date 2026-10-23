@@ -378,8 +378,7 @@ export function DownloadPage() {
         </div>
         {!showVersionList ? null : (
         <>
-        <div className="ver-pills">
-          {MC_TABS.map((tab) => (
+        <div className="ver-pills">          {MC_TABS.map((tab) => (
             <button
               key={tab.value}
               type="button"
@@ -397,7 +396,10 @@ export function DownloadPage() {
             aria-label="搜索版本 ID"
           />
         </div>
+        </>
+        )}
 
+        {/* Quick picks stay visible even when the long list is collapsed. */}
         <div className="ver-heroes">
           <button
             type="button"
@@ -429,6 +431,8 @@ export function DownloadPage() {
           </button>
         </div>
 
+        {!showVersionList ? null : (
+        <>
         <div className="ver-list" role="listbox" aria-label="Minecraft 版本">
           {tabVersions.length === 0 ? (
             <div className="ver-list__empty">
