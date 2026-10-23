@@ -106,7 +106,14 @@ interface ConflictState {
 export function SchematicsPage() {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
-  const [sourceKey, setSourceKey] = useState('')
+  const [sourceKey, setSourceKey] = useState(() => {
+    // Default to the instance the user last picked on the home page.
+    try {
+      return localStorage.getItem('mcl.global.instanceId') ?? ''
+    } catch {
+      return ''
+    }
+  })
   const [query, setQuery] = useState('')
   const [format, setFormat] = useState('all')
   const [selectedName, setSelectedName] = useState<string | null>(null)
@@ -466,6 +473,7 @@ export function SchematicsPage() {
         subtitle="左侧选择实例来源（全局 = 共享 .minecraft/schematics）；右侧「目标版本」独立决定复制/移动的去向。列表只显示真实目录内容。"
         actions={(
           <>
+            <Button variant="secondary" icon="chevron-left" onClick={() => navigate('/home')}>返回主页</Button>
             <Button variant="secondary" icon="folder" disabled={!sourceInstance} onClick={openFolder}>打开文件夹</Button>
             <Button variant="primary" icon="plus" loading={busy === 'import'} disabled={!sourceInstance} onClick={() => void pickAndImport()}>打开文件…</Button>
           </>

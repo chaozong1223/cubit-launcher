@@ -35,7 +35,14 @@ const CATEGORY_TITLES: Record<string, string> = {
 export function CatalogPage({ mode, category }: { mode: CatalogMode; category?: string }) {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
-  const [selectedId, setSelectedId] = useState('')
+  const [selectedId, setSelectedId] = useState(() => {
+    // Follow the instance picked on the home page (⋯ → 模组更新 / 资源库).
+    try {
+      return localStorage.getItem('mcl.global.instanceId') ?? ''
+    } catch {
+      return ''
+    }
+  })
 
   useEffect(() => {
     if (!instances.data || instances.data.length === 0) return
@@ -63,6 +70,9 @@ export function CatalogPage({ mode, category }: { mode: CatalogMode; category?: 
           : `只显示${CATEGORY_TITLES[category ?? 'mod'] ?? '资源库'}；换类别请点上方标签，切走会清空筛选。`}
         actions={
           <>
+            {mode === 'updates' ? (
+              <Button size="sm" variant="secondary" icon="chevron-left" onClick={() => navigate('/home')}>返回主页</Button>
+            ) : null}
             <Badge tone="accent" dot>{mode === 'updates' ? 'SHA-1 反查' : 'Modrinth 实时'}</Badge>
             <Button size="sm" variant="secondary" icon="refresh" onClick={instances.reload} loading={instances.status === 'loading'}>
               刷新实例

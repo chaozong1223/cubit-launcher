@@ -14,7 +14,15 @@ export interface InstanceSelection {
 export function useInstanceSelection(): InstanceSelection {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
-  const [selectedId, setSelectedId] = useState('')
+  // Start from the instance the user last picked on the home page, so pages
+  // opened from the ⋯ menu land on that instance instead of an arbitrary one.
+  const [selectedId, setSelectedId] = useState(() => {
+    try {
+      return localStorage.getItem('mcl.global.instanceId') ?? ''
+    } catch {
+      return ''
+    }
+  })
 
   useEffect(() => {
     if (!instances.data || instances.data.length === 0) return
