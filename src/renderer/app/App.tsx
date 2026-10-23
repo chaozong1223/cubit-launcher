@@ -10,7 +10,6 @@ import { SystemProvider, useSystem, type SecurityFlags, type SystemValue } from 
 import { Icon, CubeMark } from './icons'
 import { Badge, Button } from './ui'
 import { HomePage } from './pages/HomePage'
-import { InstancesPage } from './pages/InstancesPage'
 import { InstanceDetailPage } from './pages/InstanceDetailPage'
 import { DownloadPage } from './pages/DownloadPage'
 import { CatalogPage } from './pages/CatalogPage'
@@ -147,7 +146,6 @@ function Nav({ route, collapsed, onToggle }: { route: Route; collapsed: boolean;
 function Page({ route }: { route: Route }) {
   switch (route.name) {
     case 'home': return <HomePage />
-    case 'instances': return <InstancesPage />
     case 'instance': return <InstanceDetailPage />
     case 'download': return <DownloadPage />
     case 'catalog': return <CatalogPage mode="search" category={route.section} />

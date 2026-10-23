@@ -13,7 +13,8 @@ export function parseHash(hash: string): Route {
   const [first, second] = parts
   switch (first) {
     case 'instances': {
-      if (!second) return { path: '#/instances', name: 'instances' }
+      // The instance list now lives on the home page; keep old links working.
+      if (!second) return { path: '#/home', name: 'home' }
       const third = parts[2]
       return {
         path: third ? `#/instances/${second}/${third}` : `#/instances/${second}`,

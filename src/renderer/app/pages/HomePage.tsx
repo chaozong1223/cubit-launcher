@@ -5,6 +5,7 @@ import { useBackend } from '../data/BackendContext'
 import { useCurrentAccount } from '../data/useAccount'
 import { BackendError, describeError, type LaunchExitedEvent, type LaunchStageEvent, type LaunchStatusEvent, type UiErrorInfo } from '../data/backend'
 import { DeleteInstanceDialog } from './DeleteInstanceDialog'
+import { ImportPackDialog } from './ImportPackDialog'
 import { useAsync } from '../data/useAsync'
 import { useInstanceRunning } from '../data/useInstanceRunning'
 
@@ -645,6 +646,7 @@ export function HomePage() {
   const instances = useAsync(() => backend.instances.list(), [])
   const [selectedId, setSelectedId] = useState<string | null>(() => localStorage.getItem('mcl.global.instanceId'))
   const [pendingDelete, setPendingDelete] = useState<InstanceSummary | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const [rowMenuId, setRowMenuId] = useState<string | null>(null)
   const [listFilter, setListFilter] = useState<'all' | 'ready' | 'broken'>('all')
   const pendingDeleteRunning = useInstanceRunning(pendingDelete?.id ?? null)
@@ -728,7 +730,7 @@ export function HomePage() {
           <span className="quick-tile__text"><span className="quick-tile__title">安装新版本</span><span className="quick-tile__sub">原版或加载器，进入安装与下载</span></span>
           <Icon name="chevron-right" />
         </button>
-        <button className="quick-tile" type="button" onClick={() => navigate('/instances')}>
+        <button className="quick-tile" type="button" onClick={() => setImportOpen(true)}>
           <span className="quick-tile__icon"><Icon name="package" /></span>
           <span className="quick-tile__text"><span className="quick-tile__title">导入整合包</span><span className="quick-tile__sub">从链接或本地文件创建实例</span></span>
           <Icon name="chevron-right" />
@@ -768,7 +770,7 @@ export function HomePage() {
                 actions={(
                   <>
                     <Button variant="primary" icon="download" onClick={() => navigate('/download')}>安装第一个版本</Button>
-                    <Button variant="secondary" icon="package" onClick={() => navigate('/instances')}>导入整合包</Button>
+                    <Button variant="secondary" icon="package" onClick={() => setImportOpen(true)}>导入整合包</Button>
                   </>
                 )}
                 hint="页面不会预填示例实例。"
@@ -796,7 +798,8 @@ export function HomePage() {
                     }]}
                   />
                 </div>
-                <Button size="sm" variant="link" onClick={() => navigate('/instances')}>全部实例 →</Button>
+                <Button size="sm" variant="secondary" icon="package" onClick={() => setImportOpen(true)}>导入整合包</Button>
+                <Button size="sm" variant="primary" icon="plus" onClick={() => navigate('/download')}>新建实例</Button>
               </div>
             )}
           />
@@ -904,6 +907,17 @@ export function HomePage() {
 
         </div>
       </div>
+
+      <ImportPackDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(instanceId, name) => {
+          setImportOpen(false)
+          window.dispatchEvent(new CustomEvent('mcl:instances-changed'))
+          void instances.reload()
+          navigate(`/instances/${encodeURIComponent(instanceId)}`)
+        }}
+      />
 
       <DeleteInstanceDialog
         instance={pendingDelete}
