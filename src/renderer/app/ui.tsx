@@ -480,6 +480,7 @@ export function Dropdown({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -498,7 +499,25 @@ export function Dropdown({
     }
   }, [open])
 
+  // Typing narrows the list; the box opens with the cursor in it, so a 280-item
+  // version list can be typed into instead of scrolled.
+  const query = search.trim().toLowerCase()
+  const visibleGroups = query
+    ? groups
+        .map((group) => ({
+          label: group.label,
+          options: group.options.filter((option) => option.label.toLowerCase().includes(query)),
+        }))
+        .filter((group) => group.options.length > 0)
+    : groups
+  const flatVisible = visibleGroups.flatMap((group) => group.options)
   const current = groups.flatMap((group) => group.options).find((option) => option.value === value)
+
+  const choose = (next: string) => {
+    onChange(next)
+    setOpen(false)
+    setSearch('')
+  }
 
   return (
     <div className={cx('dropdown', className)} ref={rootRef}>
@@ -509,33 +528,51 @@ export function Dropdown({
         aria-expanded={open}
         aria-label={label}
         disabled={disabled}
-        onClick={() => setOpen((previous) => !previous)}
+        onClick={() => {
+          setSearch('')
+          setOpen((previous) => !previous)
+        }}
       >
         <span>{current?.label ?? placeholder}</span>
         <Icon name="chevron-down" className="ico ico--xs" />
       </button>
       {open ? (
         <div className="dropdown__menu" role="listbox" aria-label={label}>
-          {groups.map((group, index) => (
-            <div key={group.label ?? `group-${index}`}>
-              {group.label ? <div className="dropdown__group">{group.label}</div> : null}
-              {group.options.map((option) => (
-                <button
-                  key={option.value || '__all__'}
-                  type="button"
-                  role="option"
-                  aria-selected={value === option.value}
-                  className="dropdown__item"
-                  onClick={() => {
-                    onChange(option.value)
-                    setOpen(false)
-                  }}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          ))}
+          <input
+            className="dropdown__search"
+            autoFocus
+            value={search}
+            placeholder="输入筛选…"
+            aria-label="筛选选项"
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                if (flatVisible[0]) choose(flatVisible[0].value)
+              }
+            }}
+          />
+          {visibleGroups.length === 0 ? (
+            <div className="dropdown__empty">没有匹配项</div>
+          ) : (
+            visibleGroups.map((group, index) => (
+              <div key={group.label ?? `group-${index}`}>
+                {group.label ? <div className="dropdown__group">{group.label}</div> : null}
+                {group.options.map((option) => (
+                  <button
+                    key={option.value || '__all__'}
+                    type="button"
+                    role="option"
+                    aria-selected={value === option.value}
+                    className="dropdown__item"
+                    onClick={() => choose(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
         </div>
       ) : null}
     </div>
