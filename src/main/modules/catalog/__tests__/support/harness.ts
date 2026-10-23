@@ -123,6 +123,7 @@ export class FakeModsService implements ModsService {
         },
         resourcepacks: { enabled: [], disabled: [] },
         shaderpacks: { enabled: [], disabled: [] },
+        datapacks: { enabled: [], disabled: [] },
       },
       totals: { enabled: this.mods.filter((mod) => mod.enabled).length, disabled: 0 },
       issues: [],

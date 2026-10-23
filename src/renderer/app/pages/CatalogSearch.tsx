@@ -47,6 +47,7 @@ const PAGE_SIZE = 20
 /** One icon per project type, used by the category chips above the filters. */
 const TYPE_ICONS: Record<string, Parameters<typeof Icon>[0]['name']> = {
   mod: 'package',
+  datapack: 'cube',
   modpack: 'cube',
   resourcepack: 'folder',
   shader: 'sun',
@@ -316,7 +317,11 @@ function ProjectDetail({
 
 export function CatalogSearch({ instance, category }: { instance: InstanceSummary | null; category?: string }) {
   const isProjectType = (value: string | undefined): value is CatalogProjectType =>
-    value === 'mod' || value === 'modpack' || value === 'resourcepack' || value === 'shader'
+    value === 'mod' ||
+    value === 'modpack' ||
+    value === 'resourcepack' ||
+    value === 'shader' ||
+    value === 'datapack'
   const backend = useBackend()
   const initialType: CatalogProjectType = isProjectType(category) ? category : 'mod'
   const [query, setQuery] = useState('')

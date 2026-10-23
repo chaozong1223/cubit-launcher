@@ -20,6 +20,7 @@ import { Icon } from '../icons'
 
 const KIND_META: Record<ModKind, { title: string; folder: string; filterName: string; extensions: string[]; hint: string }> = {
   mods: { title: '模组', folder: 'mods', filterName: 'Minecraft 模组', extensions: ['jar'], hint: '拖入 .jar 安装到当前实例；不会影响其它实例。' },
+  datapacks: { title: '数据包', folder: 'datapacks', filterName: '数据包', extensions: ['zip'], hint: '拖入数据包 .zip 到当前实例的 datapacks 目录；世界存档的数据包请放进存档自己的 datapacks。' },
   resourcepacks: { title: '资源包', folder: 'resourcepacks', filterName: '资源包', extensions: ['zip'], hint: '拖入资源包 .zip；可按需启用、禁用或删除。' },
   shaderpacks: { title: '光影', folder: 'shaderpacks', filterName: '光影包', extensions: ['zip'], hint: '拖入光影包 .zip；需要 Iris/OptiFine 才能在游戏内切换。' },
 }

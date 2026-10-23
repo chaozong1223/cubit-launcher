@@ -17,7 +17,7 @@ import { ModpackImportStartSchema } from './mods'
 export const CatalogProvider = z.enum(['modrinth', 'curseforge'])
 export type CatalogProvider = z.infer<typeof CatalogProvider>
 
-export const CatalogProjectType = z.enum(['mod', 'resourcepack', 'shader', 'modpack'])
+export const CatalogProjectType = z.enum(['mod', 'resourcepack', 'shader', 'modpack', 'datapack'])
 export type CatalogProjectType = z.infer<typeof CatalogProjectType>
 
 export const CatalogSearchHitSchema = z.object({

@@ -497,12 +497,14 @@ export class CatalogModuleService {
           },
         }
       }
-      const kind: 'mods' | 'resourcepacks' | 'shaderpacks' =
+      const kind: 'mods' | 'resourcepacks' | 'shaderpacks' | 'datapacks' =
         project.projectType === 'resourcepack'
           ? 'resourcepacks'
           : project.projectType === 'shader'
             ? 'shaderpacks'
-            : 'mods'
+            : project.projectType === 'datapack'
+              ? 'datapacks'
+              : 'mods'
       const installed = await mods.installLocalFile({
         instanceId: info.instance.dirName,
         path: downloaded.tempPath,

@@ -26,6 +26,7 @@ export type CatalogMode = 'search' | 'updates'
 /** One page title per category, so the header names what the list shows. */
 const CATEGORY_TITLES: Record<string, string> = {
   mod: '模组',
+  datapack: '数据包',
   modpack: '整合包',
   resourcepack: '资源包',
   shader: '光影',

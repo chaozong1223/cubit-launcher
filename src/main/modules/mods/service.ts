@@ -47,11 +47,12 @@ import {
   type PackManifest,
 } from './modpack'
 
-const KINDS: ModKind[] = ['mods', 'resourcepacks', 'shaderpacks']
+const KINDS: ModKind[] = ['mods', 'resourcepacks', 'shaderpacks', 'datapacks']
 const MODS_DIRS: Record<ModKind, string> = {
   mods: 'mods',
   resourcepacks: 'resourcepacks',
   shaderpacks: 'shaderpacks',
+  datapacks: 'datapacks',
 }
 const MAX_LOCAL_FILE_BYTES = 512 * 1024 * 1024
 const MAX_EXPORT_BYTES = 2 * 1024 * 1024 * 1024
@@ -361,6 +362,7 @@ export class ModsModuleService {
       mods: emptyKindFiles(),
       resourcepacks: emptyKindFiles(),
       shaderpacks: emptyKindFiles(),
+      datapacks: emptyKindFiles(),
     }
     const kinds = input.kind ? [input.kind] : KINDS
     for (const kind of kinds) {

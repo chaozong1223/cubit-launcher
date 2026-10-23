@@ -3,6 +3,7 @@ import type { InstanceSummary } from '@shared/instance'
 
 export const PROJECT_TYPE_OPTIONS: ReadonlyArray<{ value: CatalogProjectType; label: string }> = [
   { value: 'mod', label: '模组' },
+  { value: 'datapack', label: '数据包' },
   { value: 'resourcepack', label: '资源包' },
   { value: 'shader', label: '光影' },
   { value: 'modpack', label: '整合包' },

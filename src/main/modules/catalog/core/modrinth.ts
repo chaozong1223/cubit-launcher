@@ -153,13 +153,28 @@ function stringsOf(value: unknown): string[] {
 }
 
 function normalizeProjectType(value: unknown): CatalogProjectType {
-  if (value === 'resourcepack' || value === 'shader' || value === 'modpack') return value
+  if (
+    value === 'resourcepack' ||
+    value === 'shader' ||
+    value === 'modpack' ||
+    value === 'datapack'
+  ) {
+    return value
+  }
   return 'mod'
 }
 
 function projectPageUrl(type: CatalogProjectType, slug: string): string {
   const segment =
-    type === 'resourcepack' ? 'resourcepack' : type === 'shader' ? 'shader' : type === 'modpack' ? 'modpack' : 'mod'
+    type === 'resourcepack'
+      ? 'resourcepack'
+      : type === 'shader'
+        ? 'shader'
+        : type === 'modpack'
+          ? 'modpack'
+          : type === 'datapack'
+            ? 'datapack'
+            : 'mod'
   return `https://modrinth.com/${segment}/${encodeURIComponent(slug)}`
 }
 

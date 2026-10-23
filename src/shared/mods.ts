@@ -4,7 +4,7 @@ import { LoaderSchema } from './instance'
 import { JobFinishedSchema, JobProgressSchema } from './job'
 
 /** Resource directories managed by the mods module. */
-export const ModKind = z.enum(['mods', 'resourcepacks', 'shaderpacks'])
+export const ModKind = z.enum(['mods', 'resourcepacks', 'shaderpacks', 'datapacks'])
 export type ModKind = z.infer<typeof ModKind>
 
 export const ModDependencySchema = z.object({
@@ -65,6 +65,7 @@ export const ModScanResultSchema = z.object({
     mods: KindFilesSchema,
     resourcepacks: KindFilesSchema,
     shaderpacks: KindFilesSchema,
+    datapacks: KindFilesSchema,
   }),
   totals: z.object({
     enabled: z.number().int().nonnegative(),
