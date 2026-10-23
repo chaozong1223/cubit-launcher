@@ -58,6 +58,7 @@ export function TrashPage() {
   const items = trash.data?.items ?? []
   const restorable = items.filter((item) => item.canRestore)
   const chosenRestorable = restorable.filter((item) => chosen.has(item.id))
+  const chosenItems = items.filter((item) => chosen.has(item.id))
 
   /** Permanently remove trash entries; asks first because it cannot be undone. */
   const purge = async (ids: string[]) => {
@@ -124,7 +125,7 @@ export function TrashPage() {
     <>
       <PageHeader
         title="回收站"
-        subtitle="存档/截图/实例删除后的可恢复副本；这里不提供永久删除。恢复冲突会明确说明，绝不覆盖现有文件。"
+        subtitle="存档、截图与实例删除后的可恢复副本；原位置被占用时会标为冲突，恢复与删除都不会覆盖现有文件。"
         actions={<Button variant="secondary" icon="refresh" onClick={trash.reload}>刷新回收站</Button>}
       />
 
@@ -145,11 +146,14 @@ export function TrashPage() {
             <span>{items.length} 项 · {restorable.length} 项可恢复</span>
           </div>
           <div className="row gap-8">
-            {chosenRestorable.length > 0 ? (
+            {chosenItems.length > 0 ? (
               <>
                 <Button size="sm" variant="secondary" icon="close" onClick={() => setChosen(new Set())}>取消选择</Button>
-                <Button size="sm" variant="primary" icon="refresh" loading={busy === 'all'} onClick={() => void restore(chosenRestorable.map((item) => item.id))}>恢复所选（{chosenRestorable.length}）</Button>
-                <Button size="sm" variant="danger-ghost" icon="trash" loading={busy === 'purge'} onClick={() => void purge(chosenRestorable.map((item) => item.id))}>永久删除（{chosenRestorable.length}）</Button>
+                {chosenRestorable.length > 0 ? (
+                  <Button size="sm" variant="primary" icon="refresh" loading={busy === 'all'} onClick={() => void restore(chosenRestorable.map((item) => item.id))}>恢复所选（{chosenRestorable.length}）</Button>
+                ) : null}
+                {/* Purge works on every selected entry, not only restorable ones. */}
+                <Button size="sm" variant="danger-ghost" icon="trash" loading={busy === 'purge'} onClick={() => void purge(chosenItems.map((item) => item.id))}>永久删除（{chosenItems.length}）</Button>
               </>
             ) : null}
             <Button size="sm" variant="primary" icon="refresh" loading={busy === 'all'} disabled={restorable.length === 0} onClick={() => void restore()}>一键恢复全部</Button>
@@ -179,12 +183,11 @@ export function TrashPage() {
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id} className={item.canRestore ? undefined : 'is-disabled'}>
+                <tr key={item.id}>
                   <td>
                     <input
                       type="checkbox"
                       checked={chosen.has(item.id)}
-                      disabled={!item.canRestore}
                       aria-label={`选择 ${item.name}`}
                       onChange={(event) => {
                         const next = new Set(chosen)
@@ -201,9 +204,13 @@ export function TrashPage() {
                   <td>{formatTime(item.deletedAt)}</td>
                   <td className="num">{formatBytes(item.size)}</td>
                   <td className="row-actions">
-                    {item.canRestore
-                      ? <Button size="xs" variant="secondary" icon="refresh" loading={busy === `one:${item.id}`} onClick={() => void restore([item.id])}>{isInstanceItem(item) ? '恢复实例' : '恢复'}</Button>
-                      : <Badge tone="danger">冲突/不可恢复</Badge>}
+                    {item.canRestore ? (
+                      <Button size="xs" variant="secondary" icon="refresh" loading={busy === `one:${item.id}`} onClick={() => void restore([item.id])}>{isInstanceItem(item) ? '恢复实例' : '恢复'}</Button>
+                    ) : (
+                      <Badge tone="danger">冲突/不可恢复</Badge>
+                    )}
+                    {/* Any entry can be purged, including the ones that cannot be restored. */}
+                    <Button size="xs" variant="danger-ghost" icon="trash" loading={busy === `purge:${item.id}`} onClick={() => void purge([item.id])}>永久删除</Button>
                   </td>
                 </tr>
               ))}
