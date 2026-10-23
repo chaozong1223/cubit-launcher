@@ -1638,6 +1638,18 @@
   animation: nw-fade-in 160ms var(--ease-out);
 }
 .global-drop-mini svg { width: 15px; height: 15px; }
+/* Inline "create a new game directory" form. */
+.mc-dir-create {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0 4px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-2);
+  max-width: 620px;
+}
 /* Expanding the version list eases in instead of snapping. */
 .ver-expand { animation: ver-expand-in 460ms var(--ease-out) both; }
 @keyframes ver-expand-in {

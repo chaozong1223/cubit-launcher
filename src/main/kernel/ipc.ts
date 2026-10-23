@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import fs from 'node:fs'
+import path from 'node:path'
 import type { ZodType } from 'zod'
 import { z } from 'zod'
 import { CHANNELS, type RendererReadyReport } from '@shared/channels'
@@ -433,6 +435,34 @@ export function registerIpc(deps: IpcDependencies): void {
     cancelled: z.boolean(),
     path: z.string().nullable(),
   })
+
+  /**
+   * Create a directory (recursively) chosen by the user, e.g. a fresh
+   * `.minecraft` root. Only an absolute path is accepted; the OS decides
+   * whether the location is writable.
+   */
+  register(
+    CHANNELS.systemEnsureDirectory,
+    z.object({ path: z.string().min(1).max(1024) }),
+    z.object({ path: z.string(), created: z.boolean() }),
+    async (_event, input) => {
+      const target = path.resolve(input.path)
+      if (!path.isAbsolute(target)) {
+        throw new AppError(ERROR_CODES.IPC_INVALID_INPUT, '必须使用绝对路径', {
+          details: { path: input.path },
+        })
+      }
+      const existed = fs.existsSync(target)
+      try {
+        if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true })
+      } catch (error) {
+        throw new AppError(ERROR_CODES.INTERNAL, '无法创建目录', {
+          details: { path: target, message: error instanceof Error ? error.message : String(error) },
+        })
+      }
+      return { path: target, created: !existed }
+    },
+  )
 
   register(CHANNELS.systemPickFiles, pickFilesInput, pickFilesOutput, async (event, input) => {
     const win = BrowserWindow.fromWebContents(event.sender)

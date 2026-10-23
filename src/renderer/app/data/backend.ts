@@ -506,6 +506,7 @@ const CH = {
   repairListJobs: channelOf('repair', 'listJobs'),
   systemPickFiles: 'mc:system:pickFiles',
   systemPickSaveFile: 'mc:system:pickSaveFile',
+  systemEnsureDirectory: 'mc:system:ensureDirectory',
   downloadSources: channelOf('download', 'listSources'),
   downloadCustomFile: channelOf('download', 'downloadCustomFile'),
   downloadSettings: channelOf('download', 'getSettings'),
@@ -622,6 +623,7 @@ export interface Backend {
     getPathForFile(file: File): string
     pickFiles(request?: PickFilesRequest): Promise<PickFilesResult>
     pickSaveFile(request?: PickSaveFileRequest): Promise<PickSaveFileResult>
+    ensureDirectory(path: string): Promise<{ path: string; created: boolean }>
     reportReady(report: RendererReadyReport): Promise<{ ack: boolean }>
     probeBlockedChannel(): Promise<boolean>
     minimize(): Promise<{ ok: boolean }>
@@ -902,6 +904,8 @@ export const ipcBackend: Backend = {
       invoke<PickFilesResult>('选择文件', CH.systemPickFiles, request),
     pickSaveFile: (request = {}) =>
       invoke<PickSaveFileResult>('选择保存位置', CH.systemPickSaveFile, request),
+    ensureDirectory: (path: string) =>
+      invoke<{ path: string; created: boolean }>('创建目录', CH.systemEnsureDirectory, { path }),
     reportReady: (report) => api.app.reportRendererReady(report),
     probeBlockedChannel: () => api.probeBlockedChannel(),
     minimize: () => api.window.minimize(),
