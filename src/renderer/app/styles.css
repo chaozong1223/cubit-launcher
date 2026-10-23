@@ -1608,6 +1608,7 @@
 }
 .ver-picker__title { font-size: 13px; color: var(--text); }
 .ver-picker__sub { display: block; margin-top: 2px; font-size: 11px; color: var(--text-3); }
+.ver-picker__toggle { display: flex; justify-content: center; margin: 12px 0 4px; }
 /* Whole-page drop target (schematics import). */
 .page-dropzone { position: relative; border-radius: 14px; transition: outline-color 140ms var(--ease-out); outline: 2px dashed transparent; outline-offset: 6px; }
 .page-dropzone.is-dragging { outline-color: var(--accent); }

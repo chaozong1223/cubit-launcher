@@ -360,44 +360,14 @@ export function DownloadPage() {
       <div className="ver-picker" id="dl-versions">
         <div className="ver-picker__head">
           <div>
-            <strong className="ver-picker__title">版本列表</strong>
+            <strong className="ver-picker__title">选择版本</strong>
             <span className="ver-picker__sub">
               {showVersionList
-                ? `全部 ${versions.length} 个版本；点一行即选中`
-                : `已折叠（共 ${versions.length} 个版本）；用上方两张卡片快速选最新版`}
+                ? `全部 ${versions.length} 个版本；按分类查看，点一行即选中`
+                : `也可以从全部 ${versions.length} 个版本里挑（正式版 / 快照版 / 远古版本）`}
             </span>
           </div>
-          <Button
-            size="xs"
-            variant="secondary"
-            icon={showVersionList ? 'chevron-down' : 'chevron-right'}
-            onClick={() => setShowVersionList((previous) => !previous)}
-          >
-            {showVersionList ? '收起' : '展开全部版本'}
-          </Button>
         </div>
-        {!showVersionList ? null : (
-        <>
-        <div className="ver-pills">          {MC_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              className={`ver-pill${mcTab === tab.value ? ' is-active' : ''}`}
-              onClick={() => setMcTab(tab.value)}
-            >
-              {tab.label}
-            </button>
-          ))}
-          <input
-            className="input ver-search"
-            placeholder="搜索版本 ID…"
-            value={mcQuery}
-            onChange={(event) => setMcQuery(event.target.value)}
-            aria-label="搜索版本 ID"
-          />
-        </div>
-        </>
-        )}
 
         {/* Quick picks stay visible even when the long list is collapsed. */}
         <div className="ver-heroes">
@@ -431,8 +401,39 @@ export function DownloadPage() {
           </button>
         </div>
 
+        {/* The toggle sits under the two quick-pick cards. */}
+        <div className="ver-picker__toggle">
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={showVersionList ? 'chevron-down' : 'chevron-right'}
+            onClick={() => setShowVersionList((previous) => !previous)}
+          >
+            {showVersionList ? '收起版本列表' : '展开全部版本'}
+          </Button>
+        </div>
+
         {!showVersionList ? null : (
         <>
+        <div className="ver-pills">
+          {MC_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              className={`ver-pill${mcTab === tab.value ? ' is-active' : ''}`}
+              onClick={() => setMcTab(tab.value)}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <input
+            className="input ver-search"
+            placeholder="搜索版本 ID…"
+            value={mcQuery}
+            onChange={(event) => setMcQuery(event.target.value)}
+            aria-label="搜索版本 ID"
+          />
+        </div>
         <div className="ver-list" role="listbox" aria-label="Minecraft 版本">
           {tabVersions.length === 0 ? (
             <div className="ver-list__empty">
