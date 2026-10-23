@@ -32,17 +32,31 @@ const CATEGORY_TITLES: Record<string, string> = {
   shader: '光影',
 }
 
-export function CatalogPage({ mode, category }: { mode: CatalogMode; category?: string }) {
+export function CatalogPage({
+  mode,
+  category,
+  initialInstanceId,
+}: {
+  mode: CatalogMode
+  category?: string
+  initialInstanceId?: string
+}) {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
   const [selectedId, setSelectedId] = useState(() => {
-    // Follow the instance picked on the home page (⋯ → 模组更新 / 资源库).
+    // The route wins (⋯ → 模组更新/<id>), then the home page's current instance.
+    if (initialInstanceId) return initialInstanceId
     try {
       return localStorage.getItem('mcl.global.instanceId') ?? ''
     } catch {
       return ''
     }
   })
+
+  // If the route changes (back/forward), follow it.
+  useEffect(() => {
+    if (initialInstanceId) setSelectedId(initialInstanceId)
+  }, [initialInstanceId])
 
   useEffect(() => {
     if (!instances.data || instances.data.length === 0) return

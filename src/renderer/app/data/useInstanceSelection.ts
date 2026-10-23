@@ -11,18 +11,23 @@ export interface InstanceSelection {
 }
 
 /** Shared instance selector used by saves/screenshots/logs/trash pages. */
-export function useInstanceSelection(): InstanceSelection {
+export function useInstanceSelection(initialId?: string): InstanceSelection {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
   // Start from the instance the user last picked on the home page, so pages
   // opened from the ⋯ menu land on that instance instead of an arbitrary one.
   const [selectedId, setSelectedId] = useState(() => {
+    if (initialId) return initialId
     try {
       return localStorage.getItem('mcl.global.instanceId') ?? ''
     } catch {
       return ''
     }
   })
+
+  useEffect(() => {
+    if (initialId) setSelectedId(initialId)
+  }, [initialId])
 
   useEffect(() => {
     if (!instances.data || instances.data.length === 0) return

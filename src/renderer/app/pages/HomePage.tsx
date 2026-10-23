@@ -486,7 +486,9 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
                     className="hero-more__item"
                     onClick={() => {
                       setDetailMenuOpen(false)
-                      navigate(entry.path)
+                      // Carry the instance in the URL: the target page reads it
+                      // from the route instead of guessing from storage.
+                      navigate(`${entry.path}/${encodeURIComponent(instance.id)}`)
                     }}
                   >
                     <Icon name={entry.icon} className="ico ico--sm" />

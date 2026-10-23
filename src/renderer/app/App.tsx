@@ -156,9 +156,9 @@ function Page({ route }: { route: Route }) {
       return route.section
         ? <CatalogProjectPage projectId={route.section} />
         : <CatalogPage mode="search" />
-    case 'updates': return <CatalogPage mode="updates" />
-    case 'saves': return <SavesPage />
-    case 'schematics': return <SchematicsPage />
+    case 'updates': return <CatalogPage mode="updates" initialInstanceId={route.section} />
+    case 'saves': return <SavesPage initialInstanceId={route.section} />
+    case 'schematics': return <SchematicsPage initialInstanceId={route.section} />
     case 'screenshots': return <ScreenshotsPage />
     case 'trash': return <TrashPage />
     case 'link': return <LinkPage />

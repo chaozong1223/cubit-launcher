@@ -33,11 +33,17 @@ export function parseHash(hash: string): Route {
         ? { path: `#/project/${second}`, name: 'project', section: second }
         : { path: '#/catalog', name: 'catalog' }
     case 'updates':
-      return { path: '#/updates', name: 'updates' }
+      return second
+        ? { path: `#/updates/${second}`, name: 'updates', section: decodeURIComponent(second) }
+        : { path: '#/updates', name: 'updates' }
     case 'saves':
-      return { path: '#/saves', name: 'saves' }
+      return second
+        ? { path: `#/saves/${second}`, name: 'saves', section: decodeURIComponent(second) }
+        : { path: '#/saves', name: 'saves' }
     case 'schematics':
-      return { path: '#/schematics', name: 'schematics' }
+      return second
+        ? { path: `#/schematics/${second}`, name: 'schematics', section: decodeURIComponent(second) }
+        : { path: '#/schematics', name: 'schematics' }
     case 'screenshots':
       return { path: '#/screenshots', name: 'screenshots' }
     case 'trash':

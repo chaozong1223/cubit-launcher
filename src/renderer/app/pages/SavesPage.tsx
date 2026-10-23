@@ -52,9 +52,9 @@ const FILTER_LABELS: Record<SaveFilter, string> = {
   'no-icon': '无图标',
 }
 
-export function SavesPage() {
+export function SavesPage({ initialInstanceId }: { initialInstanceId?: string } = {}) {
   const backend = useBackend()
-  const selection = useInstanceSelection()
+  const selection = useInstanceSelection(initialInstanceId)
   const { selected } = selection
   const saves = useAsync(
     () => selected ? backend.assets.listSaves(selected.id) : Promise.resolve(null),

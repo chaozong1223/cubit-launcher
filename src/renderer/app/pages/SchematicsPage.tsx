@@ -103,17 +103,22 @@ interface ConflictState {
   targetName: string | null
 }
 
-export function SchematicsPage() {
+export function SchematicsPage({ initialInstanceId }: { initialInstanceId?: string } = {}) {
   const backend = useBackend()
   const instances = useAsync(() => backend.instances.list(), [])
   const [sourceKey, setSourceKey] = useState(() => {
-    // Default to the instance the user last picked on the home page.
+    // The route wins (⋯ → 投影管理/<id>), then the home page's current instance.
+    if (initialInstanceId) return initialInstanceId
     try {
       return localStorage.getItem('mcl.global.instanceId') ?? ''
     } catch {
       return ''
     }
   })
+
+  useEffect(() => {
+    if (initialInstanceId) setSourceKey(initialInstanceId)
+  }, [initialInstanceId])
   const [query, setQuery] = useState('')
   const [format, setFormat] = useState('all')
   const [selectedName, setSelectedName] = useState<string | null>(null)
