@@ -35,7 +35,29 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
   const instances = useAsync(() => backend.instances.list(), [])
   const [instanceId, setInstanceId] = useState(() => window.localStorage.getItem('mcl.global.instanceId') ?? '')
   const [mcFilter, setMcFilter] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null)
+
+  /** Open an external page and always report what happened — a silent no-op
+   *  looked like a broken button. */
+  const openLink = async (kind: 'modrinth' | 'wiki') => {
+    const current = project.data
+    if (!current) return
+    setNotice(null)
+    try {
+      const result =
+        kind === 'modrinth'
+          ? await backend.catalog.openPage({ provider: 'modrinth', slug: current.slug })
+          : await backend.catalog.openWiki({ query: current.title })
+      if (result.opened) {
+        setNotice({ tone: 'success', text: '已在浏览器中打开' })
+      } else {
+        setNotice({ tone: 'warning', text: `系统没有打开浏览器，请手动访问：${result.url}` })
+      }
+    } catch (cause) {
+      const info = describeError(cause)
+      setNotice({ tone: 'warning', text: `${info.title}：${info.detail}` })
+    }
+  }
   const [installing, setInstalling] = useState<string | null>(null)
   const [installed, setInstalled] = useState<CatalogInstallResult | null>(null)
   const [error, setError] = useState<UiErrorInfo | null>(null)
@@ -113,9 +135,7 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
                   size="sm"
                   variant="primary"
                   icon="external"
-                  onClick={() => {
-                    void backend.catalog.openPage({ provider: 'modrinth', slug: data.slug }).catch(() => undefined)
-                  }}
+                  onClick={() => void openLink('modrinth')}
                 >
                   转到 Modrinth
                 </Button>
@@ -123,9 +143,7 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
                   size="sm"
                   variant="secondary"
                   icon="search"
-                  onClick={() => {
-                    void backend.catalog.openWiki({ query: data.title }).catch(() => undefined)
-                  }}
+                  onClick={() => void openLink('wiki')}
                 >
                   转到 MC 百科
                 </Button>
@@ -135,7 +153,11 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
                   icon="copy"
                   onClick={() => {
                     void copyToClipboard(data.title).then((ok) => {
-                      setNotice(ok ? '名称已复制到剪贴板' : '复制失败：剪贴板不可用')
+                      setNotice(
+                        ok
+                          ? { tone: 'success', text: '名称已复制到剪贴板' }
+                          : { tone: 'warning', text: '复制失败：剪贴板不可用' },
+                      )
                     })
                   }}
                 >
@@ -164,7 +186,7 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
         <DataStateNotice info={describeError(project.error)} onRetry={project.reload} />
       ) : null}
 
-      {notice ? <Banner tone="success" title={notice} /> : null}
+      {notice ? <Banner tone={notice.tone} title={notice.text} /> : null}
       {error ? <Banner tone="danger" title={error.title}>{error.detail}</Banner> : null}
       {installed ? (
         installed.modpackImport ? (
