@@ -461,7 +461,7 @@ export function DownloadPage() {
           <div className="tabs install-type-tabs" role="tablist" aria-label="安装类型">
             {TYPES.map((option) => (
               <button
-                className={`tab${type === option.value ? ' is-active' : ''}`}
+                className={`tab tab--eased${type === option.value ? ' is-active' : ''}`}
                 key={option.value}
                 type="button"
                 role="tab"
@@ -484,7 +484,7 @@ export function DownloadPage() {
             </Banner>
           ) : null}
 
-          <div className="form-grid">
+          <div className="form-grid install-form-anim" key={type}>
             <Field
               label="Minecraft 版本"
               hint={manifestInfo ? `版本清单不可用：${manifestInfo.title}` : selected ? `${selected.type} · ${selected.releaseTime ? new Date(selected.releaseTime).toLocaleDateString('zh-CN') : '发布日期未知'}` : '从真实 manifest 选择'}
