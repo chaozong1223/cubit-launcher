@@ -359,6 +359,14 @@ function findEocd(buffer: Buffer): number {
 export interface ExtractZipOptions {
   excludePrefixes?: string[]
   limits?: Partial<ZipLimits>
+  /**
+   * Write every file directly into `destination`, dropping its folder prefix.
+   * Needed for native jars: modern LWJGL ships `windows/x64/org/lwjgl/*.dll`
+   * and Windows' `java.library.path` does not search subdirectories.
+   */
+  flatten?: boolean
+  /** When flattening, keep only entries whose name ends with one of these. */
+  flattenExtensions?: string[]
 }
 
 export interface ExtractZipResult {
@@ -386,6 +394,20 @@ export function extractZip(
     }
     if (excludes.some((prefix) => entry.name.startsWith(prefix))) {
       skipped.push(entry.name)
+      continue
+    }
+    if (options.flatten) {
+      const base = entry.name.split('/').pop() ?? entry.name
+      const allowed = options.flattenExtensions
+      if (allowed && allowed.length > 0) {
+        const lower = base.toLowerCase()
+        if (!allowed.some((ext) => lower.endsWith(ext))) {
+          skipped.push(entry.name)
+          continue
+        }
+      }
+      fs.writeBytes(safeEntryPath(destination, base), archive.readEntry(entry))
+      written.push(entry.name)
       continue
     }
     const target = safeEntryPath(destination, entry.name)

@@ -53,7 +53,8 @@ export function planNatives(
 }
 
 export interface NativesMarker {
-  schemaVersion: 1
+  /** 2 = flattened layout; bumping it invalidates caches built the old way. */
+  schemaVersion: 2
   extractedAt: number
   sources: Array<{ library: string; jarPath: string; size: number; mtimeMs: number }>
   files: number
@@ -101,7 +102,7 @@ function cacheMatches(fs: FsPort, nativesDir: string, plan: NativePlan): boolean
   if (!fs.exists(file) || !fs.stat(nativesDir)?.isDirectory()) return false
   try {
     const marker = JSON.parse(fs.readText(file)) as NativesMarker
-    if (!marker || marker.schemaVersion !== 1 || !Array.isArray(marker.sources)) return false
+    if (!marker || marker.schemaVersion !== 2 || !Array.isArray(marker.sources)) return false
     const expected = currentFingerprint(fs, plan.sources)
     if (marker.sources.length !== expected.length) return false
     return marker.sources.every((entry, index) => {
@@ -204,13 +205,19 @@ export function extractNatives(
       })
     }
     const excludes = ['META-INF/', ...source.exclude]
-    const result = extractZip(fs, archive, winLongPath(targetDir), { excludePrefixes: excludes })
+    // Flatten: modern LWJGL jars store DLLs under `windows/x64/org/lwjgl/…`,
+    // and java.library.path on Windows does not recurse into subdirectories.
+    const result = extractZip(fs, archive, winLongPath(targetDir), {
+      excludePrefixes: excludes,
+      flatten: true,
+      flattenExtensions: ['.dll', '.so', '.dylib'],
+    })
     extracted += result.written.length
     skipped.push(...result.skipped)
   }
 
   const marker: NativesMarker = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     extractedAt: options.now?.() ?? Date.now(),
     sources: currentFingerprint(fs, plan.sources),
     files: extracted,
