@@ -492,9 +492,21 @@ export function DownloadPage() {
                 aria-label="加载器版本"
                 value={loaderVersion}
                 onChange={(event) => setLoaderVersion(event.target.value)}
-                disabled={type === 'vanilla' || loaderList.status !== 'ready'}
+                disabled={type === 'vanilla' || !versionId || loaderList.status !== 'ready'}
               >
-                <option value="">{type === 'vanilla' ? '原版无需加载器' : loaderList.status === 'loading' ? '正在读取…' : loaderInfo ? '清单不可用' : '选择加载器版本'}</option>
+                <option value="">
+                  {type === 'vanilla'
+                    ? '原版无需加载器'
+                    : !versionId
+                      ? '先选择游戏版本'
+                      : loaderList.status === 'loading'
+                        ? '正在读取…'
+                        : loaderInfo
+                          ? '清单不可用'
+                          : loaderVersions.length === 0
+                            ? '该版本没有可用的加载器版本'
+                            : '选择加载器版本'}
+                </option>
                 {loaderVersions.map((version) => <option key={`${version.version}-${version.rawVersion ?? ''}`} value={version.version}>{version.version}{version.recommended ? ' · 推荐' : ''}</option>)}
               </Select>
             </Field>
