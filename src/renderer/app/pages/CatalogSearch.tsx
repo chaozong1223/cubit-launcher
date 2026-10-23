@@ -252,8 +252,8 @@ function ProjectDetail({
         <h3>版本</h3>
         <span className="muted">按 MC 版本 / 加载器筛选；点击版本右侧安装。</span>
       </div>
-      {hit.projectType !== 'mod' ? (
-        <Banner tone="warning" title="当前后端只提供模组一键安装">资源包、光影或整合包请使用“打开 Modrinth 页面”下载后，在实例的对应页导入。这里不会伪造安装成功。</Banner>
+      {hit.projectType === 'modpack' ? (
+        <Banner tone="warning" title="整合包请走整合包流程">整合包会创建新实例（含完整文件清单），不能当单个文件装进当前实例。请用实例页的「链接导入 / 导入整合包」，或打开 Modrinth 页面下载 `.mrpack` 后导入。</Banner>
       ) : null}
       <label className="catalog-prerelease">
         <input type="checkbox" checked={allowPrerelease} onChange={(event) => setAllowPrerelease(event.target.checked)} />

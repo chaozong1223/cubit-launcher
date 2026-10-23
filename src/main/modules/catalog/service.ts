@@ -462,10 +462,26 @@ export class CatalogModuleService {
         totalBytes: downloaded.bytes,
       })
       const mods = this.requireMods()
+      // Route the file into the folder that matches the project type; the mods
+      // module already supports all three kinds, only this call was hardcoded.
+      const project = await this.client.project(version.projectId)
+      if (project.projectType === 'modpack') {
+        fail(
+          'CATALOG.INSTALL_UNSUPPORTED',
+          '整合包需要按整合包流程导入（会创建新实例），不能当作单个文件安装',
+          { projectId: input.projectId },
+        )
+      }
+      const kind: 'mods' | 'resourcepacks' | 'shaderpacks' =
+        project.projectType === 'resourcepack'
+          ? 'resourcepacks'
+          : project.projectType === 'shader'
+            ? 'shaderpacks'
+            : 'mods'
       const installed = await mods.installLocalFile({
         instanceId: info.instance.dirName,
         path: downloaded.tempPath,
-        kind: 'mods',
+        kind,
       })
       this.emit?.('installProgress', {
         projectId: input.projectId,

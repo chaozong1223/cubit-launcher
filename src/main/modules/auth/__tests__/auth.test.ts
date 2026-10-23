@@ -531,6 +531,10 @@ describe('HMCL OAuth loopback port', () => {
     // machine, so let this test grab any free port instead.
     const previousPorts = process.env.MCL_AUTH_CALLBACK_PORTS
     process.env.MCL_AUTH_CALLBACK_PORTS = '0'
+    // The developer machine may export MCL_MS_CLIENT_ID; it outranks the stored
+    // config, so clear it for this test and restore it afterwards.
+    const previousClientIdEnv = process.env.MCL_MS_CLIENT_ID
+    delete process.env.MCL_MS_CLIENT_ID
     try {
       const routes = successRoutes()
       const service = createService({
@@ -564,6 +568,8 @@ describe('HMCL OAuth loopback port', () => {
     } finally {
       if (previousPorts === undefined) delete process.env.MCL_AUTH_CALLBACK_PORTS
       else process.env.MCL_AUTH_CALLBACK_PORTS = previousPorts
+      if (previousClientIdEnv === undefined) delete process.env.MCL_MS_CLIENT_ID
+      else process.env.MCL_MS_CLIENT_ID = previousClientIdEnv
     }
   })
 })
