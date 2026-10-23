@@ -152,6 +152,20 @@ function getInfo(): AppInfo {
 }
 
 async function openDataDir(): Promise<{ opened: boolean }> {
+  // `shell.openPath` reports failure through the return value, but on Windows
+  // a missing/hidden target can surface as the raw ShellExecute dialog instead.
+  // Explorer opens the folder through the same association without that dialog.
+  if (process.platform === 'win32') {
+    try {
+      const { spawn } = await import('node:child_process')
+      spawn('explorer.exe', [paths.dataRoot], { windowsHide: true, detached: true, stdio: 'ignore' }).unref()
+      logger.info('shell', 'open data dir', { path: paths.dataRoot })
+      return { opened: true }
+    } catch (error) {
+      logger.warn('shell', 'open data dir failed', { message: String(error) })
+      return { opened: false }
+    }
+  }
   const error = await shell.openPath(paths.dataRoot)
   if (error) logger.warn('shell', 'open data dir failed', { message: error })
   return { opened: error === '' }
