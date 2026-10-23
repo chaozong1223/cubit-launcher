@@ -66,7 +66,7 @@ export function CatalogPage({ mode, category }: { mode: CatalogMode; category?: 
       <PageHeader
         title={mode === 'updates' ? '模组更新' : CATEGORY_TITLES[category ?? 'mod'] ?? '资源库'}
         subtitle={mode === 'updates'
-          ? '检查已装模组的可更新项、风险与更新日志；更新前会把旧文件移入回收站，可手动回滚。'
+          ? `正在检查「${selected?.name ?? '（未选择实例）'}」的已装模组${selected?.mcVersion ? ` · ${selected.mcVersion}` : ''}；更新前会把旧文件移入回收站，可手动回滚。`
           : `只显示${CATEGORY_TITLES[category ?? 'mod'] ?? '资源库'}；换类别请点上方标签，切走会清空筛选。`}
         actions={
           <>
