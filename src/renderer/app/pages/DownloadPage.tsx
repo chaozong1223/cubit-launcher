@@ -403,7 +403,7 @@ export function DownloadPage() {
         </div>
 
         {!showVersionList ? null : (
-        <>
+        <div className="ver-expand">
         <div className="ver-pills">
           {MC_TABS.map((tab) => (
             <button
@@ -452,7 +452,7 @@ export function DownloadPage() {
             ))
           )}
         </div>
-        </>
+        </div>
         )}
       </div>
 

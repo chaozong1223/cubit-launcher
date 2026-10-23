@@ -1609,6 +1609,12 @@
 .ver-picker__title { font-size: 13px; color: var(--text); }
 .ver-picker__sub { display: block; margin-top: 2px; font-size: 11px; color: var(--text-3); }
 .ver-picker__toggle { display: flex; justify-content: flex-end; margin: 12px 0 4px; }
+/* Expanding the version list eases in instead of snapping. */
+.ver-expand { animation: ver-expand-in 300ms var(--ease-out) both; }
+@keyframes ver-expand-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
 /* Whole-page drop target (schematics import). */
 .page-dropzone { position: relative; border-radius: 14px; transition: outline-color 140ms var(--ease-out); outline: 2px dashed transparent; outline-offset: 6px; }
 .page-dropzone.is-dragging { outline-color: var(--accent); }
