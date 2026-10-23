@@ -195,6 +195,11 @@ export function InstancesPage() {
 
   return (
     <>
+      <div className="back-row">
+        <Button variant="link" icon="arrow-left" onClick={() => navigate('/home')}>主页</Button>
+        <span>/</span>
+        <span>实例</span>
+      </div>
       <PageHeader
         title="实例"
         subtitle={instances.status === 'ready'
