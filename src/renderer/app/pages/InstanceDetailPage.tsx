@@ -290,7 +290,7 @@ export function InstanceDetailPage() {
   return (
     <>
       <div className="back-row">
-        <Button variant="link" icon="arrow-left" onClick={() => navigate('/instances')}>实例</Button>
+        <Button variant="link" icon="arrow-left" onClick={() => navigate('/home')}>主页</Button>
         <span>/</span>
         <span>{instance.name}</span>
       </div>
