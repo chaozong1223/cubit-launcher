@@ -650,7 +650,6 @@ export function HomePage() {
   const [importOpen, setImportOpen] = useState(false)
   const [dirPanelOpen, setDirPanelOpen] = useState(false)
   const [rowMenuId, setRowMenuId] = useState<string | null>(null)
-  const [listFilter, setListFilter] = useState<'all' | 'ready' | 'broken'>('all')
   const [expandedList, setExpandedList] = useState(false)
 
   // Close the per-row menu on any outside click or Escape, same as the hero menu.
@@ -719,10 +718,8 @@ export function HomePage() {
     }
   }
 
-  // Every instance is listed; the dropdown narrows it when the list gets long.
-  const listedInstances = (instances.data ?? []).filter((instance) =>
-    listFilter === 'all' ? true : listFilter === 'ready' ? instance.state === 'ready' : instance.state !== 'ready',
-  )
+  // Every instance is listed; long lists collapse behind a "show more" row.
+  const listedInstances = instances.data ?? []
   // Collapsed by default: keep a few rows visible and put the rest behind a
   // toggle, so a long list does not push the rest of the page away.
   const INSTANCE_PREVIEW = 6
@@ -809,20 +806,6 @@ export function HomePage() {
             title="实例与版本"
             action={(
               <div className="row gap-8">
-                <div style={{ width: 130 }}>
-                  <Dropdown
-                    value={listFilter}
-                    placeholder="全部实例"
-                    onChange={(next) => setListFilter(next as 'all' | 'ready' | 'broken')}
-                    groups={[{
-                      options: [
-                        { value: 'all', label: `全部（${instances.data?.length ?? 0}）` },
-                        { value: 'ready', label: '仅就绪' },
-                        { value: 'broken', label: '仅需处理' },
-                      ],
-                    }]}
-                  />
-                </div>
                 <Button size="sm" variant="secondary" icon="package" onClick={() => setImportOpen(true)}>导入整合包</Button>
                 <Button size="sm" variant="primary" icon="plus" onClick={() => navigate('/download')}>新建实例</Button>
               </div>

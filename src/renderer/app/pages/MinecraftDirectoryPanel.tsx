@@ -4,7 +4,7 @@ import type { MinecraftCandidate, SetGameDirResult } from '@shared/instance'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
-import { Badge, Banner, Button, Card, DataStateNotice, Skeleton } from '../ui'
+import { Badge, Banner, Button, Card, DataStateNotice, Field, Input, Skeleton } from '../ui'
 import { Icon } from '../icons'
 
 function sourceLabel(source: MinecraftCandidate['source']): string {
@@ -32,21 +32,38 @@ export function MinecraftDirectoryPanel({ onImported }: { onImported?: () => voi
   const [busyPath, setBusyPath] = useState<string | null>(null)
   const [result, setResult] = useState<SetGameDirResult | null>(null)
   const [error, setError] = useState<UiErrorInfo | null>(null)
+  const [createParent, setCreateParent] = useState<string | null>(null)
+  const [createName, setCreateName] = useState('.minecraft')
 
   /**
-   * Pick or create the folder in the native dialog (Windows offers “新建文件夹”
-   * right in it), then switch the game root to whatever was chosen.
+   * Windows' folder picker cannot create folders, so: pick the PARENT folder
+   * first, then name the new subfolder here and create it.
    */
-  const pickOrCreateDirectory = async () => {
+  const pickParentForNew = async () => {
+    setError(null)
+    setResult(null)
+    try {
+      const picked = await backend.system.pickDirectory('选择要在其中新建的文件夹')
+      if (picked.cancelled || !picked.path) return
+      setCreateParent(picked.path)
+      setCreateName('.minecraft')
+    } catch (cause) {
+      setError(describeError(cause))
+    }
+  }
+
+  const createInsideParent = async () => {
+    const name = createName.trim()
+    if (!createParent || !name) return
     setError(null)
     setResult(null)
     setBusyPath('create')
     try {
-      const picked = await backend.system.pickDirectory('选择或新建 Minecraft 目录')
-      if (picked.cancelled || !picked.path) return
-      const ensured = await backend.system.ensureDirectory(picked.path)
+      const target = `${createParent.replace(/[\\/]+$/, '')}\\${name.replace(/[\\/]/g, '')}`
+      const ensured = await backend.system.ensureDirectory(target)
       const imported = await backend.instances.importRoot(ensured.path)
       setResult(imported)
+      setCreateParent(null)
       discover.reload()
     } catch (cause) {
       setError(describeError(cause))
@@ -196,8 +213,8 @@ export function MinecraftDirectoryPanel({ onImported }: { onImported?: () => voi
         <Button size="sm" variant="secondary" icon="folder" disabled={busy} onClick={() => openFolderPicker('select')}>
           选择目录
         </Button>
-        <Button size="sm" variant="secondary" icon="plus" disabled={busyPath === 'create'} loading={busyPath === 'create'} onClick={() => void pickOrCreateDirectory()}>
-          选择或新建目录
+        <Button size="sm" variant="secondary" icon="plus" disabled={busyPath === 'create'} loading={busyPath === 'create'} onClick={() => void pickParentForNew()}>
+          新建目录
         </Button>
         <Button size="sm" variant="ghost" icon="cube" disabled={busy} onClick={() => openFolderPicker('existing')}>
           使用已有 .minecraft
@@ -205,7 +222,32 @@ export function MinecraftDirectoryPanel({ onImported }: { onImported?: () => voi
         {result ? <span className="mc-dir-saved"><Icon name="check" />已保存，重启后仍生效</span> : null}
       </div>
 
-      {null}
+      {createParent ? (
+        <div className="mc-dir-create">
+          <Field label="在哪个文件夹里新建" hint="选中的父目录；下面只填新文件夹的名字。">
+            <Input value={createParent} readOnly aria-label="父目录" />
+          </Field>
+          <Field label="新文件夹名称" hint="会创建在父目录下，例如 .minecraft">
+            <Input
+              value={createName}
+              autoFocus
+              maxLength={64}
+              onChange={(event) => setCreateName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void createInsideParent()
+                if (event.key === 'Escape') setCreateParent(null)
+              }}
+            />
+          </Field>
+          <div className="row gap-8">
+            <Button size="sm" variant="primary" icon="plus" loading={busyPath === 'create'} disabled={!createName.trim()} onClick={() => void createInsideParent()}>
+              创建并设为游戏目录
+            </Button>
+            <Button size="sm" variant="secondary" icon="folder" onClick={() => void pickParentForNew()}>重新选择父目录</Button>
+            <Button size="sm" variant="ghost" onClick={() => setCreateParent(null)}>取消</Button>
+          </div>
+        </div>
+      ) : null}
       <div className="mc-dir-note">选择目录会打开系统文件夹选择器；也可以用窗口级拖放直接把 .minecraft 文件夹拖进来。</div>
 
       {error ? <Banner tone="danger" title={error.title}>{error.detail}</Banner> : null}
