@@ -170,6 +170,9 @@ export function DownloadPage() {
   // The raw manifest is reference data, not the primary control: keep it
   // collapsed until someone actually wants to inspect or pick from it.
   const [showManifest, setShowManifest] = useState(false)
+  // Same idea for the version picker: two quick cards stay visible, the long
+  // list is reference data behind a toggle.
+  const [showVersionList, setShowVersionList] = useState(false)
   const loaderType: LoaderType | null = type === 'vanilla' ? null : type as LoaderType
   const loaderList = useAsync(
     () => (loaderType && versionId ? backend.loader.list(loaderType, versionId, false) : Promise.resolve(null)),
@@ -355,6 +358,26 @@ export function DownloadPage() {
       ) : null}
 
       <div className="ver-picker" id="dl-versions">
+        <div className="ver-picker__head">
+          <div>
+            <strong className="ver-picker__title">版本列表</strong>
+            <span className="ver-picker__sub">
+              {showVersionList
+                ? `全部 ${versions.length} 个版本；点一行即选中`
+                : `已折叠（共 ${versions.length} 个版本）；用上方两张卡片快速选最新版`}
+            </span>
+          </div>
+          <Button
+            size="xs"
+            variant="secondary"
+            icon={showVersionList ? 'chevron-down' : 'chevron-right'}
+            onClick={() => setShowVersionList((previous) => !previous)}
+          >
+            {showVersionList ? '收起' : '展开全部版本'}
+          </Button>
+        </div>
+        {!showVersionList ? null : (
+        <>
         <div className="ver-pills">
           {MC_TABS.map((tab) => (
             <button
@@ -435,6 +458,8 @@ export function DownloadPage() {
             ))
           )}
         </div>
+        </>
+        )}
       </div>
 
       <div className="download-grid" id="dl-install">

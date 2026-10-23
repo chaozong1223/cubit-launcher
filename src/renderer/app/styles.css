@@ -1598,6 +1598,16 @@
 .instance-row__stat { white-space: nowrap; }
 /* Quick actions directly under the page title. */
 .quick-row--top { margin: 12px 0 16px; }
+/* Collapsible header for the full version list. */
+.ver-picker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.ver-picker__title { font-size: 13px; color: var(--text); }
+.ver-picker__sub { display: block; margin-top: 2px; font-size: 11px; color: var(--text-3); }
 /* Whole-page drop target (schematics import). */
 .page-dropzone { position: relative; border-radius: 14px; transition: outline-color 140ms var(--ease-out); outline: 2px dashed transparent; outline-offset: 6px; }
 .page-dropzone.is-dragging { outline-color: var(--accent); }
