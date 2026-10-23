@@ -16,6 +16,7 @@ import {
   Button,
   Card,
   DataStateNotice,
+  Dropdown,
   EmptyState,
   Input,
   LaunchButton,
@@ -644,6 +645,8 @@ export function HomePage() {
   const instances = useAsync(() => backend.instances.list(), [])
   const [selectedId, setSelectedId] = useState<string | null>(() => localStorage.getItem('mcl.global.instanceId'))
   const [pendingDelete, setPendingDelete] = useState<InstanceSummary | null>(null)
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null)
+  const [listFilter, setListFilter] = useState<'all' | 'ready' | 'broken'>('all')
   const pendingDeleteRunning = useInstanceRunning(pendingDelete?.id ?? null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<UiErrorInfo | null>(null)
@@ -692,6 +695,11 @@ export function HomePage() {
       setDeleteBusy(false)
     }
   }
+
+  // Every instance is listed; the dropdown narrows it when the list gets long.
+  const listedInstances = (instances.data ?? []).filter((instance) =>
+    listFilter === 'all' ? true : listFilter === 'ready' ? instance.state === 'ready' : instance.state !== 'ready',
+  )
 
   const pendingInfo = instances.status === 'not-wired' || instances.status === 'error'
     ? describeError(instances.error)
@@ -772,12 +780,30 @@ export function HomePage() {
 
           <SectionHead
             title="实例与版本"
-            action={<Button size="sm" variant="link" onClick={() => navigate('/instances')}>全部实例 →</Button>}
+            action={(
+              <div className="row gap-8">
+                <div style={{ width: 130 }}>
+                  <Dropdown
+                    value={listFilter}
+                    placeholder="全部实例"
+                    onChange={(next) => setListFilter(next as 'all' | 'ready' | 'broken')}
+                    groups={[{
+                      options: [
+                        { value: 'all', label: `全部（${instances.data?.length ?? 0}）` },
+                        { value: 'ready', label: '仅就绪' },
+                        { value: 'broken', label: '仅需处理' },
+                      ],
+                    }]}
+                  />
+                </div>
+                <Button size="sm" variant="link" onClick={() => navigate('/instances')}>全部实例 →</Button>
+              </div>
+            )}
           />
           {instances.status === 'ready' && instances.data ? (
-            instances.data.length > 0 ? (
+            listedInstances.length > 0 ? (
               <div className="instance-list">
-                {instances.data.slice(0, 12).map((instance) => (
+                {listedInstances.map((instance) => (
                   <div
                     className={selected?.id === instance.id ? 'instance-row is-current' : 'instance-row'}
                     key={instance.id}
@@ -805,6 +831,50 @@ export function HomePage() {
                         </span>
                       </span>
                     </button>
+                    <div className="instance-row__menu">
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        icon="more"
+                        aria-label={`「${instance.name}」的更多操作`}
+                        onClick={() => setRowMenuId(rowMenuId === instance.id ? null : instance.id)}
+                      />
+                      {rowMenuId === instance.id ? (
+                        <div className="hero-more__menu" role="menu">
+                          {DETAIL_LINKS.map((entry) => (
+                            <button
+                              key={entry.section}
+                              type="button"
+                              role="menuitem"
+                              className="hero-more__item"
+                              onClick={() => {
+                                setRowMenuId(null)
+                                navigate(`/instances/${encodeURIComponent(instance.id)}/${entry.section}`)
+                              }}
+                            >
+                              <Icon name={entry.icon} className="ico ico--sm" />
+                              <span>{entry.label}</span>
+                            </button>
+                          ))}
+                          <div className="hero-more__sep" aria-hidden="true" />
+                          {PAGE_LINKS.map((entry) => (
+                            <button
+                              key={entry.path}
+                              type="button"
+                              role="menuitem"
+                              className="hero-more__item"
+                              onClick={() => {
+                                setRowMenuId(null)
+                                navigate(`${entry.path}/${encodeURIComponent(instance.id)}`)
+                              }}
+                            >
+                              <Icon name={entry.icon} className="ico ico--sm" />
+                              <span>{entry.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                     <Button
                       size="xs"
                       variant="danger-ghost"
@@ -819,7 +889,7 @@ export function HomePage() {
                 ))}
               </div>
             ) : (
-              <Card><EmptyState icon="cube" title="实例列表为空" description="后端返回了空列表；没有可启动的实例。" /></Card>
+              <Card><EmptyState icon="cube" title="没有符合条件的实例" description="换个筛选条件，或点「全部实例」查看完整列表。" /></Card>
             )
           ) : (
             <Card className="nw-empty-card">

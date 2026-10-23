@@ -1596,6 +1596,13 @@
   color: var(--text-3);
 }
 .instance-row__stat { white-space: nowrap; }
+/* Per-row overflow menu: same menu surface as the hero, anchored right. */
+.instance-row__menu { position: relative; flex: none; }
+.instance-row__menu .hero-more__menu {
+  right: 0;
+  left: auto;
+  min-width: 190px;
+}
 /* Quick actions directly under the page title. */
 .quick-row--top { margin: 12px 0 16px; }
 /* Collapsible header for the full version list. */
