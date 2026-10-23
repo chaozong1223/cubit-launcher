@@ -1596,6 +1596,25 @@
   color: var(--text-3);
 }
 .instance-row__stat { white-space: nowrap; }
+/* "Show more" row at the bottom of a collapsed instance list. */
+.instance-list__more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms var(--ease-out);
+}
+.instance-list__more:hover { background: var(--surface-2); }
 /* Per-row overflow menu: same menu surface as the hero, anchored right. */
 .instance-row__menu { position: relative; flex: none; }
 .instance-row__menu .hero-more__menu {

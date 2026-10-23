@@ -651,6 +651,7 @@ export function HomePage() {
   const [dirPanelOpen, setDirPanelOpen] = useState(false)
   const [rowMenuId, setRowMenuId] = useState<string | null>(null)
   const [listFilter, setListFilter] = useState<'all' | 'ready' | 'broken'>('all')
+  const [expandedList, setExpandedList] = useState(false)
 
   // Close the per-row menu on any outside click or Escape, same as the hero menu.
   useEffect(() => {
@@ -722,6 +723,10 @@ export function HomePage() {
   const listedInstances = (instances.data ?? []).filter((instance) =>
     listFilter === 'all' ? true : listFilter === 'ready' ? instance.state === 'ready' : instance.state !== 'ready',
   )
+  // Collapsed by default: keep a few rows visible and put the rest behind a
+  // toggle, so a long list does not push the rest of the page away.
+  const INSTANCE_PREVIEW = 6
+  const shownInstances = expandedList ? listedInstances : listedInstances.slice(0, INSTANCE_PREVIEW)
 
   const pendingInfo = instances.status === 'not-wired' || instances.status === 'error'
     ? describeError(instances.error)
@@ -826,7 +831,7 @@ export function HomePage() {
           {instances.status === 'ready' && instances.data ? (
             listedInstances.length > 0 ? (
               <div className="instance-list">
-                {listedInstances.map((instance) => (
+                {shownInstances.map((instance) => (
                   <div
                     className={selected?.id === instance.id ? 'instance-row is-current' : 'instance-row'}
                     key={instance.id}
@@ -910,6 +915,18 @@ export function HomePage() {
                     </Button>
                   </div>
                 ))}
+                {listedInstances.length > INSTANCE_PREVIEW ? (
+                  <button
+                    type="button"
+                    className="instance-list__more"
+                    onClick={() => setExpandedList((value) => !value)}
+                  >
+                    <Icon name={expandedList ? 'chevron-down' : 'chevron-right'} className="ico ico--xs" />
+                    {expandedList
+                      ? '收起列表'
+                      : `展开全部（还有 ${listedInstances.length - INSTANCE_PREVIEW} 个实例）`}
+                  </button>
+                ) : null}
               </div>
             ) : (
               <Card><EmptyState icon="cube" title="没有符合条件的实例" description="换个筛选条件，或点「全部实例」查看完整列表。" /></Card>
