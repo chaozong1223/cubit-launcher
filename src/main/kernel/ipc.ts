@@ -461,6 +461,42 @@ export function registerIpc(deps: IpcDependencies): void {
   )
 
   /**
+   * Folder chooser that can also CREATE a folder. Windows' folder picker has no
+   * "new folder" button, but the save dialog does and accepts a folder name, so
+   * this opens the save dialog and treats the typed name as the new directory.
+   */
+  register(
+    CHANNELS.systemCreateDirectoryDialog,
+    z.object({ title: z.string().max(120).optional() }).default({}),
+    z.object({ cancelled: z.boolean(), path: z.string().nullable() }),
+    async (event, input) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const options: Electron.SaveDialogOptions = {
+        title: input.title ?? '选择位置并输入新文件夹名称',
+        buttonLabel: '在此新建文件夹',
+        properties: ['createDirectory', 'showOverwriteConfirmation'],
+        defaultPath: '新的 Minecraft 目录',
+      }
+      const result = win
+        ? await dialog.showSaveDialog(win, options)
+        : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return { cancelled: true, path: null }
+      // `filePath` is "<parent>/<typed name>"; make sure it exists as a folder.
+      try {
+        if (!fs.existsSync(result.filePath)) fs.mkdirSync(result.filePath, { recursive: true })
+      } catch (error) {
+        throw new AppError(ERROR_CODES.INTERNAL, '无法创建目录', {
+          details: {
+            path: result.filePath,
+            message: error instanceof Error ? error.message : String(error),
+          },
+        })
+      }
+      return { cancelled: false, path: result.filePath }
+    },
+  )
+
+  /**
    * Create a directory (recursively) chosen by the user, e.g. a fresh
    * `.minecraft` root. Only an absolute path is accepted; the OS decides
    * whether the location is writable.

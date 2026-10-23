@@ -508,6 +508,7 @@ const CH = {
   systemPickSaveFile: 'mc:system:pickSaveFile',
   systemEnsureDirectory: 'mc:system:ensureDirectory',
   systemPickDirectory: 'mc:system:pickDirectory',
+  systemCreateDirectoryDialog: 'mc:system:createDirectoryDialog',
   downloadSources: channelOf('download', 'listSources'),
   downloadCustomFile: channelOf('download', 'downloadCustomFile'),
   downloadSettings: channelOf('download', 'getSettings'),
@@ -626,6 +627,7 @@ export interface Backend {
     pickSaveFile(request?: PickSaveFileRequest): Promise<PickSaveFileResult>
     ensureDirectory(path: string): Promise<{ path: string; created: boolean }>
     pickDirectory(title?: string): Promise<{ cancelled: boolean; path: string | null }>
+    createDirectoryDialog(title?: string): Promise<{ cancelled: boolean; path: string | null }>
     reportReady(report: RendererReadyReport): Promise<{ ack: boolean }>
     probeBlockedChannel(): Promise<boolean>
     minimize(): Promise<{ ok: boolean }>
@@ -910,6 +912,8 @@ export const ipcBackend: Backend = {
       invoke<{ path: string; created: boolean }>('创建目录', CH.systemEnsureDirectory, { path }),
     pickDirectory: (title?: string) =>
       invoke<{ cancelled: boolean; path: string | null }>('选择目录', CH.systemPickDirectory, title ? { title } : {}),
+    createDirectoryDialog: (title?: string) =>
+      invoke<{ cancelled: boolean; path: string | null }>('新建目录', CH.systemCreateDirectoryDialog, title ? { title } : {}),
     reportReady: (report) => api.app.reportRendererReady(report),
     probeBlockedChannel: () => api.probeBlockedChannel(),
     minimize: () => api.window.minimize(),

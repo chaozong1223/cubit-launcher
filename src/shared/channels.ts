@@ -19,6 +19,7 @@ export const CHANNELS = {
   systemPickSaveFile: 'mc:system:pickSaveFile',
   systemEnsureDirectory: 'mc:system:ensureDirectory',
   systemPickDirectory: 'mc:system:pickDirectory',
+  systemCreateDirectoryDialog: 'mc:system:createDirectoryDialog',
   appGetVersion: 'app:getVersion',
   appRendererReady: 'app:renderer-ready',
   windowMinimize: 'mc:window:minimize',
