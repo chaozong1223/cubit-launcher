@@ -1610,7 +1610,7 @@
 .ver-picker__sub { display: block; margin-top: 2px; font-size: 11px; color: var(--text-3); }
 .ver-picker__toggle { display: flex; justify-content: flex-end; margin: 12px 0 4px; }
 /* Expanding the version list eases in instead of snapping. */
-.ver-expand { animation: ver-expand-in 300ms var(--ease-out) both; }
+.ver-expand { animation: ver-expand-in 460ms var(--ease-out) both; }
 @keyframes ver-expand-in {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: none; }
@@ -1901,7 +1901,7 @@
   height: 30px;
 }
 /* Switching a category eases the list in rather than swapping instantly. */
-.ver-list-cut { animation: ver-expand-in 240ms var(--ease-out) both; }
+.ver-list-cut { animation: ver-expand-in 400ms var(--ease-out) both; }
 .ver-heroes {
   display: grid;
   grid-template-columns: 1fr 1fr;
