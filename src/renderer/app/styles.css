@@ -1598,6 +1598,22 @@
 .instance-row__stat { white-space: nowrap; }
 /* Quick actions directly under the page title. */
 .quick-row--top { margin: 12px 0 16px; }
+/* Whole-page drop target (schematics import). */
+.page-dropzone { position: relative; border-radius: 14px; transition: outline-color 140ms var(--ease-out); outline: 2px dashed transparent; outline-offset: 6px; }
+.page-dropzone.is-dragging { outline-color: var(--accent); }
+.page-dropzone.is-dragging::after {
+  content: '松手导入 .litematic / .nbt / .schem';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
 /* Rename dialog: same shape as the delete dialog, smaller. */
 .rename-backdrop {
   position: fixed;

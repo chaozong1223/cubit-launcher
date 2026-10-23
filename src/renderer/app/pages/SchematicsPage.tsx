@@ -112,6 +112,7 @@ export function SchematicsPage() {
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [targetId, setTargetId] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<UiErrorInfo | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [conflict, setConflict] = useState<ConflictState | null>(null)
@@ -284,6 +285,47 @@ export function SchematicsPage() {
     }
   }
 
+  /** Import files dropped onto the page (same path as the file picker). */
+  const importPaths = async (paths: string[]) => {
+    if (!sourceInstance || paths.length === 0) return
+    const allowed = /\.(litematic|nbt|schem)$/i
+    const usable = paths.filter((entry) => allowed.test(entry))
+    if (usable.length === 0) {
+      setError({ kind: 'error', title: '没有可导入的投影文件', detail: '只接受 .litematic / .nbt / .schem。', retryable: false })
+      return
+    }
+    setBusy('import')
+    setError(null)
+    setNotice(null)
+    const imported: string[] = []
+    const failures: string[] = []
+    for (const filePath of usable) {
+      try {
+        const result = await importSchematic(sourceInstance.id, filePath)
+        imported.push(result.fileName)
+      } catch (cause) {
+        failures.push(`${filePath.split(/[\\/]/).pop() ?? filePath}：${describeError(cause).title}`)
+      }
+    }
+    setBusy(null)
+    if (imported.length > 0) {
+      setNotice({
+        tone: 'success',
+        title: `已导入 ${imported.length} 个投影`,
+        detail: `${imported.join('、')} → ${sourceInstance.name} 的 gameDir/schematics/。`,
+      })
+      list.reload()
+    }
+    if (failures.length > 0) {
+      setError({
+        kind: 'error',
+        title: `${failures.length} 个投影导入失败`,
+        detail: failures.join('\n'),
+        retryable: false,
+      })
+    }
+  }
+
   const runTransfer = async (mode: 'copy' | 'move', strategy?: 'overwrite' | 'skip' | 'rename') => {
     if (!sourceInstance || !selectedRow || !target) return
     if (strategy === 'skip') {
@@ -392,6 +434,33 @@ export function SchematicsPage() {
 
   return (
     <>
+      <div
+        className={dragging ? 'page-dropzone is-dragging' : 'page-dropzone'}
+        onDragOver={(event) => {
+          if (!sourceInstance) return
+          event.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={(event) => {
+          if (event.currentTarget === event.target) setDragging(false)
+        }}
+        onDrop={(event) => {
+          if (!sourceInstance) return
+          event.preventDefault()
+          setDragging(false)
+          const files = Array.from(event.dataTransfer?.files ?? [])
+          const paths = files
+            .map((file) => {
+              try {
+                return backend.system.getPathForFile(file)
+              } catch {
+                return ''
+              }
+            })
+            .filter((entry) => entry.length > 0)
+          void importPaths(paths)
+        }}
+      >
       <PageHeader
         title="投影管理"
         subtitle="左侧选择实例来源（全局 = 共享 .minecraft/schematics）；右侧「目标版本」独立决定复制/移动的去向。列表只显示真实目录内容。"
@@ -663,6 +732,7 @@ export function SchematicsPage() {
           </div>
         </>
       )}
+      </div>
     </>
   )
 }
