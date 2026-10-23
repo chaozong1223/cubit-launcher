@@ -79,8 +79,7 @@ function HitCard({
   const compatibility = projectCompatibility(hit, instance)
   return (
     <article className="catalog-row">
-      <ProjectIcon src={hit.iconUrl} />
-      <div className="catalog-row__main">
+      <ProjectIcon src={hit.iconUrl} title={hit.title} />      <div className="catalog-row__main">
         <div className="catalog-row__title">
           <strong>{hit.title}</strong>
           <span className="catalog-row__by">

@@ -918,6 +918,18 @@ svg { display: block; }
 .project-icon--md { width: 44px; height: 44px; }
 .project-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .project-icon .ico { width: 18px; height: 18px; }
+/* Projects without artwork get a stable coloured initial instead of a glyph
+   that looks identical on every row. */
+.project-icon--letter {
+  background: hsl(var(--icon-hue, 160) 42% 22%);
+  border-color: hsl(var(--icon-hue, 160) 42% 30%);
+  color: hsl(var(--icon-hue, 160) 70% 78%);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  user-select: none;
+}
+.project-icon--sm.project-icon--letter { font-size: 13px; }
 
 .instance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .instance-card {

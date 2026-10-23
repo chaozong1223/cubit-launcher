@@ -60,19 +60,36 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 export function ProjectIcon({
   src,
   size = 'md',
+  title,
 }: {
   src: string | null | undefined
   size?: 'sm' | 'md'
+  title?: string
 }) {
   // Remember which URL failed instead of a boolean, so reusing the component
   // with a new `src` renders the new image at once (no stale placeholder frame).
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const usable = Boolean(src) && failedSrc !== src
+  if (src && usable) {
+    return (
+      <span className={cx('project-icon', `project-icon--${size}`)} aria-hidden="true">
+        <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} />
+      </span>
+    )
+  }
+  // No artwork (or the image failed): show a stable coloured initial instead of
+  // an identical cube on every row, so rows stay distinguishable.
+  const label = (title ?? '').trim()
+  const initial = label ? Array.from(label)[0]?.toUpperCase() ?? '?' : '?'
+  let hash = 0
+  for (const char of label) hash = (hash * 31 + char.codePointAt(0)!) % 360
   return (
-    <span className={cx('project-icon', `project-icon--${size}`)} aria-hidden="true">
-      {src && usable
-        ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} />
-        : <Icon name="package" />}
+    <span
+      className={cx('project-icon', 'project-icon--letter', `project-icon--${size}`)}
+      aria-hidden="true"
+      style={{ ['--icon-hue' as string]: String(hash) }}
+    >
+      {initial}
     </span>
   )
 }

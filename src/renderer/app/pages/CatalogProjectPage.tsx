@@ -151,7 +151,7 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
         <Card><div className="nw-stack"><Skeleton className="skeleton--title" style={{ width: '38%' }} /><Skeleton className="skeleton--text" style={{ width: '72%', marginTop: 10 }} /></div></Card>
       ) : data ? (
         <Card className="project-head">
-          <ProjectIcon src={data.iconUrl} size="md" />
+          <ProjectIcon src={data.iconUrl} title={data.title} size="md" />
           <div className="project-head__text">
             <div className="row gap-8" style={{ flexWrap: 'wrap' }}>
               <Badge tone="accent">{projectTypeLabel(type)}</Badge>
