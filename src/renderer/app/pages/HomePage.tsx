@@ -6,6 +6,7 @@ import { useCurrentAccount } from '../data/useAccount'
 import { BackendError, describeError, type LaunchExitedEvent, type LaunchStageEvent, type LaunchStatusEvent, type UiErrorInfo } from '../data/backend'
 import { DeleteInstanceDialog } from './DeleteInstanceDialog'
 import { ImportPackDialog } from './ImportPackDialog'
+import { MinecraftDirectoryPanel } from './MinecraftDirectoryPanel'
 import { useAsync } from '../data/useAsync'
 import { useInstanceRunning } from '../data/useInstanceRunning'
 
@@ -647,6 +648,7 @@ export function HomePage() {
   const [selectedId, setSelectedId] = useState<string | null>(() => localStorage.getItem('mcl.global.instanceId'))
   const [pendingDelete, setPendingDelete] = useState<InstanceSummary | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [dirPanelOpen, setDirPanelOpen] = useState(false)
   const [rowMenuId, setRowMenuId] = useState<string | null>(null)
   const [listFilter, setListFilter] = useState<'all' | 'ready' | 'broken'>('all')
 
@@ -922,6 +924,20 @@ export function HomePage() {
               />
             </Card>
           )}
+
+          {/* Game directory management used to live on the (now removed)
+              instance page; it belongs next to the instance list. */}
+          <SectionHead
+            title="游戏目录"
+            action={(
+              <Button size="sm" variant="secondary" icon="folder" onClick={() => setDirPanelOpen((value) => !value)}>
+                {dirPanelOpen ? '收起' : '管理游戏目录'}
+              </Button>
+            )}
+          />
+          {dirPanelOpen ? (
+            <MinecraftDirectoryPanel onImported={() => void instances.reload()} />
+          ) : null}
 
         </div>
       </div>
