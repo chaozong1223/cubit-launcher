@@ -1,4 +1,5 @@
 import { app, shell } from 'electron'
+import { openPathInShell } from '../../core/open-path'
 import type { ModuleContext } from '../_registry'
 import { getService, publishService } from '../_services'
 import { resolveModuleRoots } from '../_context'
@@ -15,7 +16,7 @@ export function register(ctx: ModuleContext): void {
     roots,
     log: ctx.log,
     appVersion: app.getVersion(),
-    openPath: (target) => shell.openPath(target),
+    openPath: (target) => openPathInShell(target),
     showItemInFolder: (target) => shell.showItemInFolder(target),
     isInstanceRunning: (instanceId, dirName) => {
       const launch = getService<{

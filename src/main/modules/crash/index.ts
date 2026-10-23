@@ -1,4 +1,5 @@
-import { app, dialog, Notification, shell } from 'electron'
+import { app, dialog, Notification } from 'electron'
+import { openPathInShell, openUrlInShell } from '../../core/open-path'
 import type { ModuleContext } from '../_registry'
 import { getService, publishService } from '../_services'
 import { resolveModuleRoots } from '../_context'
@@ -23,7 +24,7 @@ function showCrashPrompt(result: CrashReportResult, log: ModuleContext['log']): 
     if (Notification.isSupported()) {
       const notification = new Notification({ title: message, body: detail.slice(0, 500) })
       notification.on('click', () => {
-        void shell.openPath(result.reportPath)
+        void openPathInShell(result.reportPath)
       })
       notification.show()
       log.info('crash prompt shown', { mode: 'notification', reportPath: result.reportPath })
@@ -46,7 +47,7 @@ function showCrashPrompt(result: CrashReportResult, log: ModuleContext['log']): 
       noLink: true,
     })
     .then((response) => {
-      if (response.response === 0) void shell.openPath(result.reportPath)
+      if (response.response === 0) void openPathInShell(result.reportPath)
     })
     .catch(() => undefined)
   log.info('crash prompt shown', { mode: 'dialog', reportPath: result.reportPath })
@@ -111,8 +112,8 @@ export function register(ctx: ModuleContext): void {
     roots,
     log: ctx.log,
     appVersion: app.getVersion(),
-    openPath: (target) => shell.openPath(target),
-    openExternal: (url) => shell.openExternal(url).then(() => undefined),
+    openPath: (target) => openPathInShell(target),
+    openExternal: (url) => openUrlInShell(url),
   })
 
   publishService(moduleId, service)

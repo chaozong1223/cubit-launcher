@@ -1,4 +1,4 @@
-import { shell } from 'electron'
+import { openPathInShell } from '../../core/open-path'
 import type { ModuleContext } from '../_registry'
 import { publishService } from '../_services'
 import { resolveModuleRoots } from '../_context'
@@ -14,7 +14,7 @@ export function register(ctx: ModuleContext): void {
   const service = createModsService({
     roots,
     log: ctx.log,
-    openPath: (target) => shell.openPath(target),
+    openPath: (target) => openPathInShell(target),
   })
 
   publishService(moduleId, service)
