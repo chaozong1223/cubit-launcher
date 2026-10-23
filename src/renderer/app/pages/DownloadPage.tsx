@@ -167,6 +167,9 @@ export function DownloadPage() {
   const [loaderLines, setLoaderLines] = useState<string[]>([])
   const [loaderError, setLoaderError] = useState<UiErrorInfo | null>(null)
   const [allowUnverified, setAllowUnverified] = useState(false)
+  // The raw manifest is reference data, not the primary control: keep it
+  // collapsed until someone actually wants to inspect or pick from it.
+  const [showManifest, setShowManifest] = useState(false)
   const loaderType: LoaderType | null = type === 'vanilla' ? null : type as LoaderType
   const loaderList = useAsync(
     () => (loaderType && versionId ? backend.loader.list(loaderType, versionId, false) : Promise.resolve(null)),
@@ -641,11 +644,25 @@ export function DownloadPage() {
         <div className="card__head" style={{ padding: '14px 14px 0' }}>
           <div>
             <h2 className="card__title">版本清单</h2>
-            <div className="card__sub">真实 manifest 条目；不含示例版本。</div>
+            <div className="card__sub">
+              {showManifest
+                ? '真实 manifest 条目；不含示例版本。点一行可选中该版本。'
+                : `已折叠（共 ${versions.length} 个版本）；展开可查看原始条目。`}
+            </div>
           </div>
-          <Button size="xs" variant="ghost" onClick={manifest.reload} disabled={manifest.status === 'loading'}>重新获取</Button>
+          <div className="row gap-8">
+            <Button
+              size="xs"
+              variant="secondary"
+              icon={showManifest ? 'chevron-down' : 'chevron-right'}
+              onClick={() => setShowManifest((previous) => !previous)}
+            >
+              {showManifest ? '收起' : '展开'}
+            </Button>
+            <Button size="xs" variant="ghost" onClick={manifest.reload} disabled={manifest.status === 'loading'}>重新获取</Button>
+          </div>
         </div>
-        {manifest.status === 'ready' && versions.length > 0 ? (
+        {!showManifest ? null : manifest.status === 'ready' && versions.length > 0 ? (
           <div className="nw-version-list">
             {versions.slice(0, 12).map((version) => (
               <button key={version.id} type="button" className={`nw-version-row${version.id === versionId ? ' is-selected' : ''}`} onClick={() => setVersionId(version.id)}>
