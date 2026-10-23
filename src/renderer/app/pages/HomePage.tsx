@@ -649,6 +649,24 @@ export function HomePage() {
   const [importOpen, setImportOpen] = useState(false)
   const [rowMenuId, setRowMenuId] = useState<string | null>(null)
   const [listFilter, setListFilter] = useState<'all' | 'ready' | 'broken'>('all')
+
+  // Close the per-row menu on any outside click or Escape, same as the hero menu.
+  useEffect(() => {
+    if (!rowMenuId) return
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target?.closest('.instance-row__menu')) setRowMenuId(null)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setRowMenuId(null)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [rowMenuId])
   const pendingDeleteRunning = useInstanceRunning(pendingDelete?.id ?? null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<UiErrorInfo | null>(null)
