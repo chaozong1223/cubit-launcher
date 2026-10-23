@@ -452,6 +452,7 @@ const CH = {
   catalogUpdate: channelOf('catalog', 'update'),
   catalogPageUrl: channelOf('catalog', 'pageUrl'),
   catalogOpenPage: channelOf('catalog', 'openPage'),
+  catalogOpenWiki: channelOf('catalog', 'openWiki'),
   catalogCurseForgeConfig: channelOf('catalog', 'getCurseForgeConfig'),  catalogUpdateCurseForgeConfig: channelOf('catalog', 'updateCurseForgeConfig'),
   catalogPlanLinkImport: channelOf('catalog', 'planLinkImport'),
   catalogStartLinkImport: channelOf('catalog', 'startLinkImport'),
@@ -740,6 +741,7 @@ export interface Backend {
     checkUpdates(input: CatalogCheckInput): Promise<CatalogUpdateCheck>
     update(input: CatalogUpdateInput): Promise<CatalogUpdateResult>
     pageUrl(input: CatalogPageInput): Promise<CatalogPageResult>
+    openWiki(input: { query: string }): Promise<{ url: string; opened: boolean }>
     openPage(input: CatalogPageInput): Promise<CatalogPageResult>
     getCurseForgeConfig(): Promise<CurseForgeConfigView>
     updateCurseForgeConfig(input: CurseForgeConfigPatch): Promise<CurseForgeConfigView>
@@ -1053,6 +1055,7 @@ export const ipcBackend: Backend = {
     checkUpdates: (input) => invoke<CatalogUpdateCheck>('模组更新检查需要实例的已装 mods 目录和 SHA-1 文件；没有目标实例时不会发起网络请求。', CH.catalogCheckUpdates, input),
     update: (input) => invoke<CatalogUpdateResult>('更新模组', CH.catalogUpdate, input),
     pageUrl: (input) => invoke<CatalogPageResult>('资源项目。', CH.catalogPageUrl, input),
+    openWiki: (input) => invoke<{ url: string; opened: boolean }>('打开 MC 百科', CH.catalogOpenWiki, input),
     openPage: (input) => invoke<CatalogPageResult>('打开资源项目。', CH.catalogOpenPage, input),
     getCurseForgeConfig: () =>
       invoke<CurseForgeConfigView>('CurseForge 设置', CH.catalogCurseForgeConfig),

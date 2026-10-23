@@ -807,6 +807,19 @@ export class CatalogModuleService {
     return { provider: input.provider, url: this.pageFor(input), opened: false }
   }
 
+  /**
+   * MC百科 lookup. The host is fixed here, so a project name can never make the
+   * launcher open an arbitrary URL.
+   */
+  async openWiki(input: { query: string }): Promise<{ url: string; opened: boolean }> {
+    const query = input.query.trim()
+    if (!query) fail('CATALOG.INVALID_INPUT', '搜索词不能为空')
+    const url = `https://www.mcmod.cn/s?key=${encodeURIComponent(query)}`
+    if (!this.openExternal) return { url, opened: false }
+    await this.openExternal(url)
+    return { url, opened: true }
+  }
+
   async openPage(input: CatalogPageInput): Promise<CatalogPageResult> {
     const url = this.pageFor(input)
     if (!this.openExternal) {

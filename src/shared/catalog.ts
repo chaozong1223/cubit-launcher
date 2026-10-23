@@ -375,6 +375,11 @@ export const contract = defineContract({
       input: CatalogPageInputSchema,
       output: CatalogPageResultSchema,
     },
+    /** Open the MC百科 search page for a mod name (fixed host, no arbitrary URL). */
+    openWiki: {
+      input: z.object({ query: z.string().min(1).max(120) }),
+      output: z.object({ url: z.string(), opened: z.boolean() }),
+    },
     getCurseForgeConfig: {
       input: z.void(),
       output: CurseForgeConfigViewSchema,

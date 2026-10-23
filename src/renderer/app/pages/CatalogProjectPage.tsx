@@ -10,6 +10,7 @@ import {
   Banner,
   Button,
   Card,
+  copyToClipboard,
   DataStateNotice,
   Dropdown,
   EmptyState,
@@ -34,6 +35,7 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
   const instances = useAsync(() => backend.instances.list(), [])
   const [instanceId, setInstanceId] = useState(() => window.localStorage.getItem('mcl.global.instanceId') ?? '')
   const [mcFilter, setMcFilter] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [installing, setInstalling] = useState<string | null>(null)
   const [installed, setInstalled] = useState<CatalogInstallResult | null>(null)
   const [error, setError] = useState<UiErrorInfo | null>(null)
@@ -106,16 +108,40 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
           <div className="row gap-8">
             <Button size="sm" variant="secondary" icon="chevron-left" onClick={() => navigate('/catalog')}>返回资源库</Button>
             {data ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="external"
-                onClick={() => {
-                  void backend.catalog.openPage({ provider: 'modrinth', slug: data.slug }).catch(() => undefined)
-                }}
-              >
-                打开 Modrinth 页面
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon="external"
+                  onClick={() => {
+                    void backend.catalog.openPage({ provider: 'modrinth', slug: data.slug }).catch(() => undefined)
+                  }}
+                >
+                  转到 Modrinth
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon="search"
+                  onClick={() => {
+                    void backend.catalog.openWiki({ query: data.title }).catch(() => undefined)
+                  }}
+                >
+                  转到 MC 百科
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon="copy"
+                  onClick={() => {
+                    void copyToClipboard(data.title).then((ok) => {
+                      setNotice(ok ? '名称已复制到剪贴板' : '复制失败：剪贴板不可用')
+                    })
+                  }}
+                >
+                  复制名称
+                </Button>
+              </>
             ) : null}
           </div>
         )}
@@ -138,6 +164,7 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
         <DataStateNotice info={describeError(project.error)} onRetry={project.reload} />
       ) : null}
 
+      {notice ? <Banner tone="success" title={notice} /> : null}
       {error ? <Banner tone="danger" title={error.title}>{error.detail}</Banner> : null}
       {installed ? (
         installed.modpackImport ? (
@@ -169,25 +196,22 @@ export function CatalogProjectPage({ projectId }: { projectId: string }) {
       </Card>
 
       <Card className="project-versions">
-        <div className="row gap-8" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="row gap-8" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <strong className="project-versions__title">版本</strong>
-          <button
-            type="button"
-            className={mcFilter === null ? 'chip chip--active' : 'chip'}
-            onClick={() => setMcFilter(null)}
-          >
-            全部
-          </button>
-          {gameVersions.map((version) => (
-            <button
-              key={version}
-              type="button"
-              className={mcFilter === version ? 'chip chip--active' : 'chip'}
-              onClick={() => setMcFilter(version)}
-            >
-              {version}
-            </button>
-          ))}
+          <div style={{ width: 200 }}>
+            <Dropdown
+              value={mcFilter ?? '__all__'}
+              placeholder="全部 MC 版本"
+              onChange={(next) => setMcFilter(next === '__all__' ? null : next)}
+              groups={[{
+                options: [
+                  { value: '__all__', label: '全部 MC 版本' },
+                  ...gameVersions.map((version) => ({ value: version, label: version })),
+                ],
+              }]}
+            />
+          </div>
+          <span className="muted" style={{ fontSize: 11.5 }}>{visible.length} / {allVersions.length} 个版本</span>
         </div>
 
         {versions.status === 'loading' ? (
