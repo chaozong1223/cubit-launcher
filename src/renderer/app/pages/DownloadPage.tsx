@@ -358,17 +358,6 @@ export function DownloadPage() {
       ) : null}
 
       <div className="ver-picker" id="dl-versions">
-        <div className="ver-picker__head">
-          <div>
-            <strong className="ver-picker__title">选择版本</strong>
-            <span className="ver-picker__sub">
-              {showVersionList
-                ? `全部 ${versions.length} 个版本；按分类查看，点一行即选中`
-                : `也可以从全部 ${versions.length} 个版本里挑（正式版 / 快照版 / 远古版本）`}
-            </span>
-          </div>
-        </div>
-
         {/* Quick picks stay visible even when the long list is collapsed. */}
         <div className="ver-heroes">
           <button
