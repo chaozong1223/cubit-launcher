@@ -94,8 +94,10 @@ export function installAppProtocol(rendererRoot: string): void {
       if (extension === '.html') {
         // Production CSP is a response header (meta CSP would also constrain
         // the Vite dev server and block React refresh's dev preamble).
+        // Project artwork lives on the Modrinth/CurseForge CDNs, so those hosts
+        // are allow-listed for img-src; everything else stays blocked.
         headers['content-security-policy'] =
-          "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+          "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.modrinth.com https://cdn-raw.modrinth.com https://media.forgecdn.net https://edge.forgecdn.net; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
       }
       return new Response(data, { status: 200, headers })
     } catch {
