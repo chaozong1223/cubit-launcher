@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-23T15:47:41.876Z",
+  "generatedAt": "2026-10-24T02:54:06.388Z",
   "files": {
-    "package.json": "5706aea8c8b88e8b7397d4226bde87244bc186d386932c188046e62ed9eb455c",
+    "package.json": "a9b4d066b298102f5f18fe5e9f72f81d15586df81d1913a74268ca7930b12abf",
     "package-lock.json": "ebb16c3054b858d9e56351d1556d961e75f536dae0e68a52c307a6d825a2dc71",
     "electron.vite.config.ts": "0ca70c50c71fbd254bffc97897ee056bc36ac67f9ea224f55ac9ea32b3542e3a",
     "tsconfig.json": "7d31dbb684d8fb3e73507969f42c0b8518ec710ffd64c1a43f401fc78ca1b775",
     "tsconfig.node.json": "5ce7b7ccf22a5ce25b4e036cd7719f3548b2ba76c7405122c887255e5981bc22",
     "tsconfig.web.json": "2f33a711ce94fc59f47bbb84091f062e514aa436a8a1539505f587231ea390b2",
-    "src/main/index.ts": "a89f9d6b6b95812b956d7d4e2ee8a3b2a11b72778541e3db24c67d5bb5fe2c7e",
+    "src/main/index.ts": "78cba6ace23f04f962cd83208cdfd9acea89235fa9542c4afa92008901ef5c53",
     "src/main/kernel/config.ts": "2c6ba21369e3d93826d9733ce3d5d8875220b45e94daa63324a520be42d29c5f",
     "src/main/kernel/ipc.ts": "6f01966ba5a200b51451950efb4ee792e84239aef1c06b1e310ece4e94fd7515",
     "src/main/kernel/logger.ts": "7b81100a2a8b02272e00cc40b8c9e4ddf367f8e6b7356c206dd935b318542a39",

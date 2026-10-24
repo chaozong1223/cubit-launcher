@@ -401,7 +401,7 @@ app.on('activate', () => {
 
 let quitDialogOpen = false
 let quitInProgress = false
-let quitAction: 'stop' | null = null
+let quitAction: 'stop' | 'keep-game' | null = null
 
 function restoreLauncher(): void {
   const existing = BrowserWindow.getAllWindows().find((win) => !win.isDestroyed())
@@ -470,11 +470,12 @@ app.on('before-quit', (event) => {
   quitDialogOpen = true
   void dialog
     .showMessageBox({
-      type: 'warning',
+      type: 'info',
       title: '游戏仍在运行',
-      message: '退出启动器时游戏仍在运行',
-      detail: '“结束游戏并退出”会先停止游戏并退出；“取消（返回启动器）”会恢复窗口，游戏与日志管道继续运行。',
-      buttons: ['结束游戏并退出', '取消（返回启动器）'],
+      message: '游戏正在运行，要退出启动器吗？',
+      detail:
+        '退出启动器后游戏会继续运行（和 PCL/HMCL 一样）；下次打开启动器还能在日志里看到这次会话。',
+      buttons: ['退出启动器（游戏继续）', '取消（返回启动器）'],
       defaultId: 0,
       cancelId: 1,
       noLink: true,
@@ -486,18 +487,12 @@ app.on('before-quit', (event) => {
         logger.info('app', 'quit cancelled; launcher kept alive, game continues')
         return
       }
-      quitAction = 'stop'
-      try {
-        await disposeNetWithTimeout(net)
-        await launch?.stopAll?.()
-      } catch (error) {
-        logger.warn('app', 'stopAll before quit failed', {
-          message: error instanceof Error ? error.message : String(error),
-        })
-      }
+      // The game keeps running on purpose: only the launcher exits.
+      await disposeNetWithTimeout(net)
+      quitAction = 'keep-game'
       quitInProgress = true
       quitDialogOpen = false
-      logger.info('app', 'quit confirmed with running session', { action: 'stop-and-quit' })
+      logger.info('app', 'quit confirmed; game left running', { action: 'quit-keep-game' })
       app.quit()
     })
     .catch((error) => {
@@ -511,10 +506,15 @@ app.on('before-quit', (event) => {
 
 app.on('will-quit', () => {
   // If an async stop could not finish, or a quit path bypassed before-quit,
-  // perform a synchronous, tree-wide kill as the last line of defence.
+  // perform a synchronous, tree-wide kill as the last line of defence — except
+  // when the user chose to leave the game running.
   const launch = getService<LaunchShutdown>('launch')
   const net = getService<{ disposeSync?: () => void }>('net')
   net?.disposeSync?.()
+  if (quitAction === 'keep-game') {
+    logger.info('app', 'will-quit with game intentionally left running')
+    return
+  }
   if (!launch?.hasRunningSessions?.()) return
   launch.stopAllSync?.()
   logger.warn('app', 'synchronous game shutdown at will-quit', {

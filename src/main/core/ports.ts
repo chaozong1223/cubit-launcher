@@ -68,6 +68,8 @@ export interface SpawnOptions {
   cwd?: string
   env?: NodeJS.ProcessEnv
   windowsHide?: boolean
+  /** Give the child its own process group so it survives the parent. */
+  detached?: boolean
 }
 
 export interface ProcessPort {
@@ -231,6 +233,11 @@ export function nodeProcessPort(): ProcessPort {
         cwd: options.cwd,
         env: options.env ?? process.env,
         windowsHide: options.windowsHide ?? true,
+        // The game must outlive the launcher: a detached child gets its own
+        // process group, so quitting (or crashing) the launcher does not take
+        // Minecraft down with it. stdout/stderr stay piped, so the log view
+        // keeps working while the launcher is open.
+        detached: options.detached ?? false,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
     },

@@ -239,6 +239,8 @@ export function startLaunchProcess(options: StartLaunchProcessOptions): LaunchPr
       cwd: options.cwd,
       env: options.env,
       windowsHide: true,
+      // Minecraft keeps running after the launcher closes (PCL/HMCL behaviour).
+      detached: true,
     })
   } catch (error) {
     const coreError = new CoreError('PROCESS.SPAWN_FAILED', {
