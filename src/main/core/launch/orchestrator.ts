@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+﻿import { randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import os from 'node:os'
@@ -796,6 +796,35 @@ export class LaunchOrchestrator extends EventEmitter {
         userMessage: `启动前检查发现 ${libraries.missing.length} 个文件缺失，请先修复实例`,
         details: { missing: libraries.missing.slice(0, 50) },
       })
+    }
+
+    // Windows picks the GPU per executable. A runtime this launcher extracted has
+    // no preference recorded, so a hybrid-graphics laptop sends it to the iGPU and
+    // old LWJGL builds then fail with "No OpenGL context found". PCL avoids this
+    // by writing the same per-exe preference; we do it before spawning.
+    if (this.platform === 'win32') {
+      try {
+        await this.ports.exec(
+          'reg.exe',
+          [
+            'add',
+            'HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences',
+            '/v',
+            prepared.plan.javaPath,
+            '/t',
+            'REG_SZ',
+            '/d',
+            'GpuPreference=2;',
+            '/f',
+          ],
+          { timeoutMs: 5000 },
+        )
+      } catch (error) {
+        this.options.logger?.warn?.('gpu preference could not be recorded', {
+          java: prepared.plan.javaPath,
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
     }
 
     const nativePlan = planNatives(prepared.resolved.json, {
