@@ -14,7 +14,7 @@ export interface LibraryCoordinate {
   version: string
   classifier: string | null
   extension: string
-  /** `group:artifact:classifier` — inheritance merge key. */
+  /** `group:artifact:version:classifier` — inheritance merge key. */
   key: string
 }
 
@@ -50,7 +50,11 @@ export function libraryCoordinate(name: string): LibraryCoordinate | null {
   if (!parsed) return null
   return {
     ...parsed,
-    key: `${parsed.group}:${parsed.artifact}:${parsed.classifier ?? ''}`,
+    // The VERSION must be part of the key. 1.12.2 lists LWJGL 2.9.4 (windows) and
+    // 2.9.2 (macOS-only) side by side; without the version they collapsed into one
+    // entry, the macOS one often won, and the classpath lost its LWJGL entirely —
+    // every launch then died with ClassNotFoundException org.lwjgl.opengl.ContextAttribs.
+    key: `${parsed.group}:${parsed.artifact}:${parsed.version}:${parsed.classifier ?? ''}`,
   }
 }
 
