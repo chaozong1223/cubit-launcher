@@ -188,11 +188,21 @@ export function resolveClientJar(
 ): ClientJarResolution {
   const versions = versionsDir
   const leaf = chain[chain.length - 1]
+  const base = chain[0] ?? leaf
 
+  // An explicit `jar` pointer always wins (some profiles rename the client jar).
   if (leaf?.json.jar) {
     const jarId = leaf.json.jar
     const jarPath = path.join(versions, jarId, `${jarId}.jar`)
     return { clientJar: jarPath, jarVersionId: jarId, exists: fs.exists(jarPath) }
+  }
+
+  // The real client jar belongs to the BASE version. A loader profile's own
+  // `<dirName>.jar` is the Forge/NeoForge universal (no Minecraft classes):
+  // picking it made 1.12.2 die with ClassNotFoundException net.minecraft.client.Minecraft.
+  const baseJar = path.join(versions, base.dirName, `${base.dirName}.jar`)
+  if (fs.exists(baseJar)) {
+    return { clientJar: baseJar, jarVersionId: base.dirName, exists: true }
   }
 
   for (let index = chain.length - 1; index >= 0; index -= 1) {
