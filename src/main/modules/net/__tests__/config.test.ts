@@ -47,6 +47,14 @@ describe('normalizePublicHost', () => {
       expect(normalizePublicHost(value)).toBeNull()
     }
   })
+
+  it('refuses loopback and wildcard hosts', () => {
+    // EasyTier rejects a loopback peer (10049), so such an invite could never
+    // be joined; refuse it where the user can still see why.
+    for (const value of ['127.0.0.1', '127.1.2.3', 'localhost', 'LOCALHOST', '0.0.0.0', '::1', '[::1]']) {
+      expect(normalizePublicHost(value)).toBeNull()
+    }
+  })
 })
 
 describe('relay peers', () => {

@@ -152,4 +152,10 @@ describe('testRelayTcp', () => {
     expect((await testRelayTcp('relay.example.com')).ok).toBe(false)
     expect((await testRelayTcp('tcp://relay.example.com')).ok).toBe(false)
   })
+
+  it('does not pretend a udp relay is unreachable', async () => {
+    const result = await testRelayTcp('udp://relay.example.com:11010')
+    expect(result.ok).toBe(false)
+    expect(result.detail).toContain('TCP')
+  })
 })

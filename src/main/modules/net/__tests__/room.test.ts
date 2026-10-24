@@ -654,6 +654,10 @@ describe('RoomService WAN endpoint and settings', () => {
     await expect(
       host.updateSettings({ manualPublicIp: 'tcp://1.2.3.4:25565' }),
     ).rejects.toMatchObject({ code: 'INVITE_INVALID' })
+    // A loopback address would produce an invite EasyTier can never dial.
+    await expect(
+      host.updateSettings({ manualPublicIp: '127.0.0.1' }),
+    ).rejects.toMatchObject({ code: 'INVITE_INVALID' })
     await expect(
       host.updateSettings({ relayPeers: ['relay.example.com'] }),
     ).rejects.toMatchObject({ code: 'INVITE_INVALID' })

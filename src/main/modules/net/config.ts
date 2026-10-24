@@ -53,6 +53,24 @@ export function saveNetConfig(dataRoot: string, config: NetModuleConfig): void {
 }
 
 /**
+ * Loopback / wildcard addresses are never a usable WAN endpoint: EasyTier
+ * refuses a loopback peer (WSAEADDRNOTAVAIL 10049), so saving one here would
+ * produce an invite that can never be joined. Reject it at the door instead of
+ * letting the member fail with a confusing error.
+ */
+function isLoopbackOrWildcard(host: string): boolean {
+  const value = host.toLowerCase()
+  return (
+    value === 'localhost' ||
+    value === '0.0.0.0' ||
+    value === '::' ||
+    value === '::1' ||
+    value === '[::1]' ||
+    /^127\./.test(value)
+  )
+}
+
+/**
  * An address the WAN endpoint may publish: an IPv4 literal or a DNS name.
  * Anything with a scheme, port, path or whitespace is refused here — the string
  * ends up inside a signed invite, so it must stay a bare host.
@@ -63,6 +81,7 @@ export function normalizePublicHost(value: unknown): string | null {
   if (host.length === 0 || host.length > 253) return null
   if (!/^[A-Za-z0-9.-]+$/.test(host)) return null
   if (host.startsWith('.') || host.endsWith('.') || host.includes('..')) return null
+  if (isLoopbackOrWildcard(host)) return null
   // A bare IPv4 must actually be one; a name needs at least one label.
   const labels = host.split('.')
   if (labels.some((label) => label.length === 0 || label.length > 63)) return null

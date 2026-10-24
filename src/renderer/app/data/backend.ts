@@ -1254,12 +1254,12 @@ export const ipcBackend: Backend = {
     create: (input) => invoke<RoomInfo>('创建房间', CH.netCreate, input),
     join: (input) => invoke<RoomInfo>('加入房间', CH.netJoin, input),
     leave: () => invoke<{ ok: boolean }>('离开房间', CH.netLeave),
-    copyInvite: () => invoke<CopyInviteOutput>('复制回收站路径', CH.netCopyInvite),
+    copyInvite: () => invoke<CopyInviteOutput>('复制邀请码', CH.netCopyInvite),
     enterWorld: (input) =>
       invoke<{ sessionId: string; server: { host: string; port: number } }>('进入世界', CH.netEnterWorld, input),
-    lanWorlds: (input) => invoke<LanWorldsOutput>('发现 modrinth.index.json，但无法解析：${error instanceof Error ? error.message : String(er', CH.netLanWorlds, input ?? {}),
+    lanWorlds: (input) => invoke<LanWorldsOutput>('扫描局域网世界', CH.netLanWorlds, input ?? {}),
     joinLanWorld: (input) =>
-      invoke<{ sessionId: string; server: { host: string; port: number } }>('加入前需要可启动的实例；当前没有选择。', CH.netJoinLanWorld, input),
+      invoke<{ sessionId: string; server: { host: string; port: number } }>('加入局域网世界', CH.netJoinLanWorld, input),
     diagnose: () => invoke<{ json: string }>('联机诊断', CH.netDiagnose),
     settings: () => invoke<NetSettings>('联机设置', CH.netSettings),
     updateSettings: (input) => invoke<NetSettings>('保存联机设置', CH.netUpdateSettings, input),

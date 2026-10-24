@@ -230,10 +230,19 @@ export async function testRelayTcp(
   peer: string,
   options: { timeoutMs?: number; connect?: (host: string, port: number, timeoutMs: number) => Promise<void> } = {},
 ): Promise<{ ok: boolean; rttMs: number | null; detail: string }> {
-  const parsed = /^(?:tcp|udp):\/\/([^/:]+):(\d{1,5})$/.exec(peer.trim())
+  const parsed = /^(tcp|udp):\/\/([^/:]+):(\d{1,5})$/.exec(peer.trim())
   if (!parsed) return { ok: false, rttMs: null, detail: '中继地址格式应为 tcp://host:port' }
-  const host = parsed[1] as string
-  const port = Number(parsed[2])
+  if (parsed[1] === 'udp') {
+    // A UDP listener silently drops a TCP handshake, so reporting "unreachable"
+    // here would be a lie. Say what the probe can and cannot tell.
+    return {
+      ok: false,
+      rttMs: null,
+      detail: 'udp:// 中继无法用 TCP 握手判断，请改用 tcp:// 或直接开房验证',
+    }
+  }
+  const host = parsed[2] as string
+  const port = Number(parsed[3])
   const timeoutMs = options.timeoutMs ?? 4_000
   const connect = options.connect ?? defaultTcpConnect
   const started = Date.now()

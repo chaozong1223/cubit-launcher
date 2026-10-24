@@ -59,8 +59,8 @@ export function LinkSettingsPanel() {
       const result = await backend.link.updateSettings({ manualPublicIp: manualIp.trim() })
       setNotice(
         result.manualPublicIp
-          ? `已保存公网地址 ${result.manualPublicIp}，下次生成邀请码时会写入 WAN 端点。`
-          : '已清除手动公网地址，改为使用自动探测结果。',
+          ? `已保存公网地址 ${result.manualPublicIp}，下次生成邀请码时会写入 WAN 端点。注意：已经发出去的旧邀请码仍指向旧地址，需要重新复制一份给朋友。`
+          : '已清除手动公网地址，改为使用自动探测结果；如果房间还开着，请重新复制邀请码。',
       )
     })
 

@@ -760,7 +760,7 @@ export class RoomService {
         if (!host) {
           throw new LinkError(
             'INVITE_INVALID',
-            '公网地址只接受 IPv4 或域名（不要带协议、端口或路径）',
+            '公网地址只接受公网 IPv4 或域名（不要带协议/端口/路径，也不能是本机回环地址）',
           )
         }
         next.publicIp = host
