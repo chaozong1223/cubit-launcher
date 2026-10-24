@@ -101,6 +101,31 @@ export function assertListenerScoped(host: string): void {
   }
 }
 
+/**
+ * NAT-traversal hardening, modelled on the Apache-2.0 PCL-CE link module.
+ *
+ * Plain UDP hole punching fails on symmetric NAT (the common carrier-grade case
+ * in CN mobile/broadband). KCP and QUIC run over TCP, and smoltcp gives a
+ * userspace stack that survives the odd interface, so a pair of symmetric peers
+ * still has a path. `--private-mode` keeps the network closed to strangers and
+ * `--relay-network-whitelist` stops unrelated networks from riding our relays.
+ */
+function punchThroughArgs(networkName: string): string[] {
+  return [
+    '--private-mode',
+    'true',
+    '--relay-network-whitelist',
+    networkName,
+    '--enable-quic-proxy',
+    '--enable-kcp-proxy',
+    '--use-smoltcp',
+    '--encryption-algorithm',
+    'chacha20',
+    // Deliberately NOT passing --disable-sym-hole-punching: it turns the
+    // symmetric-NAT strategy OFF, which is the opposite of what we need here.
+  ]
+}
+
 export function buildHostArgs(input: HostArgsInput): string[] {
   assertDedicatedAlias(input.aliasIp)
   assertListenerScoped(input.lanIp)
@@ -121,6 +146,7 @@ export function buildHostArgs(input: HostArgsInput): string[] {
     `127.0.0.1:${input.rpcPort}`,
     '--rpc-portal-whitelist',
     '127.0.0.1/32',
+    ...punchThroughArgs(input.networkName),
   ]
   if (input.disableIpv6 !== false) args.push('--disable-ipv6')
   for (const peer of input.relayPeers ?? []) {
@@ -147,6 +173,7 @@ export function buildMemberArgs(input: MemberArgsInput): string[] {
     `127.0.0.1:${input.rpcPort}`,
     '--rpc-portal-whitelist',
     '127.0.0.1/32',
+    ...punchThroughArgs(input.networkName),
   ]
   if (input.localWorldPort && input.worldPort) {
     args.push(
