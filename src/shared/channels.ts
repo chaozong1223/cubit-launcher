@@ -20,6 +20,8 @@ export const CHANNELS = {
   systemEnsureDirectory: 'mc:system:ensureDirectory',
   systemPickDirectory: 'mc:system:pickDirectory',
   systemCreateDirectoryDialog: 'mc:system:createDirectoryDialog',
+  systemElevation: 'mc:system:elevation',
+  systemRelaunchAsAdmin: 'mc:system:relaunchAsAdmin',
   appGetVersion: 'app:getVersion',
   appRendererReady: 'app:renderer-ready',
   windowMinimize: 'mc:window:minimize',

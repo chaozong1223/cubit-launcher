@@ -513,6 +513,8 @@ const CH = {
   systemEnsureDirectory: 'mc:system:ensureDirectory',
   systemPickDirectory: 'mc:system:pickDirectory',
   systemCreateDirectoryDialog: 'mc:system:createDirectoryDialog',
+  systemElevation: 'mc:system:elevation',
+  systemRelaunchAsAdmin: 'mc:system:relaunchAsAdmin',
   downloadSources: channelOf('download', 'listSources'),
   downloadCustomFile: channelOf('download', 'downloadCustomFile'),
   downloadSettings: channelOf('download', 'getSettings'),
@@ -627,6 +629,8 @@ export interface Backend {
     version(): Promise<string>
     openDataDir(): Promise<{ opened: boolean }>
     getPathForFile(file: File): string
+    elevation(): Promise<{ elevated: boolean; platform: string }>
+    relaunchAsAdmin(): Promise<{ launched: boolean }>
     pickFiles(request?: PickFilesRequest): Promise<PickFilesResult>
     pickSaveFile(request?: PickSaveFileRequest): Promise<PickSaveFileResult>
     ensureDirectory(path: string): Promise<{ path: string; created: boolean }>
@@ -918,6 +922,9 @@ export const ipcBackend: Backend = {
       invoke<PickSaveFileResult>('选择保存位置', CH.systemPickSaveFile, request),
     ensureDirectory: (path: string) =>
       invoke<{ path: string; created: boolean }>('创建目录', CH.systemEnsureDirectory, { path }),
+    elevation: () => invoke<{ elevated: boolean; platform: string }>('权限检查', CH.systemElevation, {}),
+    relaunchAsAdmin: () =>
+      invoke<{ launched: boolean }>('以管理员身份重启', CH.systemRelaunchAsAdmin, {}),
     pickDirectory: (title?: string) =>
       invoke<{ cancelled: boolean; path: string | null }>('选择目录', CH.systemPickDirectory, title ? { title } : {}),
     createDirectoryDialog: (title?: string) =>

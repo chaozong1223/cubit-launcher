@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { ZodType } from 'zod'
@@ -71,6 +72,24 @@ const HANDLER_FACTORIES = import.meta.glob<{ makeHandlers?: HandlerFactory }>(
  * kernel must not install a second `ipcMain.handle` for the same channel.
  */
 const SELF_MANAGED_IPC = import.meta.glob('../modules/*/ipc.ts')
+
+/**
+ * True when this process already runs with an elevated token.
+ *
+ * Windows-only in practice: TUN adapters (EasyTier/Wintun) need this, so the
+ * launcher can offer a one-time elevated relaunch instead of demanding admin for
+ * everyday use. Uses `net session` — the cheapest elevated-only probe that needs
+ * no native module.
+ */
+function isProcessElevated(): boolean {
+  if (process.platform !== 'win32') return typeof process.getuid === 'function' && process.getuid() === 0
+  try {
+    const result = spawnSync('net', ['session'], { windowsHide: true, timeout: 4000, stdio: 'ignore' })
+    return result.status === 0
+  } catch {
+    return false
+  }
+}
 
 function moduleIdFromPath(key: string, suffix: string): string | null {
   const normalized = key.replaceAll('\\', '/')
@@ -457,6 +476,48 @@ export function registerIpc(deps: IpcDependencies): void {
         return { cancelled: true, path: null }
       }
       return { cancelled: false, path: result.filePaths[0] }
+    },
+  )
+
+  /**
+   * Elevation state + a UAC relaunch.
+   *
+   * Linking tunnels need a TUN adapter, which Windows only lets an elevated
+   * process create (`Failed to create adapter` otherwise). Rather than running
+   * the whole launcher elevated, the UI can ask for a one-time elevated relaunch.
+   */
+  register(
+    CHANNELS.systemElevation,
+    z.object({}).default({}),
+    z.object({ elevated: z.boolean(), platform: z.string() }),
+    async () => ({ elevated: isProcessElevated(), platform: process.platform }),
+  )
+
+  register(
+    CHANNELS.systemRelaunchAsAdmin,
+    z.object({}).default({}),
+    z.object({ launched: z.boolean() }),
+    async () => {
+      if (process.platform !== 'win32') {
+        throw new AppError(ERROR_CODES.INTERNAL, '只有 Windows 支持以管理员身份重启')
+      }
+      if (isProcessElevated()) return { launched: false }
+      const exe = process.execPath
+      // `Start-Process -Verb RunAs` is the supported way to raise a UAC prompt
+      // from a non-elevated process without embedding a manifest requirement.
+      const child = spawn(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          `Start-Process -FilePath ${JSON.stringify(exe)} -Verb RunAs`,
+        ],
+        { windowsHide: true, detached: true, stdio: 'ignore' },
+      )
+      child.unref()
+      return { launched: true }
     },
   )
 

@@ -359,6 +359,13 @@ export function LinkPage() {
         : '未选择账户'
   const room = link.data
 
+  // TUN adapters (EasyTier) can only be created by an elevated process, so the
+  // page states that up front and offers a one-time UAC relaunch instead of
+  // failing later with "Failed to create adapter".
+  const elevation = useAsync(() => backend.system.elevation(), [])
+  const [relaunching, setRelaunching] = useState(false)
+  const needsAdmin = elevation.status === 'ready' && elevation.data?.platform === 'win32' && !elevation.data?.elevated
+
   // Page-level secondary tabs: the two real networking surfaces on this page.
   const [section, setSection] = useState<'room' | 'lan' | 'sdk'>('room')
   const pending = link.status === 'not-wired' || link.status === 'error'
@@ -530,6 +537,35 @@ export function LinkPage() {
       />
 
       {info ? <DataStateNotice info={info} onRetry={link.reload} /> : null}
+
+      {needsAdmin ? (
+        <Banner
+          tone="warning"
+          title="联机需要管理员权限"
+          actions={(
+            <Button
+              size="sm"
+              variant="primary"
+              icon="shield"
+              loading={relaunching}
+              onClick={() => {
+                setRelaunching(true)
+                void backend.system
+                  .relaunchAsAdmin()
+                  .then((result) => {
+                    if (result.launched) setActionError({ kind: 'error', title: '已请求管理员权限', detail: '在 UAC 窗口点「是」后，新窗口会继续；当前窗口可以关闭。', retryable: false })
+                  })
+                  .catch((cause) => setActionError(describeError(cause)))
+                  .finally(() => setRelaunching(false))
+              }}
+            >
+              以管理员身份重启
+            </Button>
+          )}
+        >
+          创建房间要安装虚拟网卡（TUN），Windows 只允许管理员做这件事。点右侧按钮会弹出一次 UAC；提权后启动器照常使用，游戏本身不需要管理员。
+        </Banner>
+      ) : null}
 
       <Banner
         tone={!currentAccount ? 'warning' : premium ? 'success' : 'info'}
