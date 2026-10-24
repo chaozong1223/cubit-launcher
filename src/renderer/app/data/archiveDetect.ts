@@ -21,6 +21,13 @@ export type ArchiveDetection =
       gameVersion: string | null
       loader: DetectedLoader
       evidence: string[]
+      /**
+       * Set when the file is a launcher installer that wraps one pack
+       * (`modpack.mrpack` next to the launcher's own exe). The manifest lives
+       * one level down, so `gameVersion` / `loader` are unknown until the main
+       * process unwraps it.
+       */
+      nested?: { entry: string }
     }
   | { kind: 'resourcepack'; evidence: string[] }
   | { kind: 'shaderpack'; evidence: string[] }
@@ -313,6 +320,33 @@ export async function detectArchive(source: ArchiveSource, fileName = ''): Promi
       gameVersion: null,
       loader: { type: 'unknown', version: null },
       evidence: ['扩展名为 .mrpack；清单未能完整解析，将交给后端校验'],
+    }
+  }
+
+  // Launcher-installer zip ("套娃包"): the pack itself sits next to the launcher
+  // binaries, so the top level has no manifest. Classify it here without
+  // inflating the inner archive (it can be several hundred MB); the main process
+  // unwraps one layer and validates the real manifest.
+  if (!isMrpack) {
+    const innerPacks = names.filter(
+      (name) => !name.endsWith('/') && /\.(?:mrpack|zip)$/i.test(name),
+    )
+    const inner = innerPacks.length === 1 ? innerPacks[0] : null
+    if (inner) {
+      const innerIsModrinth = inner.toLowerCase().endsWith('.mrpack')
+      return {
+        kind: 'modpack',
+        format: innerIsModrinth ? 'modrinth' : 'curseforge',
+        name: null,
+        gameVersion: null,
+        loader: { type: 'unknown', version: null },
+        nested: { entry: inner },
+        evidence: [
+          `检测到启动器安装包：内层整合包为 ${inner}`,
+          '导入时会自动解开一层，按内层清单安装；外层的启动器文件不会被读取或执行',
+          '加载器版本由后端解析，若本机未安装会提示先安装',
+        ],
+      }
     }
   }
 

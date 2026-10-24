@@ -250,12 +250,20 @@ export function GlobalDropZone() {
     setBusy(true)
     try {
       const warnings: string[] = []
-      if (detection) {
+      // A launcher-installer zip wraps the real pack one level down. Its version
+      // and loader are only known after the main process unwraps it, so the
+      // pre-install steps are skipped here and the backend reports exactly which
+      // loader is missing if it is not installed yet.
+      const nested = detection?.nested
+      if (detection && !nested) {
         if (!detection.gameVersion) {
           throw new BackendError('PACK.NO_GAME_VERSION', '整合包清单没有声明 Minecraft 版本，无法自动安装基础版本', false)
         }
         await ensureBase(detection.gameVersion)
         await ensureLoader(detection.gameVersion, detection.loader)
+      }
+      if (nested) {
+        warnings.push(`这是启动器安装包，已按内层 ${nested.entry} 导入；外层文件不会被读取或执行`)
       }
       setProgress({
         phase: 'pack',

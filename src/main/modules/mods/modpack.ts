@@ -3,7 +3,7 @@ import type { FsPort } from '../../core/ports'
 import { JobCancelledError } from '../../core/job/kernel'
 import { CurseForgeClient } from '../../core/curseforge/client'
 import { loadCurseForgeConfig } from '../../core/curseforge/settings'
-import type { ZipArchive } from '../../core/zip/reader'
+import { openZipFile, type ZipArchive, type ZipLimits } from '../../core/zip/reader'
 import { safeEntryPath } from '../../core/zip/reader'
 import type { Loader } from '@shared/instance'
 import type { ModpackFormat } from '@shared/mods'
@@ -219,6 +219,93 @@ export function readPackManifest(fs: FsPort, archive: ZipArchive): PackManifest 
   }
   void fs
   throw new AppError('MODS.PACK_UNSUPPORTED', '不是可识别的整合包（缺少 modrinth.index.json / manifest.json）')
+}
+
+/**
+ * 启动器安装包（"套娃包"）：外层 zip 里除了整合包本体，还塞了启动器自身，
+ * 所以顶层没有 `modrinth.index.json` / `manifest.json`，只有 `modpack.mrpack`。
+ *
+ * 真实例子：`超限征伐1.1.zip` = `modpack.mrpack`（592 MB）+ `Plain Craft
+ * Launcher.exe` + `PCL/Setup.ini`。只解一层，且只认"恰好一个内层包"——
+ * 多个候选时不做猜测，避免把资源包合集当成整合包。
+ */
+export const PACK_ENTRY_EXTENSIONS = ['.mrpack', '.zip'] as const
+
+/** 内层整合包的体积上限；默认 ZIP limits 的 512 MB 单条目上限不够用。 */
+export const PACK_ZIP_MAX_BYTES = 2 * 1024 * 1024 * 1024
+
+/**
+ * Limits for anything that *is* a modpack (or wraps one).
+ *
+ * The default 512 MB per-entry cap exists to stop zip bombs, but a modpack
+ * legitimately ships one huge inner archive. Raising the two size caps for
+ * this code path keeps the entry-count / total-expansion guards intact.
+ */
+export const PACK_ZIP_LIMITS: Partial<ZipLimits> = {
+  maxArchiveSize: PACK_ZIP_MAX_BYTES,
+  maxEntrySize: PACK_ZIP_MAX_BYTES,
+}
+
+export function isPackArchive(archive: ZipArchive): boolean {
+  return archive.has('modrinth.index.json') || archive.has('manifest.json')
+}
+
+/** The single inner pack a launcher-installer zip wraps, or null. */
+export function findNestedPack(archive: ZipArchive): string | null {
+  if (isPackArchive(archive)) return null
+  const candidates = archive.entries.filter(
+    (entry) =>
+      !entry.isDirectory &&
+      PACK_ENTRY_EXTENSIONS.some((extension) => entry.name.toLowerCase().endsWith(extension)),
+  )
+  return candidates.length === 1 ? (candidates[0]?.name ?? null) : null
+}
+
+export interface OpenedPackArchive {
+  archive: ZipArchive
+  manifest: PackManifest
+  /** Present when the file was a launcher installer wrapping one pack. */
+  nested: { entry: string; tempFile: string } | null
+}
+
+/**
+ * Open a pack file, transparently unwrapping one launcher-installer layer.
+ *
+ * The inner archive is written to `tempDir` (the caller owns cleanup) because
+ * the ZIP reader works on a Buffer; 600 MB packs would otherwise pin both the
+ * outer and the decompressed copy in memory for the whole import.
+ */
+export function openPackArchive(
+  fs: FsPort,
+  file: string,
+  tempDir: string,
+  id: string,
+): OpenedPackArchive {
+  const outer = openZipFile(fs, file, PACK_ZIP_LIMITS)
+  try {
+    return { archive: outer, manifest: readPackManifest(fs, outer), nested: null }
+  } catch (error) {
+    const entryName = findNestedPack(outer)
+    if (!(error instanceof AppError) || error.code !== 'MODS.PACK_UNSUPPORTED' || !entryName) {
+      throw error
+    }
+    fs.mkdirp(tempDir)
+    const tempFile = path.join(tempDir, `nested-${id}.mrpack`)
+    fs.writeBytes(tempFile, outer.read(entryName))
+    try {
+      const inner = openZipFile(fs, tempFile, PACK_ZIP_LIMITS)
+      const manifest = readPackManifest(fs, inner)
+      return { archive: inner, manifest, nested: { entry: entryName, tempFile } }
+    } catch (innerError) {
+      // The inner file is not a pack either; do not leave a 600 MB temp behind.
+      try {
+        fs.remove(tempFile)
+      } catch {
+        /* best effort */
+      }
+      throw innerError
+    }
+  }
 }
 
 const BLOCKED_ROOTS = new Set([

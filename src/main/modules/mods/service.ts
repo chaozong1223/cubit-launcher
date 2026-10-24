@@ -39,6 +39,7 @@ import {
   createCurseForgeResolver,
   downloadCurseForgeFiles,
   downloadMrpackFiles,
+  openPackArchive,
   readPackManifest,
   type CurseForgeResolver,
   type CurseManifest,
@@ -792,12 +793,21 @@ export class ModsModuleService {
     }
   }
 
+  /** Drop the temp file an unwrapped launcher installer left behind. */
+  private cleanupNestedPack(file: string | null): void {
+    if (!file) return
+    try {
+      this.fs.remove(file)
+    } catch {
+      // Best effort; Windows may still hold the handle for a moment.
+    }
+  }
+
   private cleanupImport(scratch: {
     instanceDir: string
     tempDir: string
     parts: Set<string>
-  }): void {
-    for (const part of [...scratch.parts]) {
+  }): void {    for (const part of [...scratch.parts]) {
       try {
         this.fs.remove(part)
       } catch {
@@ -950,8 +960,33 @@ export class ModsModuleService {
     if (!this.fs.exists(source)) {
       fail('MODS.FILE_NOT_FOUND', `找不到整合包: ${input.filePath}`, { path: source })
     }
-    const archive = openZipFile(this.fs, source)
-    const manifest = readPackManifest(this.fs, archive)
+    // Launch-installer zips ("套娃包") wrap a real pack next to the launcher's
+    // own exe. Anything left over from a previous attempt is dropped first so a
+    // 600 MB temp file cannot accumulate in dataRoot/tmp.
+    const nestedDir = path.join(this.options.roots.dataRoot, 'tmp', 'nested')
+    try {
+      this.fs.remove(nestedDir)
+    } catch {
+      // Nothing to clean up.
+    }
+    const opened = openPackArchive(this.fs, source, nestedDir, randomUUID())
+    const archive = opened.archive
+    const manifest = opened.manifest
+    const nestedTempFile = opened.nested?.tempFile ?? null
+    if (opened.nested) {
+      this.options.log.info('modpack import unwrapped a launcher installer', {
+        entry: opened.nested.entry,
+        tempFile: opened.nested.tempFile,
+      })
+    }
+    const failUnwrapping = (
+      code: string,
+      message: string,
+      details?: Record<string, unknown>,
+    ): never => {
+      this.cleanupNestedPack(nestedTempFile)
+      return fail(code, message, details)
+    }
     const dirName = this.uniqueDirName(input.name ?? manifest.name)
     const instanceDir = path.join(this.mcRoot(), 'versions', dirName)
 
@@ -963,7 +998,7 @@ export class ModsModuleService {
         : this.findInstalledLoader(manifest.mcVersion, manifest.loader)
     if (manifest.loader.type !== 'vanilla') {
       if (!manifest.loader.version) {
-        fail(
+        failUnwrapping(
           'MODS.LOADER_VERSION_UNKNOWN',
           `整合包声明使用 ${manifest.loader.type}，但没有写加载器版本；请先安装加载器后再导入`,
           {
@@ -974,7 +1009,7 @@ export class ModsModuleService {
         )
       }
       if (!loaderProfile) {
-        fail(
+        failUnwrapping(
           'MODS.LOADER_NOT_INSTALLED',
           `未找到整合包所需的 ${manifest.loader.type} ${manifest.loader.version} 加载器（Minecraft ${manifest.mcVersion ?? '未知'}）；请先安装该加载器后再导入`,
           {
@@ -1045,7 +1080,10 @@ export class ModsModuleService {
         }),
       {
         failureCode: 'MODS.PACK_IMPORT_FAILED',
-        cleanup: () => this.cleanupImport(scratch),
+        cleanup: () => {
+          this.cleanupImport(scratch)
+          this.cleanupNestedPack(nestedTempFile)
+        },
         onError: (error) => {
           this.options.log.error('modpack import failed', {
             instanceId: dirName,
