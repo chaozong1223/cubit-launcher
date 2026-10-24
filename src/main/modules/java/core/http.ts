@@ -60,6 +60,13 @@ const ALLOWED_HOSTS = [
   'aka.ms',
   'download.visualstudio.microsoft.com',
   'download.microsoft.com',
+  // GitHub release accelerators. The admin cannot verify github.com's chain on
+  // some networks, so these carry the identical archive; the pinned SHA-256
+  // decides whether the bytes are accepted, never the host.
+  'ghfast.top',
+  'gh-proxy.com',
+  'ghproxy.net',
+  'mirror.ghproxy.com',
 ]
 
 function hostMatches(hostname: string, patterns: string[]): boolean {
