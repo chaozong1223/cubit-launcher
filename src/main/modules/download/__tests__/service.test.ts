@@ -6,7 +6,7 @@ import type { DownloadFinished, DownloadProgress, DownloadTask } from '@shared/d
 import { Logger } from '../../../kernel/logger'
 import { HttpClient } from '../core/http'
 import { acquireJobLock } from '../core/fs-atomic'
-import { moduleLockFile } from '../core/settings'
+import { defaultDownloadSettings, moduleLockFile, saveDownloadSettings } from '../core/settings'
 import { createSourceRegistry } from '../core/sources'
 import { DownloadService } from '../service'
 import { sha1, startTestHttpServer, type TestHttpServer } from './support/http-server'
@@ -181,6 +181,14 @@ async function setup(options: { chunkDelayMs?: number; chunkSize?: number } = {}
   const mcRoot = tempDir('mcl-svc-mc-')
   const fixtures = buildFixtures(server)
   serveFixtures(server, fixtures, options)
+  // Keep the harness deterministic: these tests assert on intermediate progress
+  // and cancellation timing, so they pin the low-concurrency profile instead of
+  // following the (much faster) shipping defaults.
+  await saveDownloadSettings(dataRoot, {
+    ...defaultDownloadSettings('0.1.0'),
+    concurrency: 4,
+    perHostConcurrency: 2,
+  })
 
   const log = new Logger({ dataRoot, console: false })
   const http = new HttpClient({
@@ -356,7 +364,11 @@ describe('install chain end-to-end', () => {
     }
     const deadline = Date.now() + 5_000
     while (Date.now() < deadline) {
-      if (completedOnDisk().size >= 2) break
+      // Higher default concurrency completes files in bursts, so also wait for
+      // an intermediate progress event with a current file before cancelling;
+      // otherwise the assertion below races a job that never reported one.
+      const sawCurrentFile = h.progress.some((event) => event.currentFile !== null)
+      if (completedOnDisk().size >= 2 && sawCurrentFile) break
       await new Promise((resolve) => setTimeout(resolve, 10))
     }
     await h.service.cancel(first.jobId)

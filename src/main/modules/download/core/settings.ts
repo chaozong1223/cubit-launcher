@@ -20,9 +20,12 @@ import { buildUserAgent } from './sources'
  */
 
 export const DOWNLOAD_MODULE_DIR = 'download'
-export const DEFAULT_CONCURRENCY = 8
-export const MAX_CONCURRENCY = 16
-export const DEFAULT_PER_HOST_CONCURRENCY = 4
+// A Minecraft install is dominated by many SMALL files on ONE host, so the
+// per-host cap — not the global one — decides throughput. The official CDN and
+// BMCLAPI both serve 8 parallel GETs fine; 429s back off and retry.
+export const DEFAULT_CONCURRENCY = 16
+export const MAX_CONCURRENCY = 32
+export const DEFAULT_PER_HOST_CONCURRENCY = 8
 export const DEFAULT_MAX_RETRIES = 3
 
 export function moduleDirectory(dataRoot: string): string {
@@ -75,7 +78,7 @@ function sanitize(settings: DownloadSettings, version: string): DownloadSettings
   return {
     ...settings,
     concurrency: Math.min(MAX_CONCURRENCY, Math.max(1, Math.round(settings.concurrency))),
-    perHostConcurrency: Math.min(8, Math.max(1, Math.round(settings.perHostConcurrency))),
+    perHostConcurrency: Math.min(MAX_CONCURRENCY, Math.max(1, Math.round(settings.perHostConcurrency))),
     maxRetries: Math.max(0, Math.round(settings.maxRetries)),
     extraRedirectHosts: settings.extraRedirectHosts
       .map((host) => host.trim().toLowerCase())

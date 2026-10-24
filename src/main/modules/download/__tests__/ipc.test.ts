@@ -11,6 +11,7 @@ import {
 import { Logger } from '../../../kernel/logger'
 import { toHandlerErrorShape } from '../../../kernel/error-shape'
 import { registerDownloadIpcCore, type IpcEventLike, type IpcMainLike } from '../ipc-core'
+import { DEFAULT_CONCURRENCY } from '../core/settings'
 import { DownloadError } from '../core/errors'
 import { DownloadService as RealDownloadService, type DownloadService } from '../service'
 
@@ -133,7 +134,7 @@ describe('download IPC registration', () => {
       data: { concurrency: number; maxRetries: number }
     }
     expect(result.ok).toBe(true)
-    expect(result.data.concurrency).toBe(8)
+    expect(result.data.concurrency).toBe(DEFAULT_CONCURRENCY)
     expect(result.data.maxRetries).toBe(3)
   })
 
