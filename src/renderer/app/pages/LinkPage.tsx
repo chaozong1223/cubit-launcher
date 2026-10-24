@@ -65,7 +65,7 @@ function TunnelBadge({ room }: { room: RoomInfo }) {
   return <Badge tone={tone} dot>{tunnel.state}{tunnel.relay ? ' · 中继' : ''}</Badge>
 }
 
-function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel }: {
+function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel, publicEndpoint, relayCount }: {
   room: RoomInfo
   isHost: boolean
   onCopy: () => void
@@ -73,6 +73,9 @@ function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel }: 
   onEnter: () => void
   busy: boolean
   enterLabel: string
+  /** `publicIp:peerPort` actually written into the invite, when known. */
+  publicEndpoint: string | null
+  relayCount: number
 }) {
   return (
     <>
@@ -105,7 +108,6 @@ function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel }: 
           <span><Icon name="activity" />控制端口 <strong>{room.ports.control ?? '—'}</strong></span>
           <span><Icon name="link" />最大成员 <strong>{room.maxMembers}</strong></span>
         </div>
-
         <div className="member-block">
           <div className="member-block__head">
             <h3>成员 <span className="muted">({room.members.length}/{room.maxMembers})</span></h3>
@@ -158,7 +160,15 @@ function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel }: 
           <div className="check-item"><Icon name="activity" />控制端口<span className="value">{room.ports.control ?? '—'}</span></div>
           <div className="check-item"><Icon name="wifi" />本机世界端口<span className="value">{room.ports.localWorld ?? '—'}</span></div>
           <div className="check-item"><Icon name="link" />隧道版本<span className="value">{room.tunnel.version ?? '—'}</span></div>
+          <div className="check-item"><Icon name="external" />公网端点<span className="value mono">{publicEndpoint ?? '未写入（只有局域网）'}</span></div>
+          <div className="check-item"><Icon name="link" />中继<span className="value">{relayCount > 0 ? `已配置 ${relayCount} 个` : '未配置'}</span></div>
         </div>
+        {!publicEndpoint && isHost ? (
+          <div className="link-settings-note">
+            邀请码目前只含局域网地址：坐同一路由器下能直接加入，跨网需要公网地址（端口映射）或中继。
+            到「设置 → 联机」填写或让自动探测跑一次。
+          </div>
+        ) : null}
         {room.manual ? (
           <div className="nw-manual">
             <div className="nw-manual__title">需要手动映射：{room.manual.reason}</div>
@@ -358,13 +368,14 @@ export function LinkPage() {
         ? '离线账户'
         : '未选择账户'
   const room = link.data
-
-  // TUN adapters (EasyTier) can only be created by an elevated process, so the
-  // page states that up front and offers a one-time UAC relaunch instead of
-  // failing later with "Failed to create adapter".
-  const elevation = useAsync(() => backend.system.elevation(), [])
-  const [relaunching, setRelaunching] = useState(false)
-  const needsAdmin = elevation.status === 'ready' && elevation.data?.platform === 'win32' && !elevation.data?.elevated
+  // What the invite actually advertises: the net module's effective public
+  // address plus the live tunnel peer port. Read from the real settings call.
+  const netSettings = useAsync(() => backend.link.settings(), [])
+  const publicEndpoint =
+    netSettings.data?.effectivePublicIp && room?.ports.peer
+      ? `${netSettings.data.effectivePublicIp}:${room.ports.peer}`
+      : null
+  const relayCount = netSettings.data?.relayPeers.length ?? 0
 
   // Page-level secondary tabs: the two real networking surfaces on this page.
   const [section, setSection] = useState<'room' | 'lan' | 'sdk'>('room')
@@ -538,35 +549,6 @@ export function LinkPage() {
 
       {info ? <DataStateNotice info={info} onRetry={link.reload} /> : null}
 
-      {needsAdmin ? (
-        <Banner
-          tone="warning"
-          title="联机需要管理员权限"
-          actions={(
-            <Button
-              size="sm"
-              variant="primary"
-              icon="shield"
-              loading={relaunching}
-              onClick={() => {
-                setRelaunching(true)
-                void backend.system
-                  .relaunchAsAdmin()
-                  .then((result) => {
-                    if (result.launched) setActionError({ kind: 'error', title: '已请求管理员权限', detail: '在 UAC 窗口点「是」后，新窗口会继续；当前窗口可以关闭。', retryable: false })
-                  })
-                  .catch((cause) => setActionError(describeError(cause)))
-                  .finally(() => setRelaunching(false))
-              }}
-            >
-              以管理员身份重启
-            </Button>
-          )}
-        >
-          创建房间要安装虚拟网卡（TUN），Windows 只允许管理员做这件事。点右侧按钮会弹出一次 UAC；提权后启动器照常使用，游戏本身不需要管理员。
-        </Banner>
-      ) : null}
-
       <Banner
         tone={!currentAccount ? 'warning' : premium ? 'success' : 'info'}
         title={!currentAccount ? '还没有启动账户' : premium ? '进入方式：一键直连' : '进入方式：启动游戏 + 多人菜单引导'}
@@ -627,7 +609,7 @@ export function LinkPage() {
                   <Button size="sm" variant="secondary" icon="info" onClick={() => setGuideOpen(true)}>显示进世界步骤</Button>
                 ) : null}
                 <div id="link-room">
-                  <RoomView room={room} isHost={role === 'host'} onCopy={copyInvite} onLeave={() => void run(() => backend.link.leave())} onEnter={enterWorld} busy={busy || starting} enterLabel={premium ? '启动游戏并进服' : '启动游戏并进入多人菜单'} />
+                  <RoomView room={room} isHost={role === 'host'} onCopy={copyInvite} onLeave={() => void run(() => backend.link.leave())} onEnter={enterWorld} busy={busy || starting} enterLabel={premium ? '启动游戏并进服' : '启动游戏并进入多人菜单'} publicEndpoint={publicEndpoint} relayCount={relayCount} />
                 </div>
               </>
             ) : null}
@@ -654,6 +636,8 @@ export function LinkPage() {
                 <div className="info-row"><span className="info-row__label">状态</span><span className="info-row__value"><TunnelBadge room={room} /></span></div>
                 <div className="info-row"><span className="info-row__label">EasyTier</span><span className="info-row__value mono">{room.tunnel.version ?? '—'}</span></div>
                 <div className="info-row"><span className="info-row__label">中继</span><span className="info-row__value">{room.tunnel.relay ? '是' : '否'}</span></div>
+                <div className="info-row"><span className="info-row__label">中继节点</span><span className="info-row__value">{relayCount > 0 ? `${relayCount} 个` : '未配置'}</span></div>
+                <div className="info-row"><span className="info-row__label">公网端点</span><span className="info-row__value mono">{publicEndpoint ?? '未写入'}</span></div>
               </div>
             </Card>
             <Card className="link-card">

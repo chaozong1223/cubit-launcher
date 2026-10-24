@@ -1827,6 +1827,79 @@
   flex-wrap: wrap;
   margin-top: 2px;
 }
+.link-settings-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.link-settings-row > .field {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.link-settings-row__actions {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+.link-settings-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 10.5px;
+}
+.link-settings-facts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.link-settings-facts .ico {
+  width: 13px;
+  height: 13px;
+}
+.link-settings-facts strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.link-settings-note {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-3);
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+}
+.link-settings-note--warn {
+  border-color: color-mix(in oklab, var(--warning) 40%, var(--border-subtle));
+}
+.link-settings-note--ok {
+  border-color: color-mix(in oklab, var(--success) 40%, var(--border-subtle));
+}
+.link-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.link-settings-list__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 11.5px;
+}
+.link-settings-list__row .row {
+  margin-left: auto;
+}
 .rail-btn:hover {
   background: var(--surface-2);
   color: var(--text);

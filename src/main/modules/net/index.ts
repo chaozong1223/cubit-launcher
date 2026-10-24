@@ -37,6 +37,8 @@ export function register(ctx: ModuleContext): void {
     aliasIp: process.env.MCL_LINK_ALIAS ?? config.aliasIp ?? undefined,
     maxMembers: config.maxMembers,
     relayPeers,
+    publicIp: process.env.MCL_LINK_PUBLIC_IP ?? config.publicIp,
+    autoProbe: config.autoProbe,
   })
 
   publishService(moduleId, service)

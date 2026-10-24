@@ -5,7 +5,7 @@
 ## 注册与对外接口
 
 - 目录：`src/main/modules/net/index.ts`，导出 `moduleId = 'net'` + `register(ctx)`；由 t5 文件系统注册表自动发现，**不改** `src/main/index.ts` / `package.json`。
-- 契约：`src/shared/net.ts`（10 methods / 5 events）。t20 的内核 IPC 会自动发现 `net` 契约与 `handlers.ts`，无需改 preload/ipc。
+- 契约：`src/shared/net.ts`（14 methods / 5 events）。t20 的内核 IPC 会自动发现 `net` 契约与 `handlers.ts`，无需改 preload/ipc。
 - 发布服务：
   - `getService('net')` → `RoomService`
   - `getService('link')` → 同一实例（兼容 03 的模块名）
@@ -32,8 +32,8 @@
 
 1. 校验 ticket（格式/签名/短码派生/有效期/端点范围），实例版本/加载器不匹配直接 `VERSION_MISMATCH` / `LOADER_MISMATCH`。
 2. 先试 ticket 的 LAN 控制面；成功 → `transport='lan'`，无需 sidecar。
-3. 失败且 ticket 有隧道信息 → 启动成员 sidecar：
-   - `--no-tun --no-listener -p tcp://<hostLan|relay>:<peerPort>`
+3. 失败且 ticket 有隧道信息 → 依次尝试 `wan → lan → 中继`，对每个候选启动成员 sidecar：
+   - `--no-tun --no-listener -p tcp://<wanHost|lanHost|relay>:<peerPort|relayPort>`
    - `--port-forward tcp://127.0.0.1:<localControl>/192.168.77.1:<controlPort>`
    - 世界端口已知时再加 world 转发；未知则收到 `EVENT world` 后由 `easytier-cli port-forward add` 补上。
 4. 通过 `127.0.0.1:<localControl>` 连控制面、HMAC 认证、进入 `connected`；`enterWorld` 调 launch，把 `{host:'127.0.0.1', port:<localWorld>}` 作为 `server` 注入（t6 对 1.20+ 转 `--quickPlayMultiplayer`）。
@@ -62,11 +62,24 @@
   "relayPeers": ["tcp://relay.example.com:11010"],
   "maxMembers": 8,
   "lanIp": null,
-  "aliasIp": null
+  "aliasIp": null,
+  "publicIp": null,
+  "autoProbe": true
 }
 ```
 
-环境变量覆盖：`MCL_LINK_RELAY`（逗号分隔）、`MCL_LINK_LAN_IP`、`MCL_LINK_ALIAS`。
+- `publicIp`：邀请码里的公网端点（IPv4 或 DDNS 域名）。**手填值优先于探测结果**；留空/null 表示用探测。
+- `autoProbe`：是否允许探测。开房时先问 `easytier-cli node`（STUN 结果），失败再请求 `https://ip.3322.net` → `https://ipv4.icanhazip.com` → `https://api.ipify.org`（主进程 `fetch`，不依赖子进程）。都失败时 `probeDetail` 写明原因，不再静默降级成只有局域网。
+- 这两个值都由「设置 → 联机」经 `net.settings` / `net.updateSettings` 读写；改动会立刻重签当前房间的邀请码。
+
+环境变量覆盖：`MCL_LINK_RELAY`（逗号分隔）、`MCL_LINK_LAN_IP`、`MCL_LINK_ALIAS`、`MCL_LINK_PUBLIC_IP`。
+
+## 公网端点与中继（2026-10-24 补）
+
+- **邀请码的 WAN 端点** = `effectivePublicIp : peerPort`。只有「该端口真的能从外网连进来」时才有用：要么路由器做了端口映射，要么本机直接持有公网 IP。运营商 CGNAT（100.64.0.0/10）下没有映射可用，必须中继。
+- **成员侧按序尝试** `wan → lan → 邀请码自带中继 → 本机配置的中继`（`tunnelPeers()`）。v0.1.0 只读 LAN 端点，WAN 端点签进邀请码也进不了房。
+- **中继**：一台公网机器跑 `easytier-core -l tcp://0.0.0.0:11010`，两端在「设置 → 联机」填 `tcp://该机器:11010`。`net.testRelay` 做一次 TCP 握手判断地址对不对（4s 超时）。
+- 探测/连通性实现：`src/main/modules/net/publicip.ts`（纯函数可单测）。
 
 ## 测试
 
@@ -74,7 +87,7 @@
 npm.cmd --prefix mc-launcher exec vitest run src/main/modules/net
 ```
 
-覆盖（44 个常规用例 + 1 个 opt-in 真实 LAN 用例，8 个文件）：ticket 签发/验签/篡改/过期/短码；EasyTier 参数约束（显式 `-l`、no-TUN、alias `/32`、拒绝 loopback peer）；host/member LAN 全流程、世界更新、`enterWorld`、房主关闭、版本不匹配、短码拒绝、隧道启动/失败降级、手动指引、事件流；HostControl 心跳超时与 HMAC 拒绝；房主在成员列表、PING/STATS 数值、隧道成员 enterWorld、LAN 日志发现与 joinLanWorld、latest.log 轮转/尾部截断、空结果可读 reason、Radmin 26.x/Tailscale 100.x/localhost/8.8.8.8/组播 SSRF 策略、旧邀请码 `NETWORK_UNREACHABLE`、过期/篡改/版本不匹配中文错误码；下载哈希门禁。
+覆盖（50+ 个常规用例 + 1 个 opt-in 真实 LAN 用例，10 个文件）：ticket 签发/验签/篡改/过期/短码；EasyTier 参数约束（显式 `-l`、no-TUN、alias `/32`、拒绝 loopback peer）；host/member LAN 全流程、世界更新、`enterWorld`、房主关闭、版本不匹配、短码拒绝、隧道启动/失败降级、手动指引、事件流；HostControl 心跳超时与 HMAC 拒绝；房主在成员列表、PING/STATS 数值、隧道成员 enterWorld、LAN 日志发现与 joinLanWorld、latest.log 轮转/尾部截断、空结果可读 reason、Radmin 26.x/Tailscale 100.x/localhost/8.8.8.8/组播 SSRF 策略、旧邀请码 `NETWORK_UNREACHABLE`、过期/篡改/版本不匹配中文错误码；下载哈希门禁；公网地址探测（CLI 解析 / echo 兜底 / 失败原因 / CGNAT 提示）、配置读写与清洗、邀请码 WAN 端点、成员先试 WAN 再试 LAN。
 
 真实 LAN 端到端（需要桌面会话与 `.e2e` 1.20.1 实例，默认跳过）：
 
@@ -86,7 +99,8 @@ t64 实测结果与截图：`docs/08-p0-6-lan-e2e.md`、`docs/evidence/t64/`。
 
 ## 已知边界
 
-- 跨网 P2P/中继只实现配置与降级编排，未在真实双网络验收（t4 §5.5）。
+- 跨网 P2P/中继：编码、设置入口与降级链已完整，但**仍未在真实双网络验收**——需要一台公网中继或一次真实的端口映射才能跑通两端。
+- 自动探测到的公网地址不一定可达：CGNAT 下探测结果照样是运营商边界地址，页面会明确提示而不是假装能用。
 - 离线账户无法用 `enterWorld` 的一键直连进原版 LAN 世界（Invalid session）；t64 用原版 LAN 浏览器完成真实进世界，闭环需正版账户或 main 侧 LAN 浏览器启动模式（见 `docs/08-p0-6-lan-e2e.md`）。
 - 多成员并发未压测；HostControl 支持 ≤8 成员。
 - UI 接线由 t16/t50 完成；本模块提供 `lanWorlds`/`joinLanWorld` 契约与 `mc:net:evt:lanWorlds` 事件，LinkPage 尚未消费。

@@ -67,9 +67,14 @@ import type {
   LanWorldsInput,
   LanWorldsOutput,
   LinkErrorInfo,
+  NetSettings,
+  NetSettingsUpdate,
+  PublicIpProbe,
   RoomInfo,
   RoomMember,
   RoomState,
+  TestRelayInput,
+  TestRelayOutput,
   WorldInfo,
 } from '@shared/net'
 import type {
@@ -536,6 +541,10 @@ const CH = {
   netLanWorlds: channelOf('net', 'lanWorlds'),
   netJoinLanWorld: channelOf('net', 'joinLanWorld'),
   netDiagnose: channelOf('net', 'diagnose'),
+  netSettings: channelOf('net', 'settings'),
+  netUpdateSettings: channelOf('net', 'updateSettings'),
+  netProbePublicIp: channelOf('net', 'probePublicIp'),
+  netTestRelay: channelOf('net', 'testRelay'),
 } as const
 
 export type NetStateEvent = {
@@ -887,6 +896,10 @@ export interface Backend {
     lanWorlds(input?: LanWorldsInput): Promise<LanWorldsOutput>
     joinLanWorld(input: JoinLanWorldInput): Promise<{ sessionId: string; server: { host: string; port: number } }>
     diagnose(): Promise<{ json: string }>
+    settings(): Promise<NetSettings>
+    updateSettings(input: NetSettingsUpdate): Promise<NetSettings>
+    probePublicIp(): Promise<PublicIpProbe>
+    testRelay(input: TestRelayInput): Promise<TestRelayOutput>
     subscribeState(callback: (event: NetStateEvent) => void): () => void
     subscribeMembers(callback: (members: RoomMember[]) => void): () => void
     subscribeWorld(callback: (world: WorldInfo) => void): () => void
@@ -1248,6 +1261,10 @@ export const ipcBackend: Backend = {
     joinLanWorld: (input) =>
       invoke<{ sessionId: string; server: { host: string; port: number } }>('加入前需要可启动的实例；当前没有选择。', CH.netJoinLanWorld, input),
     diagnose: () => invoke<{ json: string }>('联机诊断', CH.netDiagnose),
+    settings: () => invoke<NetSettings>('联机设置', CH.netSettings),
+    updateSettings: (input) => invoke<NetSettings>('保存联机设置', CH.netUpdateSettings, input),
+    probePublicIp: () => invoke<PublicIpProbe>('探测公网地址', CH.netProbePublicIp),
+    testRelay: (input) => invoke<TestRelayOutput>('测试中继节点', CH.netTestRelay, input),
     subscribeState: (callback) => on('mc:net:evt:state', callback),
     subscribeMembers: (callback) => on('mc:net:evt:members', callback),
     subscribeWorld: (callback) => on('mc:net:evt:world', callback),

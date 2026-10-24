@@ -3,9 +3,14 @@ import { spawnSync } from 'node:child_process'
 import os from 'node:os'
 import type {
   ManualGuide,
+  NetSettings,
+  NetSettingsUpdate,
+  PublicIpProbe,
   RoomInfo,
   RoomMember,
   RoomState,
+  TestRelayInput,
+  TestRelayOutput,
   Transport,
   TunnelState,
   WorldInfo,
@@ -33,7 +38,14 @@ import {
   type TicketPayload,
 } from './ticket'
 import { LinkError } from './ticket'
-import { isPublicIpv4 } from './netutil'
+import {
+  loadNetConfig,
+  normalizePublicHost,
+  normalizeRelayPeer,
+  normalizeRelayPeers,
+  saveNetConfig,
+} from './config'
+import { probePublicIpv4, testRelayTcp, type PublicIpResult } from './publicip'
 import { HostControl, MemberControl, type MemberWelcome } from './control'
 import { LanWorldDiscovery } from './discovery'
 import type { TunnelHandle, TunnelPort } from './easytier'
@@ -72,6 +84,12 @@ export interface RoomServiceOptions {
   heartbeatIntervalMs?: number
   heartbeatTimeoutMs?: number
   relayPeers?: string[]
+  /** Hand-typed WAN address; wins over whatever the probe finds. */
+  publicIp?: string | null
+  /** Whether the host may probe for a public address at all. */
+  autoProbe?: boolean
+  /** Test seam: replaces the EasyTier CLI / IP-echo probe. */
+  probe?: (input: { cliPath: string | null; rpcPort: number | null }) => Promise<PublicIpResult>
   directProbeTimeoutMs?: number
   reconnectDelayMs?: number
   now?: () => number
@@ -107,8 +125,16 @@ export class RoomService {
   private lanControlPort: number | null = null
   private aliasControlPort: number | null = null
   private peerPort: number | null = null
-  /** Public IPv4 as the EasyTier peer sees it; null when the probe failed. */
-  private publicIp: string | null = null
+  /**
+   * Address published as the invite's WAN endpoint. Either the hand-typed
+   * address or the last probe result; see `effectivePublicIp()`.
+   */
+  private manualPublicIp: string | null = null
+  private detectedPublicIp: string | null = null
+  private probeDetail: string | null = null
+  private autoProbe = true
+  /** In-flight probe, so a manual "probe now" cannot stack with the startup one. */
+  private probing: Promise<PublicIpProbe> | null = null
   private localWorldPort: number | null = null
   private localControlPort: number | null = null
   private joinTarget: JoinTarget | null = null
@@ -122,7 +148,7 @@ export class RoomService {
   private worldPoll: NodeJS.Timeout | null = null
   private readonly discovery: LanWorldDiscovery
   private readonly eventListeners = new Map<string, Set<(payload: unknown) => void>>()
-  private readonly relayPeers: string[]
+  private relayPeers: string[]
   private readonly lanIp: string
   private readonly aliasIp: string
   private readonly maxMembers: number
@@ -136,7 +162,9 @@ export class RoomService {
   private readonly randomId: () => string
 
   constructor(private readonly options: RoomServiceOptions) {
-    this.relayPeers = options.relayPeers ?? []
+    this.relayPeers = normalizeRelayPeers(options.relayPeers ?? [])
+    this.manualPublicIp = normalizePublicHost(options.publicIp ?? null)
+    this.autoProbe = options.autoProbe !== false
     this.lanIp = options.lanIp ?? pickLanIp()
     this.aliasIp = options.aliasIp ?? pickAliasIp()
     this.maxMembers = Math.min(8, Math.max(2, options.maxMembers ?? MAX_MEMBERS))
@@ -528,6 +556,14 @@ export class RoomService {
             localWorld: this.localWorldPort,
             localControl: this.localControlPort,
           },
+          publicIp: {
+            effective: this.effectivePublicIp(),
+            manual: this.manualPublicIp,
+            detected: this.detectedPublicIp,
+            autoProbe: this.autoProbe,
+            detail: this.probeDetail,
+          },
+          relayPeers: this.relayPeers,
           ticket: payload
             ? {
                 code: payload.code,
@@ -596,29 +632,47 @@ export class RoomService {
 
   // ---------- host tunnel ----------
 
+  /** The address the invite publishes: the user's own value wins. */
+  private effectivePublicIp(): string | null {
+    return this.manualPublicIp ?? this.detectedPublicIp
+  }
+
   /**
-   * Ask EasyTier for the address a remote peer should dial (`easytier-cli node`
-   * reports it after STUN). Returns null when the probe fails, in which case the
-   * invite stays LAN-only.
+   * Ask EasyTier / an IP echo service where this machine sits on the internet.
+   * Never throws; the reason lands in `probeDetail` so the settings page can
+   * explain an empty result instead of silently downgrading the invite to
+   * LAN-only (docs/12 §4).
    */
-  private async probePublicIp(handle: { rpcPort: number }, cliPath?: string): Promise<string | null> {
-    try {
-      const cli = cliPath ?? this.tunnelHandle?.cliPath
-      if (!cli) return null
-      const result = spawnSync(
-        cli,
-        ['--rpc-portal', `127.0.0.1:${handle.rpcPort}`, 'node'],
-        { timeout: 8000, windowsHide: true, encoding: 'utf8' },
-      )
-      const text = `${result.stdout ?? ''}`
-      const matches = [...text.matchAll(/Public IPv4\s*\|\s*([\d.]+)/g)].map((match) => match[1])
-      for (const ip of matches) {
-        if (isPublicIpv4(ip)) return ip
-      }
-      return matches[0] ?? null
-    } catch {
-      return null
+  async probePublicIp(): Promise<PublicIpProbe> {
+    if (this.probing) return this.probing
+    const handle = this.tunnelHandle
+    const deps = {
+      log: this.options.log,
+      cliPath: handle?.cliPath ?? null,
+      rpcPort: handle?.rpcPort ?? null,
     }
+    this.probing = (this.options.probe ? this.options.probe(deps) : probePublicIpv4(deps))
+      .then((result) => {
+        this.detectedPublicIp = result.ip
+        this.probeDetail =
+          this.manualPublicIp && result.ip
+            ? `已探测到 ${result.ip}，但手动填写的地址优先`
+            : result.detail
+        if (this.role === 'host' && this.identity) {
+          this.ticket = this.issueCurrentTicket()
+          this.emit()
+        }
+        this.options.log.info('public ip resolved', {
+          ip: result.ip,
+          source: result.source,
+          effective: this.effectivePublicIp(),
+        })
+        return { ip: result.ip, detail: this.probeDetail }
+      })
+      .finally(() => {
+        this.probing = null
+      })
+    return this.probing
   }
 
   private async startHostTunnel(): Promise<void> {
@@ -647,12 +701,19 @@ export class RoomService {
       this.aliasControlPort = await this.hostControl!.listen(this.aliasIp, 0)
       this.tunnelState = 'up'
       // EasyTier already performed STUN; ask it for the address a remote peer
-      // would dial. Without this the invite carried only the LAN address.
-      this.publicIp = await this.probePublicIp(handle, handle.cliPath)
+      // would dial. Without a WAN endpoint the invite only works on the LAN.
+      if (this.manualPublicIp) {
+        this.probeDetail = '使用手动填写的公网地址'
+      } else if (this.autoProbe) {
+        await this.probePublicIp()
+      } else {
+        this.probeDetail = '自动探测已关闭，邀请码只含局域网地址'
+      }
       this.options.log.info('host tunnel ready', {
         peerPort: handle.peerPort,
         alias: this.aliasIp,
-        publicIp: this.publicIp,
+        publicIp: this.effectivePublicIp(),
+        manualPublicIp: this.manualPublicIp,
         relayPeers: this.relayPeers.length,
       })
     } catch (error) {
@@ -666,13 +727,99 @@ export class RoomService {
     }
   }
 
+  // ---------- settings ----------
+
+  settings(): NetSettings {
+    const effective = this.effectivePublicIp()
+    return {
+      manualPublicIp: this.manualPublicIp,
+      detectedPublicIp: this.detectedPublicIp,
+      effectivePublicIp: effective,
+      manual: Boolean(this.manualPublicIp),
+      autoProbe: this.autoProbe,
+      relayPeers: [...this.relayPeers],
+      maxMembers: this.maxMembers,
+      lanIp: this.lanIp,
+      wanPort: this.peerPort,
+      probeDetail: this.probeDetail,
+    }
+  }
+
+  /**
+   * Persist a settings patch to `dataRoot/modules/net/config.json` and apply it
+   * to the live room: the next invite carries the new WAN endpoint / relays.
+   */
+  async updateSettings(input: NetSettingsUpdate): Promise<NetSettings> {
+    const next = loadNetConfig(this.options.dataRoot)
+    if (input.manualPublicIp !== undefined) {
+      const typed = input.manualPublicIp.trim()
+      if (typed.length === 0) {
+        next.publicIp = null
+      } else {
+        const host = normalizePublicHost(typed)
+        if (!host) {
+          throw new LinkError(
+            'INVITE_INVALID',
+            '公网地址只接受 IPv4 或域名（不要带协议、端口或路径）',
+          )
+        }
+        next.publicIp = host
+      }
+    }
+    if (input.autoProbe !== undefined) next.autoProbe = input.autoProbe
+    if (input.relayPeers !== undefined) {
+      const peers: string[] = []
+      for (const raw of input.relayPeers) {
+        if (raw.trim().length === 0) continue
+        const peer = normalizeRelayPeer(raw)
+        if (!peer) {
+          throw new LinkError('INVITE_INVALID', `中继地址格式应为 tcp://host:port：${raw.trim()}`)
+        }
+        if (!peers.includes(peer)) peers.push(peer)
+      }
+      next.relayPeers = peers.slice(0, 4)
+    }
+    saveNetConfig(this.options.dataRoot, next)
+
+    this.manualPublicIp = next.publicIp
+    this.autoProbe = next.autoProbe
+    this.relayPeers = next.relayPeers
+    if (this.manualPublicIp) {
+      this.probeDetail = '使用手动填写的公网地址'
+    } else if (this.detectedPublicIp) {
+      this.probeDetail = `使用自动探测结果 ${this.detectedPublicIp}`
+    } else {
+      this.probeDetail = this.autoProbe ? null : '自动探测已关闭，邀请码只含局域网地址'
+    }
+    if (this.role === 'host' && this.identity) {
+      this.ticket = this.issueCurrentTicket()
+    }
+    this.emit()
+    this.options.log.info('link settings updated', {
+      manualPublicIp: this.manualPublicIp,
+      autoProbe: this.autoProbe,
+      relayPeers: this.relayPeers.length,
+    })
+    return this.settings()
+  }
+
+  /** Is this relay actually listening? EasyTier relays are plain TCP. */
+  async testRelay(input: TestRelayInput): Promise<TestRelayOutput> {
+    const peer = normalizeRelayPeer(input.peer)
+    if (!peer) {
+      return { ok: false, rttMs: null, detail: '中继地址格式应为 tcp://host:port' }
+    }
+    return testRelayTcp(peer)
+  }
+
   private issueCurrentTicket(): IssuedTicket {
     if (!this.identity) throw new LinkError('INTERNAL', 'no room identity')
     const endpoints: TicketEndpoint[] = []
     // Public endpoint FIRST: a peer on another network can only reach us through
     // it. The LAN entry alone made every cross-network invite unusable.
-    if (this.publicIp && this.peerPort) {
-      endpoints.push({ kind: 'wan', host: this.publicIp, port: this.peerPort })
+    const publicIp = this.effectivePublicIp()
+    if (publicIp && this.peerPort) {
+      endpoints.push({ kind: 'wan', host: publicIp, port: this.peerPort })
     }
     if (this.lanControlPort) {
       endpoints.push({ kind: 'lan', host: this.lanIp, port: this.lanControlPort })
@@ -742,23 +889,61 @@ export class RoomService {
   }
 
   private async tryTunnel(payload: TicketPayload): Promise<MemberWelcome | null> {
-    const tunnel = this.options.tunnel
-    if (!tunnel) {
+    if (!this.options.tunnel) {
       this.tunnelFailure = new LinkError(
         'TUNNEL_FAILED',
         '当前版本不支持自动隧道，请使用局域网或手动端口映射。',
       )
       return null
     }
-    const direct = payload.endpoints.find((endpoint) => endpoint.kind === 'lan') ?? null
-    const relay = payload.endpoints.find((endpoint) => endpoint.kind === 'relay') ?? null
-    const peer = this.pickPeer(payload, direct, relay)
-    if (!peer) {
+    const candidates = this.tunnelPeers(payload)
+    if (candidates.length === 0) {
       this.tunnelFailure = new LinkError(
         'RELAY_REQUIRED',
         '没有可用的直连或中继地址，请让房主配置中继或使用手动端口映射。',
       )
       return null
+    }
+    let lastError: LinkError | null = null
+    for (const candidate of candidates) {
+      const outcome = await this.tryTunnelPeer(payload, candidate)
+      if ('welcome' in outcome) return outcome.welcome
+      lastError = outcome.error
+      this.options.log.info('tunnel candidate failed; trying the next one', {
+        peer: candidate.peer,
+        via: candidate.via,
+        code: outcome.error.code,
+      })
+    }
+    const cause = lastError ?? new LinkError('TUNNEL_FAILED', '自动隧道未能建立')
+    this.tunnelFailure =
+      cause.code === 'NETWORK_UNREACHABLE' || cause.code === 'ROOM_CLOSED'
+        ? cause
+        : new LinkError(
+            'PORT_MAPPING_REQUIRED',
+            '自动隧道不可用。请让房主配置中继节点，或按手动端口映射指引操作。',
+            { retryable: true },
+          )
+    return null
+  }
+
+  /**
+   * One tunnel attempt against one peer.
+   *
+   * The host may publish a WAN endpoint (hand-typed address or probe result), a
+   * LAN endpoint, or a relay — and the member must be able to use all three. The
+   * v0.1.0 code only read the LAN endpoint, so a cross-network invite could be
+   * issued but never joined.
+   */
+  private async tryTunnelPeer(
+    payload: TicketPayload,
+    candidate: { peer: string; via: 'wan' | 'lan' | 'relay' },
+  ): Promise<{ welcome: MemberWelcome } | { error: LinkError }> {
+    const tunnel = this.options.tunnel
+    if (!tunnel) {
+      return {
+        error: new LinkError('TUNNEL_FAILED', '当前版本不支持自动隧道，请使用局域网或手动端口映射。'),
+      }
     }
     this.tunnelState = 'starting'
     this.emit()
@@ -767,7 +952,7 @@ export class RoomService {
       const handle = await tunnel.startMember({
         networkName: payload.net.name,
         networkSecret: Buffer.from(payload.net.secret, 'base64url').toString('hex'),
-        peer,
+        peer: candidate.peer,
         controlPort: payload.tunnel.controlPort,
         worldPort: payload.tunnel.worldPort,
         relayPeers: this.relayPeers,
@@ -793,52 +978,52 @@ export class RoomService {
       const welcome = await control.connect()
       this.memberControl = control
       this.memberEndpoint = { host: '127.0.0.1', port: handle.localControlPort ?? 0 }
-      this.transport = relay ? 'relay' : 'p2p'
+      this.transport = candidate.via === 'relay' ? 'relay' : 'p2p'
       this.tunnelState = 'up'
       this.error = null
       this.manual = null
       this.reconnectAttempts = 0
       this.worldForwardReady = Boolean(payload.tunnel.worldPort)
-      return welcome
+      return { welcome }
     } catch (error) {
       await this.stopTunnel()
       this.tunnelState = 'failed'
       const cause = toLinkError(error, 'TUNNEL_FAILED')
       this.error = cause
       this.options.log.warn('member tunnel failed', {
+        peer: candidate.peer,
+        via: candidate.via,
         code: cause.code,
         message: cause.message,
       })
-      if (!relay && this.relayPeers.length > 0) {
-        this.options.log.info('retrying with configured relay')
-        return this.tryTunnel({ ...payload, endpoints: [...payload.endpoints, ...this.relayTicketEndpoints()] })
-      }
-      this.tunnelFailure =
-        cause.code === 'NETWORK_UNREACHABLE' || cause.code === 'ROOM_CLOSED'
-          ? cause
-          : new LinkError(
-              'PORT_MAPPING_REQUIRED',
-              '自动隧道不可用。请让房主配置中继节点，或按手动端口映射指引操作。',
-              { retryable: true },
-            )
-      return null
+      return { error: cause }
     }
   }
 
-  private pickPeer(
-    payload: TicketPayload,
-    direct: TicketEndpoint | null,
-    relay: TicketEndpoint | null,
-  ): string | null {
-    if (relay) return `tcp://${relay.host}:${relay.port}`
-    if (this.relayPeers.length > 0) {
-      const configured = this.relayTicketEndpoints()[0]
-      if (configured) return `tcp://${configured.host}:${configured.port}`
+  /**
+   * Every address worth dialling, best first: a direct WAN endpoint, then the
+   * LAN one, then relays (the invite's own relay first, then the ones this
+   * machine configured).
+   */
+  private tunnelPeers(payload: TicketPayload): Array<{ peer: string; via: 'wan' | 'lan' | 'relay' }> {
+    const peers: Array<{ peer: string; via: 'wan' | 'lan' | 'relay' }> = []
+    const push = (peer: string, via: 'wan' | 'lan' | 'relay'): void => {
+      if (!peers.some((candidate) => candidate.peer === peer)) peers.push({ peer, via })
     }
-    if (direct && payload.tunnel.peerPort && !isLoopbackHost(direct.host)) {
-      return `tcp://${direct.host}:${payload.tunnel.peerPort}`
+    if (payload.tunnel.peerPort) {
+      const wan = payload.endpoints.find((endpoint) => endpoint.kind === 'wan')
+      if (wan) push(`tcp://${wan.host}:${payload.tunnel.peerPort}`, 'wan')
+      const lan = payload.endpoints.find((endpoint) => endpoint.kind === 'lan')
+      if (lan && !isLoopbackHost(lan.host)) {
+        push(`tcp://${lan.host}:${payload.tunnel.peerPort}`, 'lan')
+      }
     }
-    return null
+    const relay = payload.endpoints.find((endpoint) => endpoint.kind === 'relay')
+    if (relay) push(`tcp://${relay.host}:${relay.port}`, 'relay')
+    for (const configured of this.relayTicketEndpoints()) {
+      push(`tcp://${configured.host}:${configured.port}`, 'relay')
+    }
+    return peers
   }
 
   private relayTicketEndpoints(): TicketEndpoint[] {

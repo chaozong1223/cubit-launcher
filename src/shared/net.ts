@@ -236,6 +236,62 @@ export type SetWorldPortInput = z.infer<typeof SetWorldPortInputSchema>
 export const DiagnoseOutputSchema = z.object({ json: z.string() })
 export type DiagnoseOutput = z.infer<typeof DiagnoseOutputSchema>
 
+/**
+ * Per-machine link settings (docs/12 §4-§5).
+ *
+ * The invite carries `effectivePublicIp` as its WAN endpoint. A probe is only a
+ * guess — the peer may be behind CGNAT, may have no STUN answer, or the sidecar
+ * CLI may fail — so the user can always type the address by hand and that value
+ * wins. `detectedPublicIp` keeps the last probe result so the UI can show both.
+ */
+export const NetSettingsSchema = z.object({
+  /** What the user typed; null means "use the probe". */
+  manualPublicIp: z.string().nullable(),
+  /** Last probe result; null when it never produced a usable address. */
+  detectedPublicIp: z.string().nullable(),
+  /** Address actually written into the invite (manual wins). */
+  effectivePublicIp: z.string().nullable(),
+  /** True when `effectivePublicIp` came from the user. */
+  manual: z.boolean(),
+  /** Whether the launcher may ask EasyTier / an IP echo service. */
+  autoProbe: z.boolean(),
+  relayPeers: z.array(z.string()).max(4),
+  maxMembers: z.number().int().min(2).max(8),
+  lanIp: z.string(),
+  /** EasyTier peer port; only known while a host tunnel is up. */
+  wanPort: z.number().int().nullable(),
+  /** Why the last probe failed, for the settings page. */
+  probeDetail: z.string().nullable(),
+})
+export type NetSettings = z.infer<typeof NetSettingsSchema>
+
+export const NetSettingsUpdateSchema = z.object({
+  /** Empty string clears the override and falls back to the probe. */
+  manualPublicIp: z.string().max(255).optional(),
+  autoProbe: z.boolean().optional(),
+  relayPeers: z.array(z.string().max(255)).max(4).optional(),
+})
+export type NetSettingsUpdate = z.infer<typeof NetSettingsUpdateSchema>
+
+export const PublicIpProbeSchema = z.object({
+  ip: z.string().nullable(),
+  detail: z.string(),
+})
+export type PublicIpProbe = z.infer<typeof PublicIpProbeSchema>
+
+export const TestRelayInputSchema = z.object({
+  peer: z.string().min(1).max(255),
+})
+export type TestRelayInput = z.infer<typeof TestRelayInputSchema>
+
+export const TestRelayOutputSchema = z.object({
+  ok: z.boolean(),
+  /** TCP handshake time in ms; null when the connect failed. */
+  rttMs: z.number().int().nullable(),
+  detail: z.string(),
+})
+export type TestRelayOutput = z.infer<typeof TestRelayOutputSchema>
+
 export const contract = defineContract({
   id: 'net',
   methods: {
@@ -261,6 +317,10 @@ export const contract = defineContract({
       }),
     },
     diagnose: { input: z.void(), output: DiagnoseOutputSchema },
+    settings: { input: z.void(), output: NetSettingsSchema },
+    updateSettings: { input: NetSettingsUpdateSchema, output: NetSettingsSchema },
+    probePublicIp: { input: z.void(), output: PublicIpProbeSchema },
+    testRelay: { input: TestRelayInputSchema, output: TestRelayOutputSchema },
   },
   events: {
     state: {
@@ -297,4 +357,8 @@ export interface LinkService {
     server: { host: string; port: number }
   }>
   diagnose(): Promise<DiagnoseOutput>
+  settings(): NetSettings
+  updateSettings(input: NetSettingsUpdate): Promise<NetSettings>
+  probePublicIp(): Promise<PublicIpProbe>
+  testRelay(input: TestRelayInput): Promise<TestRelayOutput>
 }

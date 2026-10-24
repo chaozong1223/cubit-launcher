@@ -8,6 +8,7 @@ import { issueTicket, createRoomIdentity, parseTicket, LinkError } from '../tick
 import { HostControl } from '../control'
 import type { TunnelPort } from '../easytier'
 import type { TicketTunnel } from '../ticket'
+import type { PublicIpResult } from '../publicip'
 
 const dirs: string[] = []
 const rooms: RoomService[] = []
@@ -83,6 +84,9 @@ function makeRoom(options: {
   tunnel?: TunnelPort | null
   maxMembers?: number
   dataRoot?: string
+  publicIp?: string | null
+  autoProbe?: boolean
+  probe?: (input: { cliPath: string | null; rpcPort: number | null }) => Promise<PublicIpResult>
 } = {}): RoomService {
   const room = new RoomService({
     dataRoot: options.dataRoot ?? tempRoot(),
@@ -98,6 +102,11 @@ function makeRoom(options: {
     heartbeatTimeoutMs: 1_000,
     directProbeTimeoutMs: 500,
     reconnectDelayMs: 10,
+    publicIp: options.publicIp ?? null,
+    // Tests never touch the real network: the probe is off unless a test
+    // injects its own `probe` seam.
+    autoProbe: options.autoProbe ?? false,
+    ...(options.probe ? { probe: options.probe } : {}),
     sleep: async () => undefined,
   })
   rooms.push(room)
@@ -534,5 +543,157 @@ describe('RoomService fallback and helpers', () => {
     expect(parseWorldPort('[12:00:00] [Render thread/INFO]: Local game hosted on port 25565')).toBe(25565)
     expect(parseWorldPort('Starting Minecraft server on *:25565')).toBe(25565)
     expect(parseWorldPort('no port here')).toBeNull()
+  })
+})
+
+function hostTunnel(peerPort = 41_002): TunnelPort {
+  return {
+    ensureInstalled: async () => undefined,
+    startHost: async () => ({
+      pid: 41_001,
+      rpcPort: 41_001,
+      peerPort,
+      localWorldPort: null,
+      localControlPort: null,
+    }),
+    startMember: async () => ({
+      pid: 41_003,
+      rpcPort: 3,
+      peerPort: null,
+      localWorldPort: null,
+      localControlPort: null,
+    }),
+    addPortForward: async () => undefined,
+    stop: async () => undefined,
+  }
+}
+
+describe('RoomService WAN endpoint and settings', () => {
+  it('writes the hand-typed public address into the invite as the WAN endpoint', async () => {
+    const host = makeRoom({ tunnel: hostTunnel(), publicIp: '198.51.100.7' })
+    const created = await host.create({ instanceId: 'a', transport: 'auto', consentTunnel: true })
+    expect(created.state).toBe('waiting')
+    expect(created.transport).toBe('p2p')
+
+    const payload = parseTicket((await host.copyInvite()).ticket).payload
+    expect(payload.endpoints[0]).toEqual({ kind: 'wan', host: '198.51.100.7', port: 41_002 })
+    expect(host.settings()).toMatchObject({
+      manualPublicIp: '198.51.100.7',
+      effectivePublicIp: '198.51.100.7',
+      manual: true,
+      wanPort: 41_002,
+    })
+    await host.dispose()
+  })
+
+  it('records a successful probe and publishes it when nothing is typed', async () => {
+    const host = makeRoom({
+      tunnel: hostTunnel(),
+      autoProbe: true,
+      probe: async () => ({
+        ip: '203.0.113.44',
+        source: 'echo',
+        detail: '来自 https://4.ipw.cn',
+      }),
+    })
+    await host.create({ instanceId: 'a', transport: 'auto', consentTunnel: true })
+    const payload = parseTicket((await host.copyInvite()).ticket).payload
+    expect(payload.endpoints[0]).toEqual({ kind: 'wan', host: '203.0.113.44', port: 41_002 })
+    expect(host.settings().detectedPublicIp).toBe('203.0.113.44')
+    await host.dispose()
+  })
+
+  it('keeps a failed probe visible instead of silently going LAN-only', async () => {
+    const host = makeRoom({
+      tunnel: hostTunnel(),
+      autoProbe: true,
+      probe: async () => ({ ip: null, source: 'none', detail: '4.ipw.cn 不可达：timeout' }),
+    })
+    await host.create({ instanceId: 'a', transport: 'auto', consentTunnel: true })
+    const payload = parseTicket((await host.copyInvite()).ticket).payload
+    expect(payload.endpoints.map((endpoint) => endpoint.kind)).toEqual(['lan'])
+    expect(host.settings().probeDetail).toContain('4.ipw.cn')
+    expect(host.settings().effectivePublicIp).toBeNull()
+    await host.dispose()
+  })
+
+  it('persists settings and re-issues the live invite', async () => {
+    const dir = tempRoot()
+    const host = makeRoom({ tunnel: hostTunnel(), dataRoot: dir })
+    await host.create({ instanceId: 'a', transport: 'auto', consentTunnel: true })
+
+    const updated = await host.updateSettings({
+      manualPublicIp: '203.0.113.5',
+      relayPeers: ['tcp://relay.example.com:11010'],
+    })
+    expect(updated.effectivePublicIp).toBe('203.0.113.5')
+    expect(updated.relayPeers).toEqual(['tcp://relay.example.com:11010'])
+
+    const payload = parseTicket((await host.copyInvite()).ticket).payload
+    expect(payload.endpoints).toEqual([
+      { kind: 'wan', host: '203.0.113.5', port: 41_002 },
+      { kind: 'lan', host: '127.0.0.1', port: expect.any(Number) },
+      { kind: 'relay', host: 'relay.example.com', port: 11010 },
+    ])
+
+    const saved = JSON.parse(
+      fs.readFileSync(path.join(dir, 'modules', 'net', 'config.json'), 'utf8'),
+    ) as { publicIp: string; relayPeers: string[]; autoProbe: boolean }
+    expect(saved.publicIp).toBe('203.0.113.5')
+    expect(saved.relayPeers).toEqual(['tcp://relay.example.com:11010'])
+
+    const cleared = await host.updateSettings({ manualPublicIp: '' })
+    expect(cleared.manualPublicIp).toBeNull()
+    await host.dispose()
+  })
+
+  it('refuses a public address with a scheme, port or path', async () => {
+    const host = makeRoom({ tunnel: hostTunnel() })
+    await expect(
+      host.updateSettings({ manualPublicIp: 'tcp://1.2.3.4:25565' }),
+    ).rejects.toMatchObject({ code: 'INVITE_INVALID' })
+    await expect(
+      host.updateSettings({ relayPeers: ['relay.example.com'] }),
+    ).rejects.toMatchObject({ code: 'INVITE_INVALID' })
+    await host.dispose()
+  })
+
+  it('dials the WAN endpoint before the LAN one when joining', async () => {
+    const peers: string[] = []
+    const refusing: TunnelPort = {
+      ensureInstalled: async () => undefined,
+      startHost: async () => ({
+        pid: null,
+        rpcPort: 1,
+        peerPort: null,
+        localWorldPort: null,
+        localControlPort: null,
+      }),
+      startMember: async (input) => {
+        peers.push(input.peer)
+        throw new LinkError('TUNNEL_START_FAILED', 'no route')
+      },
+      addPortForward: async () => undefined,
+      stop: async () => undefined,
+    }
+    const identity = createRoomIdentity({
+      hostName: 'host',
+      mcVersion: '1.20.1',
+      loader: 'vanilla',
+      maxMembers: 4,
+    })
+    const issued = issueTicket({
+      identity,
+      endpoints: [
+        { kind: 'wan', host: '203.0.113.9', port: 11010 },
+        { kind: 'lan', host: '10.255.255.1', port: 1 },
+      ],
+      tunnel: { ...tunnel, peerPort: 11010, worldPort: 25565 },
+      ttlSeconds: 60,
+    })
+    const member = makeRoom({ tunnel: refusing })
+    await member.join({ ticket: issued.ticket, instanceId: null })
+
+    expect(peers).toEqual(['tcp://203.0.113.9:11010', 'tcp://10.255.255.1:11010'])
   })
 })

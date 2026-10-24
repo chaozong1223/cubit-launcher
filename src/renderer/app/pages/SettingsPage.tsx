@@ -25,6 +25,7 @@ import type { IconName } from '../icons'
 import { InstancePicker } from './InstancePicker'
 import { InstanceSettingsFields } from './InstanceSettingsFields'
 import { AccountSettingsPanel } from './AccountSettingsPanel'
+import { LinkSettingsPanel } from './LinkSettingsPanel'
 
 type Section = 'account' | 'launch' | 'java' | 'download' | 'link' | 'appearance' | 'diagnostics'
 
@@ -299,25 +300,7 @@ export function SettingsPage() {
               </div>
             ) : null}
 
-            {section === 'link' ? (
-              <div className="settings-section">
-                <div className="settings-section__head"><div><h2>联机</h2><p>联机房间与隧道设置需要 link 模块；当前不可写入。</p></div></div>
-                <div className="settings-section__body">
-                  <div className="setting-group">
-                    <div className="setting-group__text"><div className="setting-group__title">启用联机</div><div className="setting-group__desc">关闭后隐藏联机入口；设置通道待接入。</div></div>
-                    <div className="setting-control"><Switch checked={false} onChange={() => undefined} label="启用联机" disabled /></div>
-                  </div>
-                  <div className="setting-group">
-                    <div className="setting-group__text"><div className="setting-group__title">中继节点</div><div className="setting-group__desc">自动/社区节点/自定义节点由 link 模块提供。</div></div>
-                    <div className="setting-control"><Select disabled aria-label="中继节点"><option>等待联机后端</option></Select></div>
-                  </div>
-                  <div className="setting-group">
-                    <div className="setting-group__text"><div className="setting-group__title">允许离线成员</div><div className="setting-group__desc">正版/离线混房策略；等待联机模块。</div></div>
-                    <div className="setting-control"><Switch checked={false} onChange={() => undefined} label="允许离线成员" disabled /></div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            {section === 'link' ? <LinkSettingsPanel /> : null}
 
             {section === 'appearance' ? (
               <div className="settings-section">

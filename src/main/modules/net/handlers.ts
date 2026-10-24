@@ -7,8 +7,13 @@ import type {
   JoinRoomInput,
   LanWorldsInput,
   LanWorldsOutput,
+  NetSettings,
+  NetSettingsUpdate,
+  PublicIpProbe,
   RoomInfo,
   SetWorldPortInput,
+  TestRelayInput,
+  TestRelayOutput,
 } from '@shared/net'
 import type { RoomService } from './room'
 
@@ -35,6 +40,10 @@ export function makeHandlers(service: RoomService) {
       server: { host: string; port: number }
     }> => service.joinLanWorld(input),
     diagnose: (): Promise<DiagnoseOutput> => service.diagnose(),
+    settings: (): NetSettings => service.settings(),
+    updateSettings: (input: NetSettingsUpdate): Promise<NetSettings> => service.updateSettings(input),
+    probePublicIp: (): Promise<PublicIpProbe> => service.probePublicIp(),
+    testRelay: (input: TestRelayInput): Promise<TestRelayOutput> => service.testRelay(input),
   }
 }
 
