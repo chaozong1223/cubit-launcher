@@ -80,6 +80,17 @@ export function parseCliNodeOutput(text: string): string[] {
 }
 
 /**
+ * The node table only carries a `Public IPv4` row when STUN actually resolved a
+ * mapping; otherwise EasyTier prints `UDP Stun Type | Unknown` and no public
+ * address at all. That — not a broken child process — is why the packaged build
+ * kept logging an empty candidate list (see docs/12 §4).
+ */
+export function parseUdpStunType(text: string): string | null {
+  const match = /UDP\s+Stun\s+Type\s*[|:]\s*([^|\n]+)/i.exec(text)
+  return match ? (match[1] ?? '').trim() : null
+}
+
+/**
  * An echo service answers with a bare address in the common case
  * (`ip.3322.net`, `icanhazip.com`) but some wrap it in a sentence —
  * `Current IP Address: 1.2.3.4` or `当前 IP：1.2.3.4 来自于：…`. Accept a known
@@ -152,9 +163,11 @@ export async function probePublicIpv4(deps: ProbeDeps): Promise<PublicIpResult> 
         'node',
       ])
       const candidates = parseCliNodeOutput(result.stdout)
+      const stunType = parseUdpStunType(result.stdout)
       deps.log.info('public ip probe', {
         source: 'cli',
         exitCode: result.code,
+        stunType,
         candidates,
         stderr: result.stderr.trim().slice(0, 200),
       })
@@ -171,7 +184,7 @@ export async function probePublicIpv4(deps: ProbeDeps): Promise<PublicIpResult> 
       notes.push(
         result.error
           ? `easytier-cli 失败：${result.error}`
-          : `easytier-cli 未报告公网地址（exit ${result.code ?? '?'}）`,
+          : `easytier-cli 未报告公网地址（exit ${result.code ?? '?'}，UDP Stun Type=${stunType ?? '未知'}）`,
       )
     } catch (error) {
       notes.push(`easytier-cli 异常：${messageOf(error)}`)

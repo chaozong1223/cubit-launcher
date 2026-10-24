@@ -9,7 +9,7 @@
 |---|---|
 | 代码 | `a7a812b` 之后的联机探测改动 + 2026-10-24 晚的「公网端点/中继设置」 |
 | 发布 | `v0.1.0`，GitHub Releases：https://github.com/chaozong1223/cubit-launcher/releases/tag/v0.1.0 |
-| 基线 | typecheck 0；`npm run test` **671 passed / 25 skipped**（79 files passed / 11 skipped） |
+| 基线 | typecheck 0；`npm run test` **673 passed / 26 skipped**（79 files passed / 12 skipped；`real-tunnel.test.ts` 默认 skip，要 `MCL_REAL_TUNNEL=1` 才跑） |
 | 打包 | `npm.cmd --prefix mc-launcher run pack`（会保留 `data/`；锁住时 pack 会拒绝并说明） |
 | 契约 | `net` 现在 14 个方法 / 5 个事件（新增 `settings` / `updateSettings` / `probePublicIp` / `testRelay`） |
 
@@ -63,6 +63,8 @@ resources/easytier/{easytier-core.exe, easytier-cli.exe, wintun.dll, Packet.dll,
 
 **问题**：打包后的 Electron 子进程执行同一命令拿到**空 stdout**（日志 `public ip probe candidates: []`），而在 PowerShell 里手工执行能返回 `114.247.65.90` / `219.143.23.90`。怀疑 asar 打包下的子进程环境问题，未定位。
 
+**根因（2026-10-24 晚，已定位）**：**不是 asar 的锅**。纯 Node 里对同一个 sidecar 跑同一条命令，原始输出的表里 `UDP Stun Type | Unknown`，**根本没有 `Public IPv4` 这一行**，exit 0、stderr 空。STUN 没打通时 EasyTier 就不打印公网地址；之前手工能拿到，是那次 STUN 成功。证据（含完整原始表）见 `docs/13-link-real-e2e.md` §3.1。
+
 **补记（后续会话）**：根因没继续查，改为**两个独立来源 + 允许手填**：
 
 1. `net.settings` / `net.updateSettings` / `net.probePublicIp` / `net.testRelay` 四个新契约方法；`dataRoot/modules/net/config.json` 新增 `publicIp`（IPv4 或 DDNS）与 `autoProbe`。
@@ -72,7 +74,7 @@ resources/easytier/{easytier-core.exe, easytier-cli.exe, wintun.dll, Packet.dll,
 
 **仍然成立**：即使拿到公网 IP，**双方都是运营商 CGNAT 时依然连不上**，此时必须有中继。
 
-**注意**：打包版的 `easytier-cli` 空 stdout 仍未定位（现在不影响功能，因为 echo 兜底）；要深挖就在 asar 下比对 `process.execPath`、`cwd` 与 `resources/easytier` 的实际路径。
+**注意**：打包版的 `easytier-cli` 空 stdout 已定位为「STUN 未打通 → 没有该行」，不是子进程问题（见上）。真要 STUN 成功，得让 UDP 出去不被挡；否则就靠 echo 兜底或手填。
 
 ## 5. 中继（已接入设置，仍需一台公网机器）
 
@@ -104,7 +106,8 @@ resources/easytier/{easytier-core.exe, easytier-cli.exe, wintun.dll, Packet.dll,
 | `src/main/core/java/select.ts` | Java 选择优先级 + 严格主版本 |
 | `src/main/modules/net/args.ts` | EasyTier 参数（房主/成员/穿透） |
 | `src/main/modules/net/room.ts` | 房间状态机、邀请码、公网探测、`settings()/updateSettings()`、成员候选端点（`tunnelPeers`） |
-| `src/main/modules/net/publicip.ts` | 公网地址探测（CLI 解析 / HTTPS echo / CGNAT 提示）与中继 TCP 测试 |
+| `src/main/modules/net/publicip.ts` | 公网地址探测（CLI 解析 / HTTPS echo / CGNAT 提示 / `UDP Stun Type` 诊断）与中继 TCP 测试 |
+| `src/main/modules/net/__tests__/real-tunnel.test.ts` | 真机联机证据（`MCL_REAL_TUNNEL=1`），见 `docs/13-link-real-e2e.md` |
 | `src/main/modules/net/config.ts` | `net/config.json` 读写与清洗（`publicIp` / `autoProbe` / `relayPeers`） |
 | `src/main/modules/net/easytier.ts` | sidecar 生命周期、内置副本安装 |
 | `src/main/modules/net/ticket.ts` | 邀请码编解码与校验（`kind: lan/wan/relay`） |

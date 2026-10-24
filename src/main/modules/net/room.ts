@@ -960,23 +960,7 @@ export class RoomService {
       this.tunnelHandle = handle
       this.localWorldPort = handle.localWorldPort
       this.localControlPort = handle.localControlPort
-      const control = new MemberControl({
-        code: payload.code,
-        token: Buffer.from(payload.net.secret, 'base64url'),
-        endpoint: { host: '127.0.0.1', port: handle.localControlPort ?? 0 },
-        member: this.memberIdentity(payload),
-        log: this.options.log,
-        heartbeatIntervalMs: this.heartbeatIntervalMs,
-        heartbeatTimeoutMs: this.heartbeatTimeoutMs,
-        onMembers: (members) => {
-          this.members = members
-          this.emit()
-        },
-        onWorld: (world) => this.handleWorld(world),
-        onClosed: (error) => void this.handleMemberClosed(error),
-      })
-      const welcome = await control.connect()
-      this.memberControl = control
+      const welcome = await this.connectMemberControl(payload, handle.localControlPort ?? 0)
       this.memberEndpoint = { host: '127.0.0.1', port: handle.localControlPort ?? 0 }
       this.transport = candidate.via === 'relay' ? 'relay' : 'p2p'
       this.tunnelState = 'up'
@@ -998,6 +982,67 @@ export class RoomService {
       })
       return { error: cause }
     }
+  }
+
+  /**
+   * Handshake with the member's local control plane, retrying while the sidecar
+   * is still bringing its port-forward up.
+   *
+   * `startMember` returns as soon as the RPC portal answers; the local
+   * port-forward listener follows ~250ms later (measured with real sidecars,
+   * docs/13). A single connect therefore lost the race and reported
+   * `NETWORK_UNREACHABLE` for a tunnel that was in fact fine.
+   */
+  private async connectMemberControl(payload: TicketPayload, port: number): Promise<MemberWelcome> {
+    const attempts = 4
+    let lastError: unknown = null
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const control = new MemberControl({
+        code: payload.code,
+        token: Buffer.from(payload.net.secret, 'base64url'),
+        endpoint: { host: '127.0.0.1', port },
+        member: this.memberIdentity(payload),
+        log: this.options.log,
+        heartbeatIntervalMs: this.heartbeatIntervalMs,
+        heartbeatTimeoutMs: this.heartbeatTimeoutMs,
+        onMembers: (members) => {
+          this.members = members
+          this.emit()
+        },
+        onWorld: (world) => this.handleWorld(world),
+        onClosed: (error) => void this.handleMemberClosed(error),
+      })
+      try {
+        const welcome = await control.connect()
+        this.memberControl = control
+        return welcome
+      } catch (error) {
+        lastError = error
+        try {
+          await control.leave()
+        } catch {
+          // socket already gone
+        }
+        // A rejected handshake (version/loader/auth/full room) will not get
+        // better by waiting.
+        if (
+          error instanceof LinkError &&
+          !['NETWORK_UNREACHABLE', 'HEARTBEAT_TIMEOUT'].includes(error.code)
+        ) {
+          throw error
+        }
+        if (attempt === attempts - 1) break
+        this.options.log.info('member control not ready yet; retrying', {
+          attempt: attempt + 1,
+          port,
+          code: error instanceof LinkError ? error.code : 'unknown',
+        })
+        await this.sleep(400 + attempt * 400)
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new LinkError('NETWORK_UNREACHABLE', 'control plane did not answer', { retryable: true })
   }
 
   /**

@@ -7,6 +7,7 @@ import { RoomService, parseWorldPort, type InstancePort, type LaunchPort } from 
 import { issueTicket, createRoomIdentity, parseTicket, LinkError } from '../ticket'
 import { HostControl } from '../control'
 import type { TunnelPort } from '../easytier'
+import { findFreePort } from '../easytier'
 import type { TicketTunnel } from '../ticket'
 import type { PublicIpResult } from '../publicip'
 
@@ -87,6 +88,7 @@ function makeRoom(options: {
   publicIp?: string | null
   autoProbe?: boolean
   probe?: (input: { cliPath: string | null; rpcPort: number | null }) => Promise<PublicIpResult>
+  sleep?: (ms: number) => Promise<void>
 } = {}): RoomService {
   const room = new RoomService({
     dataRoot: options.dataRoot ?? tempRoot(),
@@ -107,7 +109,7 @@ function makeRoom(options: {
     // injects its own `probe` seam.
     autoProbe: options.autoProbe ?? false,
     ...(options.probe ? { probe: options.probe } : {}),
-    sleep: async () => undefined,
+    sleep: options.sleep ?? (async () => undefined),
   })
   rooms.push(room)
   return room
@@ -658,8 +660,7 @@ describe('RoomService WAN endpoint and settings', () => {
     await host.dispose()
   })
 
-  it('dials the WAN endpoint before the LAN one when joining', async () => {
-    const peers: string[] = []
+  it('dials the WAN endpoint before the LAN one when joining', async () => {    const peers: string[] = []
     const refusing: TunnelPort = {
       ensureInstalled: async () => undefined,
       startHost: async () => ({
@@ -695,5 +696,64 @@ describe('RoomService WAN endpoint and settings', () => {
     await member.join({ ticket: issued.ticket, instanceId: null })
 
     expect(peers).toEqual(['tcp://203.0.113.9:11010', 'tcp://10.255.255.1:11010'])
+  })
+
+  it('retries the control handshake while the sidecar is still opening its port-forward', async () => {
+    const identity = createRoomIdentity({
+      hostName: 'host',
+      mcVersion: '1.20.1',
+      loader: 'vanilla',
+      maxMembers: 4,
+    })
+    const hostControl = new HostControl({
+      code: identity.code,
+      token: identity.netSecret,
+      hostName: identity.hostName,
+      mcVersion: identity.mc.version,
+      loader: identity.mc.loader,
+      maxMembers: 4,
+      log: silentLog,
+      heartbeatTimeoutMs: 2_000,
+    })
+    // The member starts with a port nothing listens on yet; the host control
+    // plane opens it ~300ms later, exactly like a real port-forward.
+    const port = await findFreePort('127.0.0.1')
+    const late = setTimeout(() => {
+      void hostControl.listen('127.0.0.1', port)
+    }, 300)
+
+    const issued = issueTicket({
+      identity,
+      endpoints: [{ kind: 'wan', host: '203.0.113.9', port: 11010 }],
+      tunnel: { ...tunnel, peerPort: 11010, controlPort: port, lanControlPort: null },
+      ttlSeconds: 60,
+    })
+    const fakeTunnel: TunnelPort = {
+      ensureInstalled: async () => undefined,
+      startHost: async () => ({
+        pid: null,
+        rpcPort: 1,
+        peerPort: null,
+        localWorldPort: null,
+        localControlPort: null,
+      }),
+      startMember: async () => ({
+        pid: null,
+        rpcPort: 2,
+        peerPort: null,
+        localWorldPort: null,
+        localControlPort: port,
+      }),
+      addPortForward: async () => undefined,
+      stop: async () => undefined,
+    }
+
+    const member = makeRoom({ tunnel: fakeTunnel, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) })
+    const joined = await member.join({ ticket: issued.ticket, instanceId: 'a' })
+    clearTimeout(late)
+    expect(joined.state).toBe('connected')
+    expect(joined.transport).toBe('p2p')
+    expect(joined.members.some((entry) => entry.role === 'host')).toBe(true)
+    await hostControl.close()
   })
 })

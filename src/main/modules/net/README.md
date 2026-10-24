@@ -79,6 +79,8 @@
 - **邀请码的 WAN 端点** = `effectivePublicIp : peerPort`。只有「该端口真的能从外网连进来」时才有用：要么路由器做了端口映射，要么本机直接持有公网 IP。运营商 CGNAT（100.64.0.0/10）下没有映射可用，必须中继。
 - **成员侧按序尝试** `wan → lan → 邀请码自带中继 → 本机配置的中继`（`tunnelPeers()`）。v0.1.0 只读 LAN 端点，WAN 端点签进邀请码也进不了房。
 - **中继**：一台公网机器跑 `easytier-core -l tcp://0.0.0.0:11010`，两端在「设置 → 联机」填 `tcp://该机器:11010`。`net.testRelay` 做一次 TCP 握手判断地址对不对（4s 超时）。
+- **握手要等端口转发**：`startMember` 只等 RPC 端口，本地 port-forward 还要 ~250ms 才监听；`connectMemberControl()` 对 `NETWORK_UNREACHABLE`/`HEARTBEAT_TIMEOUT` 重试 4 次（版本/加载器/认证错误立即失败）。
+- **`Public IPv4` 不是总会有的**：STUN 没打通时 `easytier-cli node` 只给 `UDP Stun Type | Unknown`，没有公网地址行（exit 0、stderr 空）。这就是 v0.1.0 里「探测拿到空 stdout」的真相，不是 asar 问题。详见 `docs/13-link-real-e2e.md`。
 - 探测/连通性实现：`src/main/modules/net/publicip.ts`（纯函数可单测）。
 
 ## 测试
@@ -94,6 +96,14 @@ npm.cmd --prefix mc-launcher exec vitest run src/main/modules/net
 ```powershell
 $env:MCL_REAL_LAN='1'; npm.cmd --prefix mc-launcher exec vitest run src/main/modules/net/__tests__/real-lan.test.ts
 ```
+
+真实隧道端到端（需要 `release/win-unpacked/resources/easytier`，或 `MCL_EASYTIER_BUNDLE` 指向别处；默认跳过）：
+
+```powershell
+$env:MCL_REAL_TUNNEL='1'; npm.cmd --prefix mc-launcher exec vitest run src/main/modules/net/__tests__/real-tunnel.test.ts --reporter=verbose
+```
+
+该用例会用两个真实 sidecar 走「邀请码 WAN 端点 → 端口转发 → 控制面 WELCOME」，2026-10-24 本机实测通过（~2s）。证据见 `docs/13-link-real-e2e.md`。
 
 t64 实测结果与截图：`docs/08-p0-6-lan-e2e.md`、`docs/evidence/t64/`。
 

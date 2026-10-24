@@ -3,6 +3,7 @@ import {
   IP_ECHO_URLS,
   parseCliNodeOutput,
   parseIpEcho,
+  parseUdpStunType,
   probePublicIpv4,
   testRelayTcp,
   type CliResult,
@@ -33,6 +34,22 @@ describe('parseCliNodeOutput', () => {
     expect(parseCliNodeOutput('')).toEqual([])
     expect(parseCliNodeOutput('no node info\n')).toEqual([])
     expect(parseCliNodeOutput('Public IPv4 | not-an-ip')).toEqual([])
+  })
+})
+
+describe('parseUdpStunType', () => {
+  it('reads the STUN state that explains a missing Public IPv4 row', () => {
+    // Real `easytier-cli node` output from a host whose UDP mapping never
+    // resolved: no Public IPv4 row at all, only this.
+    const table = [
+      '| Virtual IP     | 10.144.144.1/24                      |',
+      '| UDP Stun Type  | Unknown                              |',
+      '| Interface IPv4 | 10.91.60.10                          |',
+      '| Listener 1     | tcp://10.91.60.10:51459              |',
+    ].join('\n')
+    expect(parseUdpStunType(table)).toBe('Unknown')
+    expect(parseCliNodeOutput(table)).toEqual([])
+    expect(parseUdpStunType('Public IPv4 | 1.2.3.4')).toBeNull()
   })
 })
 
