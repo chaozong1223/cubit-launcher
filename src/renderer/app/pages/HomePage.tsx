@@ -393,11 +393,12 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
   }, [backend, instance.id, refreshExit, status])
 
   /**
-   * Re-download whatever the launch pre-check found missing, then start again.
-   * Lives after `start` so it can retry the launch in the same click.
+   * Re-download whatever the launch pre-check found missing. Used both by the
+   * failure banner (which then retries the launch) and by the hero menu (which
+   * only repairs).
    */
-  const repairAndLaunch = useCallback(async () => {
-    if (!instance) return
+  const repairOnly = useCallback(async (): Promise<boolean> => {
+    if (!instance) return false
     setRepairing('准备修复…')
     setActionError(null)
     try {
@@ -420,12 +421,17 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
         }
       }
       setRepairing(null)
-      await start()
+      return true
     } catch (cause) {
       setRepairing(null)
       setActionError(describeError(cause))
+      return false
     }
-  }, [backend, instance, start])
+  }, [backend, instance])
+
+  const repairAndLaunch = useCallback(async () => {
+    if (await repairOnly()) await start()
+  }, [repairOnly, start])
 
   const stop = useCallback(async () => {
     if (!sessionId) {
@@ -530,6 +536,20 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
                     <span>{entry.label}</span>
                   </button>
                 ))}
+                <div className="hero-more__sep" aria-hidden="true" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="hero-more__item"
+                  disabled={repairing !== null}
+                  onClick={() => {
+                    setDetailMenuOpen(false)
+                    void repairOnly()
+                  }}
+                >
+                  <Icon name="shield" className="ico ico--sm" />
+                  <span>{repairing ?? '校验并修复'}</span>
+                </button>
                 <div className="hero-more__sep" aria-hidden="true" />
                 <button
                   type="button"
