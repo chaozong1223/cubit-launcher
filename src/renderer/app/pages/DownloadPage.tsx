@@ -285,8 +285,21 @@ export function DownloadPage() {
   }, [tasks.data, liveProgress])
 
   // Finished tasks disappear on their own (a few seconds of "done" feedback),
-  // instead of sitting in the panel until the app restarts.
+  // instead of sitting in the panel until the app restarts. The loader panel is
+  // a separate card, so it needs the same treatment.
   const [dismissedJobs, setDismissedJobs] = useState<Set<string>>(new Set())
+  const [loaderHidden, setLoaderHidden] = useState(false)
+  const loaderFinished = loaderProgress !== null &&
+    (loaderProgress.state === 'done' || loaderProgress.state === 'failed')
+  useEffect(() => {
+    setLoaderHidden(false)
+    if (!loaderFinished) return
+    const timer = setTimeout(() => setLoaderHidden(true), 6000)
+    return () => clearTimeout(timer)
+  }, [loaderFinished, loaderProgress?.state, loaderProgress?.loaderVersion])
+
+  const showLoaderCard = loaderProgress !== null && !loaderHidden
+
   const finishedKey = mergedTasks
     .filter((task) => task.state === 'done' || task.state === 'cancelled')
     .map((task) => task.jobId)
@@ -679,24 +692,29 @@ export function DownloadPage() {
         <Card className="task-panel" id="dl-tasks">
           <div className="task-panel__head">
             <div>
-              <div className="task-panel__title">{loaderProgress ? '加载器安装任务' : '下载任务'}</div>
+              <div className="task-panel__title">{showLoaderCard ? '加载器安装任务' : '下载任务'}</div>
               <div className="task-panel__sub">
-                {loaderProgress ? <>来自 <code className="mono">mc:loader:evt:progress</code> 与 log 事件</> : <>来自 <code className="mono">mc:download:list</code> 与 progress 事件</>}
+                {showLoaderCard ? <>来自 <code className="mono">mc:loader:evt:progress</code> 与 log 事件</> : <>来自 <code className="mono">mc:download:list</code> 与 progress 事件</>}
               </div>
             </div>
-            <Badge tone={loaderProgress ? (loaderProgress.state === 'failed' ? 'danger' : loaderProgress.state === 'done' ? 'success' : 'accent') : tasksPending ? 'warning' : mergedTasks.length ? 'accent' : 'outline'} dot>
-              {loaderProgress ? loaderProgress.state : tasksPending ? '未接入' : `${mergedTasks.length} 个`}
+            <Badge tone={showLoaderCard ? (loaderProgress!.state === 'failed' ? 'danger' : loaderProgress!.state === 'done' ? 'success' : 'accent') : tasksPending ? 'warning' : mergedTasks.length ? 'accent' : 'outline'} dot>
+              {showLoaderCard ? loaderProgress!.state : tasksPending ? '未接入' : `${mergedTasks.length} 个`}
             </Badge>
           </div>
 
-          {loaderProgress ? (
+          {showLoaderCard ? (
             <div className="nw-task-card" style={{ marginTop: 12 }}>
               <div className="nw-task-card__head">
                 <div>
                   <div className="nw-task-card__title">{loaderProgress.type} {loaderProgress.loaderVersion}<Tag>{loaderProgress.mcVersion}</Tag></div>
                   <div className="nw-task-card__sub">{loaderProgress.stage} · {loaderProgress.currentTask ?? '等待安装器输出'}</div>
                 </div>
-                <Badge tone={loaderProgress.state === 'failed' ? 'danger' : loaderProgress.state === 'done' ? 'success' : 'accent'}>{loaderProgress.state}</Badge>
+                <div className="nw-task-card__badges">
+                  <Badge tone={loaderProgress.state === 'failed' ? 'danger' : loaderProgress.state === 'done' ? 'success' : 'accent'}>{loaderProgress.state}</Badge>
+                  {loaderProgress.state === 'done' || loaderProgress.state === 'failed' ? (
+                    <Button size="xs" variant="ghost" icon="close" aria-label="隐藏加载器任务" onClick={() => setLoaderHidden(true)} />
+                  ) : null}
+                </div>
               </div>
               <Progress value={loaderProgress.percent} label="加载器安装进度" />
               <div className="nw-task-card__stats">
