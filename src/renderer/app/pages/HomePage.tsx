@@ -641,7 +641,17 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
               <Button size="sm" variant="secondary" icon="refresh" onClick={() => void start()}>重试启动</Button>
               {actionError.code?.startsWith('AUTH') ? <Button size="sm" variant="ghost" icon="user" onClick={() => navigate('/settings/account')}>创建账户</Button> : null}
               {actionError.code === 'JAVA.NOT_FOUND' ? <Button size="sm" variant="ghost" icon="coffee" onClick={() => navigate('/settings/java')}>Java 设置</Button> : null}
-              {actionError.code?.startsWith('LAUNCH.MISSING') ? <Button size="sm" variant="ghost" icon="shield" onClick={() => navigate(`/instances/${encodeURIComponent(instance.id)}`)}>校验并修复</Button> : null}
+              {actionError.code?.startsWith('LAUNCH.MISSING') || actionError.code === 'LAUNCH.PLAN_INVALID' || actionError.code === 'VERSION.NO_CLIENT_JAR' ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="shield"
+                  loading={repairing !== null}
+                  onClick={() => void repairAndLaunch()}
+                >
+                  {repairing ?? '校验并修复'}
+                </Button>
+              ) : null}
               <Button size="sm" variant="ghost" icon="terminal" onClick={() => navigate('/logs')}>查看日志</Button>
             </div>
           </details>
