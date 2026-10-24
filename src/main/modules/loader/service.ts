@@ -31,7 +31,7 @@ import {
   type LoaderEndpoints,
   type MetaDeps,
 } from './core/meta'
-import { profileLibraryTasks } from './core/profile'
+import { installerProfileTasks, profileLibraryTasks } from './core/profile'
 import {
   ensureLauncherProfiles,
   rollbackLoaderInstall,
@@ -575,6 +575,55 @@ export class LoaderService {
     })
   }
 
+  /**
+   * Prefetch the installer's libraries so its own serial downloader has nothing
+   * left to fetch. Never throws: any problem just falls back to the installer's
+   * built-in behaviour.
+   */
+  private async prefillInstallerLibraries(
+    handle: JobHandle,
+    jarPath: string,
+    root: string,
+  ): Promise<void> {
+    const job = handle.job
+    let tasks: DownloadTask[] = []
+    try {
+      const parsed = installerProfileTasks(this.fs, jarPath)
+      tasks = parsed.tasks
+      if (!parsed.found) {
+        this.log.info('installer has no install_profile.json; skipping prefill', { jar: jarPath })
+        return
+      }
+      for (const warning of parsed.warnings) this.log.warn('installer prefill warning', { warning })
+    } catch (error) {
+      this.log.warn('installer prefill parse failed', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+      return
+    }
+    if (tasks.length === 0) return
+
+    const downloader = this.downloader()
+    if (!downloader) {
+      this.log.warn('installer prefill skipped: download service unavailable')
+      return
+    }
+
+    job.setStage('download', `预下载安装器依赖 ${tasks.length} 个`)
+    job.setTask('合并安装器自带库清单')
+    try {
+      const { jobId } = await downloader.enqueue(tasks)
+      await this.waitForLibraryJob(handle, jobId, downloader)
+      this.log.info('installer prefill finished', { jar: jarPath, tasks: tasks.length, jobId })
+    } catch (error) {
+      this.log.warn('installer prefill failed; the installer will fetch what it needs', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+      job.setMessage('预下载安装器依赖失败，将回退到安装器自身下载')
+    }
+    void root
+  }
+
   private async waitForLibraryJob(
     handle: JobHandle,
     downloadJobId: string,
@@ -698,6 +747,13 @@ export class LoaderService {
     }
 
     const installer = await this.ensureInstaller(handle, plan)
+
+    // Fetch the installer's own libraries up front. The installer would
+    // otherwise pull dozens of artifacts serially (and retry a few that no
+    // longer exist upstream); with the files already in `libraries/` it goes
+    // straight to unpacking. Best effort: a failure only restores the old
+    // behaviour, it never blocks the install.
+    await this.prefillInstallerLibraries(handle, installer.file, root)
 
     job.setState('installing')
     job.setStage('install', '运行加载器安装器')
