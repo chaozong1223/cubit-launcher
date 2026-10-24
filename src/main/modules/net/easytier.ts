@@ -18,6 +18,7 @@ import {
   EASYTIER_ZIP_URL,
   TUNNEL_START_TIMEOUT_MS,
   TUNNEL_STOP_GRACE_MS,
+  HOST_VIP,
 } from './constants'
 import {
   buildHostArgs,
@@ -232,6 +233,37 @@ export class EasyTierManager {
     }
   }
 
+  /**
+   * Does the EasyTier TUN adapter actually exist?
+   *
+   * Polls for a moment because the adapter appears shortly after RPC starts.
+   * Returns true when the probe itself cannot run — a broken probe must not turn
+   * a working tunnel into an error.
+   */
+  private async hasTunAdapter(child: ChildLike, stopped: Promise<void>): Promise<boolean> {
+    const prefix = HOST_VIP.split('.').slice(0, 2).join('.')
+    const script =
+      `(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | ` +
+      `Where-Object { $_.IPAddress -like '${prefix}.*' } | Measure-Object).Count`
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (child.exitCode !== null) return false
+      if (await Promise.race([stopped.then(() => true), Promise.resolve(false)])) return false
+      try {
+        const { stdout } = await this.execFile(
+          'powershell.exe',
+          ['-NoProfile', '-NonInteractive', '-Command', script],
+          { timeout: 6000, windowsHide: true },
+        )
+        if (Number(stdout.trim()) > 0) return true
+      } catch {
+        // Probe unavailable (policy/AV): do not block the tunnel on it.
+        return true
+      }
+      await new Promise((resolve) => setTimeout(resolve, 750))
+    }
+    return false
+  }
+
   private isComplete(paths: EasyTierPaths): boolean {
     return fs.existsSync(paths.core) && fs.existsSync(paths.cli) && fs.existsSync(paths.wintun)
   }
@@ -424,6 +456,22 @@ export class EasyTierManager {
       })
     }
     this.options.log.info('sidecar started', { role, pid: child.pid ?? null, rpcPort: ports.rpcPort })
+
+    // RPC answering does NOT mean the tunnel works: Windows silently refuses to
+    // create the TUN adapter for a non-elevated process, yet easytier-core keeps
+    // serving RPC. Without the adapter the game has no route to 10.144.144.x, so
+    // fail here instead of reporting a healthy room.
+    if (this.platform === 'win32') {
+      const adapterUp = await this.hasTunAdapter(child, stopped)
+      if (!adapterUp) {
+        await killChild(child, this.platform)
+        throw new LinkError(
+          'TUNNEL_START_FAILED',
+          '虚拟网卡没有创建成功：EasyTier 需要管理员权限才能安装 TUN 设备',
+          { retryable: false, details: { reason: 'tun_adapter_missing' } },
+        )
+      }
+    }
 
     return {
       role,
