@@ -66,12 +66,13 @@ const PAGE_LINKS: ReadonlyArray<{ path: string; label: string; icon: Parameters<
  * takes time (waiting for the game window) instead of a fake spinner.
  */
 const LAUNCH_STEPS: ReadonlyArray<{ key: string; label: string; weight: number }> = [
-  { key: 'account', label: '账户', weight: 4 },
-  { key: 'java', label: 'Java', weight: 16 },
-  { key: 'prepare', label: '校验文件', weight: 20 },
-  { key: 'args', label: '参数', weight: 5 },
-  { key: 'spawn', label: '启动进程', weight: 10 },
-  { key: 'window', label: '等待窗口', weight: 45 },
+  { key: 'account', label: '检查账户', weight: 4 },
+  { key: 'java', label: '选择 Java', weight: 14 },
+  { key: 'prepare', label: '内存优化', weight: 6 },
+  { key: 'verify', label: '校验文件', weight: 18 },
+  { key: 'args', label: '构建参数', weight: 4 },
+  { key: 'spawn', label: '启动进程', weight: 8 },
+  { key: 'window', label: '加载游戏', weight: 46 },
 ]
 
 function launchUiState(instance: InstanceSummary, status: LaunchState | null): LaunchUiState {
@@ -310,8 +311,24 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
       if (step.key === stageKey) break
       done += step.weight
     }
-    return Math.min(100, Math.round((done / total) * 100))
+    const index = LAUNCH_STEPS.findIndex((step) => step.key === stageKey)
+    const current = LAUNCH_STEPS[index]
+    // Half-way into the active step, so the number moves while a slow phase runs.
+    const partial = current ? current.weight * 0.5 : 0
+    return Math.min(100, ((done + partial) / total) * 100)
   }, [stageKey])
+
+  const currentStepLabel =
+    LAUNCH_STEPS.find((step) => step.key === stageKey)?.label ?? '准备启动'
+  const loginLabel = useMemo(() => {
+    const list = accounts.data?.accounts ?? []
+    const account =
+      list.find((entry) => entry.id === accounts.data?.selectedId) ?? list[0] ?? null
+    if (!account) return '未选择账户'
+    if (account.kind === 'offline') return '离线登录'
+    if (account.kind === 'authlib') return '第三方登录'
+    return '正版登录'
+  }, [accounts.data])
 
   const start = useCallback(async () => {
     setBusy(true)
@@ -643,31 +660,30 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
         </div>
         {stopping ? (
           <div className="nw-launch-progress" aria-live="polite"><span className="spinner" />正在结束游戏…等待进程退出事件</div>
-        ) : flow === 'checking' || flow === 'starting' ? (
+        ) : flow === 'checking' || flow === 'starting' || (flow === 'running' && !stopping) ? (
           <div className="launch-progress" aria-live="polite">
-            <div className="launch-progress__head">
-              <span className="spinner" />
-              <span className="launch-progress__label">{stage ?? '准备启动…'}</span>
-              <span className="launch-progress__pct">{Math.round(launchPercent)}%</span>
+            <Progress
+              value={flow === 'running' ? Math.max(launchPercent, 92) : launchPercent}
+              tone="accent"
+              label="启动进度"
+            />
+            <div className="launch-progress__grid">
+              <span className="launch-progress__k">当前步骤</span>
+              <span className="launch-progress__v">{currentStepLabel}</span>
+              <span className="launch-progress__k">登录方式</span>
+              <span className="launch-progress__v">{loginLabel}</span>
+              <span className="launch-progress__k">启动进度</span>
+              <span className="launch-progress__v mono">
+                {(flow === 'running' ? Math.max(launchPercent, 92) : launchPercent).toFixed(2)} %
+              </span>
             </div>
-            <Progress value={launchPercent} tone="accent" label="启动进度" />
-            <div className="launch-progress__steps">
-              {LAUNCH_STEPS.map((step) => (
-                <span
-                  key={step.key}
-                  className={
-                    step.key === stageKey
-                      ? 'launch-progress__step is-current'
-                      : LAUNCH_STEPS.findIndex((entry) => entry.key === step.key) <
-                          LAUNCH_STEPS.findIndex((entry) => entry.key === stageKey)
-                        ? 'launch-progress__step is-done'
-                        : 'launch-progress__step'
-                  }
-                >
-                  {step.label}
-                </span>
-              ))}
-            </div>
+            {flow === 'running' ? (
+              <div className="launch-progress__detail">
+                游戏进程已启动，正在加载模组与资源；主窗口出现前请稍候（模组多的整合包首次加载可能需要几分钟）。
+              </div>
+            ) : stage ? (
+              <div className="launch-progress__detail">{stage}</div>
+            ) : null}
           </div>
         ) : null}
         {flow === 'running' && !stopping ? (
