@@ -257,6 +257,7 @@
 .nw-task-card__stats span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .nw-task-card__actions { display: flex; gap: 6px; margin-top: 7px; }
 .nw-task-card__message { margin-top: 5px; font-size: 10px; color: var(--warning-text); }
+.nw-task-card__badges { display: flex; align-items: center; gap: 4px; flex: none; }
 .nw-loader-log {
   margin: 8px 0 0; padding: 8px 9px; max-height: 96px; overflow: auto;
   border-radius: 5px; background: #101418; color: #b9d8c8;
@@ -1763,8 +1764,7 @@
   flex-direction: column;
   gap: 4px;
 }
-.schematic-import__list li {
-  display: flex;
+.schematic-import__list li {  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;

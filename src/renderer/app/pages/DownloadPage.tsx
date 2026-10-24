@@ -105,11 +105,12 @@ function versionIconClass(type: string): string {
   return ''
 }
 
-function TaskCard({ progress, onPause, onResume, onCancel }: {
+function TaskCard({ progress, onPause, onResume, onCancel, onDismiss }: {
   progress: DownloadProgress
   onPause: () => void
   onResume: () => void
   onCancel: () => void
+  onDismiss?: () => void
 }) {
   const pct = progress.bytesTotal > 0 ? (progress.bytesDone / progress.bytesTotal) * 100 : null
   const active = progress.state === 'running' || progress.state === 'queued' || progress.state === 'paused'
@@ -127,9 +128,14 @@ function TaskCard({ progress, onPause, onResume, onCancel }: {
             {progress.source ? ` · ${progress.source}` : ''}
           </div>
         </div>
-        <Badge tone={progress.state === 'done' ? 'success' : progress.state === 'failed' ? 'danger' : progress.state === 'paused' ? 'warning' : 'accent'} dot>
-          {progress.state}
-        </Badge>
+        <div className="nw-task-card__badges">
+          <Badge tone={progress.state === 'done' ? 'success' : progress.state === 'failed' ? 'danger' : progress.state === 'paused' ? 'warning' : 'accent'} dot>
+            {progress.state}
+          </Badge>
+          {onDismiss && !active ? (
+            <Button size="xs" variant="ghost" icon="close" aria-label="隐藏这个任务" onClick={onDismiss} />
+          ) : null}
+        </div>
       </div>
       <Progress value={pct} tone={progress.state === 'failed' ? 'danger' : progress.state === 'done' ? 'success' : 'accent'} label={`${progress.versionId ?? '任务'}进度`} />
       <div className="nw-task-card__stats">
@@ -276,6 +282,32 @@ export function DownloadPage() {
     for (const [jobId, task] of Object.entries(liveProgress)) map.set(jobId, task)
     return [...map.values()].sort((a, b) => b.updatedAt - a.updatedAt)
   }, [tasks.data, liveProgress])
+
+  // Finished tasks disappear on their own (a few seconds of "done" feedback),
+  // instead of sitting in the panel until the app restarts.
+  const [dismissedJobs, setDismissedJobs] = useState<Set<string>>(new Set())
+  const finishedKey = mergedTasks
+    .filter((task) => task.state === 'done' || task.state === 'cancelled')
+    .map((task) => task.jobId)
+    .sort()
+    .join(',')
+  useEffect(() => {
+    if (!finishedKey) return
+    const ids = finishedKey.split(',')
+    const timers = ids.map((jobId) =>
+      setTimeout(() => {
+        setDismissedJobs((previous) => {
+          if (previous.has(jobId)) return previous
+          const next = new Set(previous)
+          next.add(jobId)
+          return next
+        })
+      }, 6000),
+    )
+    return () => timers.forEach((timer) => clearTimeout(timer))
+  }, [finishedKey])
+
+  const visibleTasks = mergedTasks.filter((task) => !dismissedJobs.has(task.jobId))
 
   const install = async () => {
     if (!canInstall) return
@@ -636,7 +668,7 @@ export function DownloadPage() {
             <div className="nw-stack"><Skeleton className="skeleton--text" /><Skeleton className="skeleton--text" style={{ width: '70%' }} /></div>
           ) : tasksInfo ? (
             <DataStateNotice info={tasksInfo} onRetry={tasks.reload} />
-          ) : mergedTasks.length === 0 ? (
+          ) : visibleTasks.length === 0 ? (
             <div className="nw-task-placeholder">
               <Icon name="download" />
               <strong>当前没有下载任务</strong>
@@ -645,13 +677,14 @@ export function DownloadPage() {
             </div>
           ) : (
             <div className="nw-task-list">
-              {mergedTasks.map((task) => (
+              {visibleTasks.map((task) => (
                 <TaskCard
                   key={task.jobId}
                   progress={task}
                   onPause={() => void backend.downloads.pause(task.jobId).then(tasks.reload).catch((cause) => setActionError(describeError(cause)))}
                   onResume={() => void backend.downloads.resume(task.jobId).then(tasks.reload).catch((cause) => setActionError(describeError(cause)))}
                   onCancel={() => void backend.downloads.cancel(task.jobId).then(tasks.reload).catch((cause) => setActionError(describeError(cause)))}
+                  onDismiss={() => setDismissedJobs((previous) => new Set(previous).add(task.jobId))}
                 />
               ))}
             </div>
