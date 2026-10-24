@@ -160,6 +160,7 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
   const [plan, setPlan] = useState<LaunchPlan | null>(null)
   const [planError, setPlanError] = useState<UiErrorInfo | null>(null)
   const [actionError, setActionError] = useState<UiErrorInfo | null>(null)
+  const [repairing, setRepairing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [flow, setFlow] = useState<'idle' | 'checking' | 'starting' | 'running' | 'stopping' | 'failed'>('idle')
   const [stage, setStage] = useState<string | null>(null)
@@ -348,6 +349,41 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
       setBusy(false)
     }
   }, [backend, instance.id, refreshExit, status])
+
+  /**
+   * Re-download whatever the launch pre-check found missing, then start again.
+   * Lives after `start` so it can retry the launch in the same click.
+   */
+  const repairAndLaunch = useCallback(async () => {
+    if (!instance) return
+    setRepairing('准备修复…')
+    setActionError(null)
+    try {
+      const started = await backend.repair.repair(instance.id, 'size')
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+        const progress = await backend.repair.status(started.jobId)
+        if (!progress) continue
+        setRepairing(
+          `${progress.stage} ${progress.done}/${progress.total}` +
+            (progress.percent === null ? '' : ` · ${Math.round(progress.percent)}%`),
+        )
+        if (progress.state === 'done') break
+        if (progress.state === 'failed' || progress.state === 'cancelled') {
+          throw new BackendError(
+            'REPAIR.FAILED',
+            `修复${progress.state === 'cancelled' ? '已取消' : '失败'}：${progress.message ?? '没有更多信息'}`,
+            true,
+          )
+        }
+      }
+      setRepairing(null)
+      await start()
+    } catch (cause) {
+      setRepairing(null)
+      setActionError(describeError(cause))
+    }
+  }, [backend, instance, start])
 
   const stop = useCallback(async () => {
     if (!sessionId) {
