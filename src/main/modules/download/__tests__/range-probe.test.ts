@@ -29,7 +29,10 @@ async function rangeProbe(url: string): Promise<{ ok: boolean; total: number }> 
 }
 
 describe('parallel range downloads', () => {
-  it('the Mojang CDN honours byte ranges for large artifacts', async () => {
+  // Network-dependent: opt in with MCL_NETWORK_TESTS=1 so a flaky CDN never
+  // reddens the default suite.
+  const networkTest = process.env.MCL_NETWORK_TESTS === '1' ? it : it.skip
+  networkTest('the Mojang CDN honours byte ranges for large artifacts', async () => {
     const artifact = pickLargeArtifact()
     if (!artifact) {
       console.log('SKIP: no local journal with a large artifact')
