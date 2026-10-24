@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { InstanceSummary } from '@shared/instance'
 import type { LaunchExitReport, LaunchPlan, LaunchState } from '@shared/launch'
 import { useBackend } from '../data/BackendContext'
@@ -686,9 +686,7 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
           </div>
         ) : status.status === 'error' ? (
           <div className="launch-strip status-crashed"><Icon name="alert-circle" className="ico ico--xs" />启动状态读取失败</div>
-        ) : (
-          <div className="launch-strip"><span>启动状态来自 <code className="mono">mc:launch:status</code>，进度来自 stage/status 事件</span></div>
-        )}
+        ) : null}
         {actionError ? (
           <details className="nw-launch-details" open={detailOpen} onToggle={(event) => setDetailOpen((event.target as HTMLDetailsElement).open)}>
             <summary>启动失败详情</summary>

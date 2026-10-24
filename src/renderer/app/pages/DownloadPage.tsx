@@ -665,8 +665,8 @@ export function DownloadPage() {
             <span className="caption subtle">
               {canInstall
                 ? type === 'vanilla'
-                  ? `将安装 ${selected?.id ?? ''}；进度来自 download 事件`
-                  : `将通过 loader 安装 ${typeInfo?.label} ${loaderVersion}；阶段来自 loader 事件`
+                  ? `将安装 ${selected?.id ?? ''}`
+                  : `将通过 ${typeInfo?.label} 安装 ${loaderVersion}`
                 : '版本与加载器清单就绪后启用'}
             </span>
           </div>
