@@ -59,6 +59,12 @@
       "COPYING",
       "NOTICE"
     ],
+    "extraResources": [
+      {
+        "from": "build/extra/easytier",
+        "to": "easytier"
+      }
+    ],
     "win": {
       "target": [
         {

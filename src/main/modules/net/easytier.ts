@@ -74,6 +74,8 @@ export interface EasyTierManagerOptions {
   log: ScopedLogger
   platform?: NodeJS.Platform
   binaryDir?: string
+  /** Test seam: directory holding a pre-shipped EasyTier copy. */
+  bundledDir?: string
   spawn?: SpawnLike
   fetchFile?: (url: string, destination: string) => Promise<void>
   execFile?: (
@@ -158,11 +160,71 @@ export class EasyTierManager {
       this.writeManifest(paths, 'present')
       return paths
     }
+    // Prefer the copy shipped inside the app: downloading from GitHub fails on
+    // machines whose TLS chain cannot verify, and the room then silently falls
+    // back to LAN — which is exactly what breaks cross-network play.
+    const bundled = this.bundledDir()
+    if (bundled) {
+      try {
+        await this.installFromBundle(bundled, paths)
+        this.writeManifest(paths, 'bundled')
+        this.options.log.info('EasyTier installed from bundled copy', { dir: bundled })
+        return paths
+      } catch (error) {
+        this.options.log.warn('bundled EasyTier copy unusable, falling back to download', {
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
     if (!this.options.fetchFile && this.platform !== 'win32') {
       throw new LinkError('TUNNEL_START_FAILED', 'EasyTier runtime install is only implemented for Windows in this MVP')
     }
     await this.install(paths)
     return paths
+  }
+
+  /** `<resources>/easytier` in a packaged app; overridable for tests. */
+  private bundledDir(): string | null {
+    const candidates = [
+      this.options.bundledDir,
+      process.resourcesPath ? path.join(process.resourcesPath, 'easytier') : null,
+    ].filter((entry): entry is string => Boolean(entry))
+    for (const candidate of candidates) {
+      try {
+        if (fs.existsSync(path.join(candidate!, 'easytier-core.exe'))) return candidate!
+      } catch {
+        /* try the next candidate */
+      }
+    }
+    return null
+  }
+
+  private bundledPaths(dir: string): EasyTierPaths {
+    return {
+      dir,
+      core: path.join(dir, 'easytier-core.exe'),
+      cli: path.join(dir, 'easytier-cli.exe'),
+      wintun: path.join(dir, 'wintun.dll'),
+      license: path.join(dir, 'LICENSE-LGPL-3.0.txt'),
+      manifest: path.join(dir, 'manifest.json'),
+    }
+  }
+
+  private async installFromBundle(bundled: string, paths: EasyTierPaths): Promise<void> {
+    const from = this.bundledPaths(bundled)
+    await fs.promises.mkdir(paths.dir, { recursive: true })
+    for (const [name, source] of [
+      ['easytier-core.exe', from.core],
+      ['easytier-cli.exe', from.cli],
+      ['wintun.dll', from.wintun],
+      ['LICENSE-LGPL-3.0.txt', from.license],
+    ] as const) {
+      if (!fs.existsSync(source)) continue
+      await fs.promises.copyFile(source, path.join(paths.dir, name))
+    }
+    if (!(await this.hashesValid(paths))) {
+      throw new LinkError('TUNNEL_START_FAILED', 'bundled EasyTier copy failed its hash check')
+    }
   }
 
   private isComplete(paths: EasyTierPaths): boolean {

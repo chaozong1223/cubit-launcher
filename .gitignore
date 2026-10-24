@@ -30,3 +30,9 @@ poc/link/tools/
 *.exe
 *.zip
 *.jar
+
+# Bundled EasyTier sidecar: fetch with scripts/fetch-easytier.mjs, not committed.
+# The LGPL license text IS committed so the notice travels with the source.
+build/extra/easytier/*.exe
+build/extra/easytier/*.dll
+build/extra/easytier/manifest.json
