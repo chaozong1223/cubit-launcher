@@ -1,4 +1,4 @@
-/// <reference types="vite/client" />
+﻿/// <reference types="vite/client" />
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -509,12 +509,12 @@ export function registerIpc(deps: IpcDependencies): void {
         'powershell.exe',
         [
           '-NoProfile',
-          '-WindowStyle',
-          'Hidden',
           '-Command',
           `Start-Process -FilePath ${JSON.stringify(exe)} -Verb RunAs`,
         ],
-        { windowsHide: true, detached: true, stdio: 'ignore' },
+        // windowsHide must stay FALSE: a hidden PowerShell has no interactive
+      // desktop and the UAC prompt is auto-cancelled ("canceled by the user").
+      { windowsHide: false, detached: true, stdio: 'ignore' },
       )
       child.unref()
       return { launched: true }
