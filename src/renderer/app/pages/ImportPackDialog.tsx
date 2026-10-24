@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CurseForgeConfigView, LinkImportFinished, PackLinkPlan } from '@shared/catalog'
 import type { ModpackImportFinished, ModpackImportProgress } from '@shared/mods'
+import type { LoaderType } from '@shared/loader'
 import { useBackend } from '../data/BackendContext'
 import {
   BackendError,
@@ -25,6 +26,23 @@ function providerLabel(provider: PackLinkPlan['provider']): string {
 }
 
 type Mode = 'link' | 'local'
+
+/**
+ * The main process reports a missing loader as a plain message:
+ * "未找到整合包所需的 forge 14.23.5.2864 加载器（Minecraft 1.12.2）；…".
+ * Parse it so the dialog can offer to install exactly that loader and continue.
+ */
+function parseMissingLoader(
+  detail: string,
+): { type: LoaderType; version: string; mcVersion: string } | null {
+  const match = /(forge|neoforge|fabric|quilt)\s+([0-9A-Za-z._+-]+)\s*加载器（Minecraft\s+([0-9A-Za-z._+-]+)）/i.exec(
+    detail,
+  )
+  if (!match) return null
+  const type = match[1].toLowerCase() as LoaderType
+  if (!['forge', 'neoforge', 'fabric', 'quilt'].includes(type)) return null
+  return { type, version: match[2], mcVersion: match[3] }
+}
 
 /**
  * Import dialog for integration packs:
@@ -58,6 +76,11 @@ export function ImportPackDialog({
   const [error, setError] = useState<UiErrorInfo | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
+  const [missingLoader, setMissingLoader] = useState<
+    { type: LoaderType; version: string; mcVersion: string; packPath: string } | null
+  >(null)
+  const [loaderBusy, setLoaderBusy] = useState(false)
+  const [pendingPackPath, setPendingPackPath] = useState<string | null>(null)
   const [cf, setCf] = useState<CurseForgeConfigView | null>(null)
   const [cfKey, setCfKey] = useState('')
   const [cfMirror, setCfMirror] = useState('')
@@ -197,18 +220,72 @@ export function ImportPackDialog({
     setNotice(null)
     setLinkProgress(null)
     setJobProgress(null)
+    let chosenPath = ''
     try {
       const picked = await backend.system.pickFiles({
         title: '选择整合包',
         filters: [{ name: '整合包（.mrpack / .zip）', extensions: ['mrpack', 'zip'] }],
       })
       if (picked.cancelled || picked.paths.length === 0) return
-      const started = await backend.mods.importModpack(picked.paths[0])
+      chosenPath = picked.paths[0]
+      const started = await backend.mods.importModpack(chosenPath)
+      setPendingPackPath(chosenPath)
       await awaitImportJob(started.jobId, `已开始后台导入「${started.name}」（${started.totalFiles} 个文件）…`)
+    } catch (cause) {
+      const info = describeError(cause)
+      // The pack needs a loader that is not installed yet: offer the one-click
+      // "install the loader, then import" path instead of a dead end.
+      const missing = parseMissingLoader(info.detail)
+      if (missing && chosenPath) {
+        setMissingLoader({ ...missing, packPath: chosenPath })
+        setError(null)
+      } else {
+        setError(info)
+      }
+    } finally {
+      setPicking(false)
+    }
+  }
+
+  const installMissingLoader = async () => {
+    if (!missingLoader) return
+    setLoaderBusy(true)
+    setError(null)
+    setNotice(`正在安装 ${missingLoader.type} ${missingLoader.version}（Minecraft ${missingLoader.mcVersion}）…`)
+    try {
+      const started = await backend.loader.install({
+        type: missingLoader.type,
+        mcVersion: missingLoader.mcVersion,
+        loaderVersion: missingLoader.version,
+      })
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+        const progress = await backend.loader.status(started.jobId)
+        if (progress) {
+          setNotice(
+            `安装 ${missingLoader.type} ${missingLoader.version} · ${progress.stage}` +
+              (progress.percent === null ? '' : ` ${Math.round(progress.percent)}%`),
+          )
+          if (progress.state === 'done') break
+          if (progress.state === 'failed' || progress.state === 'cancelled') {
+            throw new BackendError(
+              'LOADER.INSTALL_FAILED',
+              `加载器安装${progress.state === 'cancelled' ? '已取消' : '失败'}：${progress.message ?? '没有更多信息'}`,
+              true,
+            )
+          }
+        }
+      }
+      const packPath = missingLoader.packPath
+      setMissingLoader(null)
+      setNotice('加载器已安装，继续导入整合包…')
+      const retry = await backend.mods.importModpack(packPath)
+      setPendingPackPath(packPath)
+      await awaitImportJob(retry.jobId, `继续导入「${retry.name}」（${retry.totalFiles} 个文件）…`)
     } catch (cause) {
       setError(describeError(cause))
     } finally {
-      setPicking(false)
+      setLoaderBusy(false)
     }
   }
 
@@ -325,6 +402,26 @@ export function ImportPackDialog({
             </p>
 
             {planError ? <Banner tone="danger" title={planError.title}>{planError.detail}{planError.code ? `（${planError.code}）` : ''}</Banner> : null}
+
+            {missingLoader ? (
+              <Banner
+                tone="warning"
+                title={`需要先安装 ${missingLoader.type} ${missingLoader.version}`}
+                actions={
+                  <div className="row gap-8">
+                    <Button size="sm" variant="primary" icon="download" loading={loaderBusy} onClick={() => void installMissingLoader()}>
+                      安装加载器并继续导入
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={loaderBusy} onClick={() => setMissingLoader(null)}>
+                      取消
+                    </Button>
+                  </div>
+                }
+              >
+                这个整合包基于 Minecraft {missingLoader.mcVersion}，还没装对应的 {missingLoader.type} 加载器。
+                点按钮会先安装加载器，装好后自动继续导入同一个文件。
+              </Banner>
+            ) : null}
 
             {plan ? (
               <div className="import-pack__plan">
