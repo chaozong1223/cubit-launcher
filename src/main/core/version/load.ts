@@ -327,6 +327,23 @@ export function detectMinecraftVersion(
   if (NUMERIC_MINECRAFT.test(leaf.id)) return leaf.id
   if (leaf.json.jar && NUMERIC_MINECRAFT.test(leaf.json.jar)) return leaf.json.jar
 
+  // Standalone versions (PCL-style "independent" installs) have no inheritsFrom,
+  // so the chain is a single node whose id is the pack name. Mojang/Forge write
+  // the vanilla version into `clientVersion`, and NeoForge/Forge repeat it as
+  // `--fml.mcVersion`; both beat guessing from the folder name.
+  const clientVersion = leaf?.json.clientVersion
+  if (typeof clientVersion === 'string' && NUMERIC_MINECRAFT.test(clientVersion)) {
+    return clientVersion
+  }
+  const gameArgs = Array.isArray(leaf?.json.arguments?.game) ? leaf?.json.arguments?.game : []
+  for (let index = 0; index < gameArgs.length; index += 1) {
+    const arg = gameArgs[index]
+    if (typeof arg !== 'string') continue
+    const next = gameArgs[index + 1]
+    const isMcFlag = arg === '--fml.mcVersion' || arg === '--fml.minecraftVersion'
+    if (isMcFlag && typeof next === 'string' && NUMERIC_MINECRAFT.test(next)) return next
+  }
+
   for (const library of flattened.libraries ?? []) {
     const match = /^net\.minecraftforge:forge:(\d+\.\d+(?:\.\d+)?)-/.exec(library.name)
     if (match) return match[1]
