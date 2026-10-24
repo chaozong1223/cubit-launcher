@@ -53,8 +53,8 @@ export function planNatives(
 }
 
 export interface NativesMarker {
-  /** 2 = flattened layout; bumping it invalidates caches built the old way. */
-  schemaVersion: 2
+  /** 3 = flat DLLs plus a `java/` mirror for modern java.library.path. */
+  schemaVersion: 3
   extractedAt: number
   sources: Array<{ library: string; jarPath: string; size: number; mtimeMs: number }>
   files: number
@@ -102,7 +102,7 @@ function cacheMatches(fs: FsPort, nativesDir: string, plan: NativePlan): boolean
   if (!fs.exists(file) || !fs.stat(nativesDir)?.isDirectory()) return false
   try {
     const marker = JSON.parse(fs.readText(file)) as NativesMarker
-    if (!marker || marker.schemaVersion !== 2 || !Array.isArray(marker.sources)) return false
+    if (!marker || marker.schemaVersion !== 3 || !Array.isArray(marker.sources)) return false
     const expected = currentFingerprint(fs, plan.sources)
     if (marker.sources.length !== expected.length) return false
     return marker.sources.every((entry, index) => {
@@ -216,8 +216,26 @@ export function extractNatives(
     skipped.push(...result.skipped)
   }
 
+  // Mojang's modern JSON (26.x/1.21+) points java.library.path at
+  // `<natives>/java` and routes JNA/LWJGL/Netty scratch dirs to sibling
+  // folders, so the DLLs must ALSO exist under `java/`. The flat copy stays for
+  // older versions whose java.library.path is the natives root itself.
+  const javaDir = path.join(targetDir, 'java')
+  try {
+    fs.mkdirp(winLongPath(javaDir))
+    for (const entry of fs.readDir(targetDir)) {
+      if (!/\.(dll|so|dylib)$/i.test(entry)) continue
+      const source = path.join(targetDir, entry)
+      const target = path.join(javaDir, entry)
+      if (!fs.exists(target)) fs.copyFile(source, target)
+    }
+  } catch {
+    // A missing mirror only matters for modern versions; the launch will
+    // surface the real error if the DLL cannot be found.
+  }
+
   const marker: NativesMarker = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     extractedAt: options.now?.() ?? Date.now(),
     sources: currentFingerprint(fs, plan.sources),
     files: extracted,
