@@ -428,7 +428,19 @@ export class LaunchOrchestrator extends EventEmitter {
     // The game runs with the launcher's integrity level. Under a low-integrity
     // fallback (Chromium sandbox unavailable) mods cannot write to the system
     // %TEMP%, so hand the JVM a directory the launcher created itself.
-    const gameTempDir = path.join(this.options.dataRoot, 'tmp', 'game')
+    //
+    // IMPORTANT: keep it ASCII. The launcher data root can live under a path with
+    // non-ASCII characters (e.g. `D:\DSH-工作文件\...`), and GPU drivers /
+    // LWJGL's temporary extraction chain choke on such paths — the game then
+    // fails with "Pixel format not accelerated / No OpenGL context". Prefer the
+    // user's LOCALAPPDATA; fall back to the data root only if that is unavailable.
+    const asciiTempBase =
+      process.env.LOCALAPPDATA && /^[\x20-\x7e]+$/.test(process.env.LOCALAPPDATA)
+        ? path.join(process.env.LOCALAPPDATA, 'Temp')
+        : null
+    const gameTempDir = asciiTempBase
+      ? path.join(asciiTempBase, 'mc-launcher-game')
+      : path.join(this.options.dataRoot, 'tmp', 'game')
     try {
       this.fs.mkdirp(gameTempDir)
     } catch (error) {
