@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { once } from 'node:events'
+import { pipeline } from 'node:stream/promises'
 import type { DownloadFailure, DownloadSourceId, DownloadTask } from '@shared/download'
 import {
   DownloadError,
@@ -314,6 +315,131 @@ async function writeStreamToFile(
   return { written, digest }
 }
 
+/** Files at least this big are fetched as parallel byte ranges. */
+const CHUNK_THRESHOLD_BYTES = 4 * 1024 * 1024
+/** Smallest range worth a separate connection (handshake cost). */
+const MIN_CHUNK_BYTES = 2 * 1024 * 1024
+const MAX_CHUNKS = 6
+
+interface ChunkRange {
+  start: number
+  end: number
+}
+
+export function planChunkRanges(size: number): ChunkRange[] {
+  if (size < CHUNK_THRESHOLD_BYTES) return [{ start: 0, end: Math.max(0, size - 1) }]
+  const count = Math.max(1, Math.min(MAX_CHUNKS, Math.floor(size / MIN_CHUNK_BYTES)))
+  const base = Math.floor(size / count)
+  const ranges: ChunkRange[] = []
+  let start = 0
+  for (let index = 0; index < count; index += 1) {
+    const end = index === count - 1 ? size - 1 : start + base - 1
+    ranges.push({ start, end })
+    start = end + 1
+  }
+  return ranges
+}
+
+/**
+ * Splits one large file across several Range requests and concatenates the
+ * pieces. Minecraft installs contain a handful of big artifacts (client jar,
+ * some assets) where a single connection is capped well below the link speed;
+ * parallel ranges bring those up to the same throughput as the many small files.
+ *
+ * Returns the number of bytes written on success, or `null` when the server does
+ * not honour byte ranges (the caller then falls back to a single request).
+ */
+async function transferChunked(
+  task: DownloadTask,
+  candidate: Candidate,
+  dest: string,
+  options: QueueOptions,
+  hooks: QueueHooks,
+  hostLimiter: HostLimiter,
+  rateLimiter: RateLimiter,
+  size: number,
+): Promise<number | null> {
+  const part = partPath(dest)
+  const ranges = planChunkRanges(size)
+  if (ranges.length <= 1) return null
+
+  const pieces: string[] = ranges.map((_, index) => `${part}.c${index}`)
+  const cleanup = async (): Promise<void> => {
+    for (const piece of pieces) await removeQuietly(piece)
+  }
+
+  try {
+    let written = 0
+    await Promise.all(
+      ranges.map(async (range, index) => {
+        const release = await hostLimiter.acquire(hostOf(candidate.url))
+        try {
+          const response = await options.http.openStream(candidate.url, {
+            headers: { range: `bytes=${range.start}-${range.end}` },
+            signal: options.signal,
+            idleTimeoutMs: 30_000,
+            isRedirectAllowed: (from, to) =>
+              options.sources.isRedirectAllowed(candidate.source, from, to, {
+                hashPinned: Boolean(resolveExpectedHash(task)),
+              }),
+          })
+          if (response.status !== 206) {
+            response.stream.resume()
+            throw new ChunkUnsupported()
+          }
+          const contentRange = headerValue(response.headers, 'content-range')
+          const match = contentRange ? /^bytes (\d+)-(\d+)\/(\d+|\*)$/i.exec(contentRange) : null
+          if (!match || Number(match[1]) !== range.start || Number(match[2]) !== range.end) {
+            response.stream.destroy()
+            throw new ChunkUnsupported()
+          }
+          const result = await writeStreamToFile(response, pieces[index], {
+            resumeFrom: 0,
+            expectedSize: range.end - range.start + 1,
+            algorithms: null,
+            signal: options.signal,
+            ...(options.sleep ? { sleep: options.sleep } : {}),
+            rateLimiter,
+            onBytes: (delta) => hooks.onBytes?.(delta, task.destRel, candidate.source),
+          })
+          written += result.written
+        } finally {
+          release()
+        }
+      }),
+    )
+
+    await ensureDir(path.dirname(part))
+    const sink = fs.createWriteStream(part, { flags: 'w' })
+    try {
+      for (const piece of pieces) {
+        await pipeline(fs.createReadStream(piece), sink, { end: false })
+      }
+    } finally {
+      await new Promise<void>((resolve) => sink.end(() => resolve()))
+    }
+
+    const onDisk = (await statOrNull(part))?.size ?? 0
+    if (onDisk !== size) {
+      await removeQuietly(part)
+      throw new DownloadError('DOWNLOAD.SIZE_MISMATCH', {
+        message: `chunked size ${onDisk} != metadata ${size} (${part})`,
+        details: { expected: size, actual: onDisk },
+      })
+    }
+    return written
+  } catch (error) {
+    await cleanup()
+    if (error instanceof ChunkUnsupported) return null
+    throw error
+  } finally {
+    await cleanup()
+  }
+}
+
+/** Internal signal: the server did not honour the Range request. */
+class ChunkUnsupported extends Error {}
+
 async function transfer(
   task: DownloadTask,
   candidate: Candidate,
@@ -355,6 +481,47 @@ async function transfer(
     }
     await removePart(dest)
     resumeFrom = 0
+  }
+
+  // Large artifacts: fetch as parallel byte ranges (see transferChunked). Only
+  // from a clean slate — a half-written .part must keep using the single resume
+  // path so its existing bytes are not duplicated.
+  if (
+    expectedHash &&
+    expectedSize !== null &&
+    expectedSize >= CHUNK_THRESHOLD_BYTES &&
+    resumeFrom === 0
+  ) {
+    const chunkedBytes = await transferChunked(
+      task,
+      candidate,
+      dest,
+      options,
+      hooks,
+      hostLimiter,
+      rateLimiter,
+      expectedSize,
+    )
+    if (chunkedBytes !== null) {
+      const digest = await hashFile(part, [expectedHash.algorithm], { signal: options.signal })
+      const check = checkDigest(expectedHash, digest)
+      if (!check.ok) {
+        await removePart(dest)
+        throw new DownloadError('DOWNLOAD.HASH_MISMATCH', {
+          message: `hash mismatch for ${task.destRel} (${check.algorithm})`,
+          details: {
+            destRel: task.destRel,
+            algorithm: check.algorithm,
+            expected: check.expected,
+            actual: check.actual,
+            source: candidate.source,
+          },
+        })
+      }
+      await renameAtomic(part, dest)
+      await removeQuietly(partMetaPath(dest))
+      return chunkedBytes
+    }
   }
 
   const release = await hostLimiter.acquire(hostOf(candidate.url))
