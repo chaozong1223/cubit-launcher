@@ -20,6 +20,8 @@ export interface JavaPackage {
   /** Vendor build version, e.g. `17.0.20.1+1` or `21.0.12.1`. */
   version: string
   url: string
+  /** Optional faster/mirrored copy tried before `url` (same SHA-256). */
+  mirrorUrl?: string
   sha256: string
   size: number | null
   fileName: string
@@ -42,6 +44,23 @@ export interface ResolveJavaPackageInput {
 
 const ADOPTIUM_DEFAULT = 'https://api.adoptium.net/v3/assets/latest'
 const MICROSOFT_DEFAULT = 'https://aka.ms/download-jdk'
+
+/**
+ * GitHub release downloads fail on machines whose TLS chain cannot verify
+ * github.com (the launcher then reports "unable to verify the first
+ * certificate"). A public accelerator serves the identical bytes, and the
+ * pinned SHA-256 still decides whether the file is accepted.
+ * Set MCL_GITHUB_MIRROR=off to disable, or to a custom prefix.
+ */
+const GITHUB_MIRROR_DEFAULT = 'https://ghfast.top/'
+
+function githubMirror(url: string): string | null {
+  const override = process.env.MCL_GITHUB_MIRROR?.trim()
+  if (override === 'off' || override === 'none') return null
+  if (!/^https:\/\/github\.com\//i.test(url)) return null
+  const prefix = override && override.length > 0 ? override : GITHUB_MIRROR_DEFAULT
+  return `${prefix.endsWith('/') ? prefix : `${prefix}/`}${url}`
+}
 
 function osName(platform: NodeJS.Platform): string | null {
   if (platform === 'win32') return 'windows'
@@ -195,6 +214,7 @@ export class JavaProviders {
         major,
         version: release,
         url: link,
+        ...(githubMirror(link) ? { mirrorUrl: githubMirror(link) as string } : {}),
         sha256: checksum.toLowerCase(),
         size,
         fileName,

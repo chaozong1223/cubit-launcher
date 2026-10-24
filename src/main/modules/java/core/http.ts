@@ -286,20 +286,26 @@ export class JavaHttp {
     }
   }
 
-  async download(rawUrl: string, options: DownloadOptions): Promise<DownloadResult> {
+  async download(rawUrl: string | string[], options: DownloadOptions): Promise<DownloadResult> {
     const retries = Math.max(0, options.retries ?? 2)
+    // Several candidate URLs (mirror first, upstream last) are tried in turn:
+    // a proxy that cannot present a valid certificate must not block the install
+    // when the direct URL would work, and vice versa.
+    const urls = (Array.isArray(rawUrl) ? rawUrl : [rawUrl]).filter((url) => url.length > 0)
     let lastError: unknown = null
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       if (options.signal?.aborted) {
         throw new JavaError('JAVA.CANCELLED', { message: 'cancelled before download' })
       }
+      const url = urls[Math.min(attempt, urls.length - 1)] ?? urls[0]
       try {
-        return await this.downloadOnce(rawUrl, options)
+        return await this.downloadOnce(url, options)
       } catch (error) {
         lastError = error
         if (error instanceof JavaError && error.code === 'JAVA.CANCELLED') throw error
         this.options.log?.warn('java download attempt failed', {
           attempt: attempt + 1,
+          url,
           message: error instanceof Error ? error.message : String(error),
         })
         if (attempt < retries) {

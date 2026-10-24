@@ -167,7 +167,10 @@ export async function installJavaPackage(input: InstallJavaPackageInput): Promis
       currentFile: fileName,
       message: `下载 ${fileName}`,
     })
-    const downloaded = await input.http.download(input.pkg.url, {
+    const candidates = [input.pkg.mirrorUrl, input.pkg.url].filter(
+      (url): url is string => typeof url === 'string' && url.length > 0,
+    )
+    const downloaded = await input.http.download(candidates.length > 0 ? candidates : input.pkg.url, {
       dest: zipPath,
       sha256: input.pkg.sha256,
       size: input.pkg.size,
