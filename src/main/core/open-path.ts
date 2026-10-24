@@ -1,29 +1,39 @@
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { shell } from 'electron'
 
 /**
  * Open a file or folder in the OS shell.
  *
- * On this Windows setup `shell.openPath` sometimes pops the raw ShellExecute
- * dialog ("Windows 无法访问指定设备、路径或文件") instead of returning an error,
- * and `shell.openExternal` can resolve while doing nothing. Explorer uses the
- * same file associations without surfacing that dialog, so it is the primary
- * path on Windows. Returns '' on success, otherwise the error message.
+ * Two Windows quirks drive this:
+ *  - `shell.openPath` pops the raw ShellExecute dialog for a missing target, so
+ *    it is only used when the path actually exists;
+ *  - a detached `explorer.exe <dir>` opens the folder without focusing it, which
+ *    looks like "nothing happened" when the window sits behind the launcher.
+ * So: existing target → Electron API (focuses Explorer correctly), otherwise
+ * explorer as a last resort. Returns '' on success, else an error message.
  */
 export async function openPathInShell(target: string): Promise<string> {
-  if (process.platform === 'win32') {
-    try {
-      spawn('explorer.exe', [target], {
-        windowsHide: true,
-        detached: true,
-        stdio: 'ignore',
-      }).unref()
-      return ''
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error)
+  if (process.platform !== 'win32') return shell.openPath(target)
+  try {
+    if (fs.existsSync(target)) {
+      const error = await shell.openPath(target)
+      if (!error) return ''
     }
+  } catch {
+    /* fall through to explorer */
   }
-  return shell.openPath(target)
+  try {
+    spawn('explorer.exe', [target], {
+      windowsHide: true,
+      detached: true,
+      stdio: 'ignore',
+    })
+      .unref()
+    return ''
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
 }
 
 /** Open an https URL in the default browser (Windows: through explorer). */
