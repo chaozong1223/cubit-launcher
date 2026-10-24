@@ -179,6 +179,7 @@ export function DownloadPage() {
   // Same idea for the version picker: two quick cards stay visible, the long
   // list is reference data behind a toggle.
   const [showVersionList, setShowVersionList] = useState(false)
+  const [javaStage, setJavaStage] = useState<string | null>(null)
   const loaderType: LoaderType | null = type === 'vanilla' ? null : type as LoaderType
   const loaderList = useAsync(
     () => (loaderType && versionId ? backend.loader.list(loaderType, versionId, false) : Promise.resolve(null)),
@@ -309,12 +310,54 @@ export function DownloadPage() {
 
   const visibleTasks = mergedTasks.filter((task) => !dismissedJobs.has(task.jobId))
 
+  /**
+   * Make sure a JVM matching the version's requirement exists, downloading the
+   * Mojang/Adoptium runtime when nothing suitable is installed. Without this the
+   * game launches on a mismatched Java and dies with native crashes that look
+   * like launcher bugs.
+   */
+  const ensureJava = async (targetVersionId: string): Promise<void> => {
+    let required: number | null = null
+    try {
+      const requirement = await backend.java.requirement(targetVersionId)
+      required = requirement.requiredMajor
+    } catch {
+      return
+    }
+    if (!required) return
+    const detected = await backend.java.detect(true).catch(() => null)
+    const installed = (detected?.candidates ?? []).some((candidate) => candidate.version.major === required)
+    if (installed) return
+
+    setJavaStage(`缺少 Java ${required}，正在自动下载…`)
+    const job = await backend.java.download({ major: required, source: 'auto', force: false })
+    for (let attempt = 0; attempt < 900; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const progress = await backend.java.downloadStatus(job.jobId).catch(() => null)
+      if (!progress) continue
+      setJavaStage(
+        `下载 Java ${required} · ${progress.stage}${progress.percent === null ? '' : ` ${Math.round(progress.percent)}%`}`,
+      )
+      if (progress.state === 'done') {
+        setJavaStage(null)
+        return
+      }
+      if (progress.state === 'failed' || progress.state === 'cancelled') {
+        setJavaStage(null)
+        throw new Error(`Java ${required} 下载未完成（${progress.state}）：${progress.message ?? '没有更多信息'}`)
+      }
+    }
+    setJavaStage(null)
+    throw new Error(`Java ${required} 下载超时；可在设置 → Java 里重试`)
+  }
+
   const install = async () => {
     if (!canInstall) return
     setBusy(true)
     setActionError(null)
     setLoaderError(null)
     try {
+      await ensureJava(versionId)
       if (type === 'vanilla') {
         await backend.downloads.install(versionId)
         tasks.reload()
@@ -664,7 +707,20 @@ export function DownloadPage() {
             </div>
           ) : null}
 
-          {tasks.status === 'loading' ? (
+          {javaStage ? (
+        <div className="nw-task-card" style={{ marginBottom: 12 }}>
+          <div className="nw-task-card__head">
+            <div>
+              <div className="nw-task-card__title">准备 Java 运行环境</div>
+              <div className="nw-task-card__sub">{javaStage}</div>
+            </div>
+            <Badge tone="accent" dot>java</Badge>
+          </div>
+          <Progress value={null} label="Java 下载进度" />
+        </div>
+      ) : null}
+
+      {tasks.status === 'loading' ? (
             <div className="nw-stack"><Skeleton className="skeleton--text" /><Skeleton className="skeleton--text" style={{ width: '70%' }} /></div>
           ) : tasksInfo ? (
             <DataStateNotice info={tasksInfo} onRetry={tasks.reload} />

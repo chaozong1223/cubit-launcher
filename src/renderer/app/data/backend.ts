@@ -28,7 +28,7 @@ import type {
   ShareImportStart,
 } from '@shared/instance'
 import type { VersionSummary } from '@shared/version'
-import type { JavaDetectResult } from '@shared/java'
+import type { JavaDetectResult, JavaInstallJob, JavaInstallProgress, JavaRequirement } from '@shared/java'
 import type { LaunchExitReport, LaunchPlan, LaunchState, LaunchStatus } from '@shared/launch'
 import type {
   Account,
@@ -402,6 +402,10 @@ const CH = {
   versionInspect: channelOf('version', 'inspect'),
   javaDetect: channelOf('java', 'detect'),
   javaChoose: channelOf('java', 'choose'),
+  javaRequirement: channelOf('java', 'requirement'),
+  javaDownload: channelOf('java', 'download'),
+  javaDownloadStatus: channelOf('java', 'downloadStatus'),
+  javaCancelDownload: channelOf('java', 'cancelDownload'),
   launchStatus: channelOf('launch', 'status'),
   launchPlan: channelOf('launch', 'plan'),
   launchStart: channelOf('launch', 'start'),
@@ -680,6 +684,10 @@ export interface Backend {
   java: {
     detect(force?: boolean): Promise<JavaDetectResult>
     choose(requiredMajor?: number | null): Promise<unknown>
+    requirement(versionId: string): Promise<JavaRequirement>
+    download(input: { major: number; source: 'auto' | string; force: boolean }): Promise<JavaInstallJob>
+    downloadStatus(jobId: string): Promise<JavaInstallProgress | null>
+    cancelDownload(jobId: string): Promise<{ cancelled: boolean }>
   }
   auth: {
     list(): Promise<{ accounts: Account[]; selectedId: string | null }>
@@ -974,6 +982,10 @@ export const ipcBackend: Backend = {
   java: {
     detect: (force = false) => invoke<JavaDetectResult>('Java 检测', CH.javaDetect, { force }),
     choose: (requiredMajor) => invoke('Java 选择', CH.javaChoose, { requiredMajor: requiredMajor ?? null }),
+    requirement: (versionId) => invoke<JavaRequirement>('Java 版本要求', CH.javaRequirement, { versionId }),
+    download: (input) => invoke<JavaInstallJob>('下载 Java 运行时', CH.javaDownload, input),
+    downloadStatus: (jobId) => invoke<JavaInstallProgress | null>('Java 下载状态', CH.javaDownloadStatus, { jobId }),
+    cancelDownload: (jobId) => invoke<{ cancelled: boolean }>('取消 Java 下载', CH.javaCancelDownload, { jobId }),
   },
   auth: {
     list: () => invoke('账户列表', CH.authList),
