@@ -304,7 +304,49 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
       const accountId = accountState.selectedId ?? accountState.accounts[0].id
       if (!accountState.selectedId) await backend.auth.select(accountId)
       setStage('检查 Java…')
-      const java = await backend.java.detect(false)
+      // Make sure the JVM matches what this version wants. Legacy versions need
+      // Java 8 exactly; downloading it beats launching on 17 and crashing.
+      const requirement = await backend.java.requirement(instance.id).catch(() => null)
+      const requiredMajor = requirement?.requiredMajor ?? null
+      let detected = await backend.java.detect(false)
+      const hasMatching = (result: typeof detected): boolean =>
+        result.candidates.some((candidate) =>
+          requiredMajor === null ? true : candidate.version.major === requiredMajor,
+        )
+      if (requiredMajor !== null && !hasMatching(detected)) {
+        setStage(`缺少 Java ${requiredMajor}，正在自动下载…`)
+        const javaJob = await backend.java.download({
+          major: requiredMajor,
+          source: 'auto',
+          force: false,
+        })
+        for (let attempt = 0; attempt < 900; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2000))
+          const progress = await backend.java.downloadStatus(javaJob.jobId).catch(() => null)
+          if (!progress) continue
+          setStage(
+            `下载 Java ${requiredMajor} · ${progress.stage}` +
+              (progress.percent === null ? '' : ` ${Math.round(progress.percent)}%`),
+          )
+          if (progress.state === 'done') break
+          if (progress.state === 'failed' || progress.state === 'cancelled') {
+            throw new BackendError(
+              'JAVA.DOWNLOAD_FAILED',
+              `Java ${requiredMajor} 下载${progress.state === 'cancelled' ? '已取消' : '失败'}：${progress.message ?? '没有更多信息'}`,
+              true,
+            )
+          }
+        }
+        detected = await backend.java.detect(true)
+        if (!hasMatching(detected)) {
+          throw new BackendError(
+            'JAVA.VERSION_MISMATCH',
+            `该版本需要 Java ${requiredMajor}，下载完成但没有检测到它`,
+            true,
+          )
+        }
+      }
+      const java = detected
       if (java.candidates.length === 0) {
         throw new BackendError('JAVA.NOT_FOUND', '没有找到可用的 Java；请安装 Java 或在设置中指定路径', true)
       }

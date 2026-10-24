@@ -18,6 +18,9 @@ export interface JavaChoiceResult {
   warnings: string[]
 }
 
+/** Minecraft versions up to 1.16 target Java 8 and break on newer runtimes. */
+const LEGACY_JAVA_MAX = 8
+
 function rank(candidate: JavaCandidate): number {
   return candidate.version.major * 10_000 + candidate.version.patch + (candidate.bits === 64 ? 0.5 : 0)
 }
@@ -92,6 +95,22 @@ export function chooseJava(options: ChooseJavaOptions): JavaChoiceResult {
   const exact = candidates.filter((candidate) => candidate.version.major === requiredMajor)
   if (exact.length > 0) {
     return { candidate: best(exact), requiredMajor, warnings }
+  }
+
+  // Legacy versions target Java 8 specifically: Forge/LaunchWrapper on 1.12.2
+  // dies on Java 17 with obscure native errors, so "newer" is NOT an acceptable
+  // substitute below 9. Report the mismatch instead of silently picking 17+.
+  if (requiredMajor <= LEGACY_JAVA_MAX) {
+    throw new CoreError('JAVA.VERSION_MISMATCH', {
+      message: `this version needs Java ${requiredMajor} exactly; only newer runtimes were found`,
+      userMessage: `该版本需要 Java ${requiredMajor}，当前只检测到更高版本`,
+      hint: `安装 Java ${requiredMajor} 后重试（启动器可自动下载）`,
+      details: {
+        requiredMajor,
+        available: candidates.map((candidate) => candidate.version.major),
+        exactRequired: true,
+      },
+    })
   }
 
   const newer = candidates
