@@ -102,6 +102,22 @@ function duplicateKey(source: NativeSource): string {
 }
 
 /**
+ * True when the library actually ships a plain (non-classifier) jar. Natives-only
+ * entries such as `net.java.jinput:jinput-platform:2.0.5` declare just
+ * `downloads.classifiers`, and deriving a path from the maven name inventing a
+ * jar that does not exist upstream would make every launch report it missing.
+ */
+function declaresArtifact(library: VersionLibrary): boolean {
+  if (library.downloads?.artifact) return true
+  // Maven-style profiles (Fabric/Quilt/Forge installers) carry a base `url` and
+  // always resolve to `<url>/<path>`.
+  if (!library.downloads && typeof library.url === 'string' && library.url.length > 0) {
+    return true
+  }
+  return false
+}
+
+/**
  * Modern LWJGL natives are ordinary libraries whose classifier starts with
  * `natives-`; the classifier jar itself is the extraction source (1.19+).
  */
@@ -156,7 +172,11 @@ export function resolveLibraries(
         natives.push({ library: name, jarPath, exclude })
         nativeDownloads.push({ library: name, jarPath, exclude })
       }
-      if (archive && archiveAbsolute) {
+      // Some natives-only libraries declare no plain artifact at all (e.g.
+      // `net.java.jinput:jinput-platform:2.0.5` on 1.12.2 — the jar simply does
+      // not exist upstream). Inventing the path from the maven name turned
+      // those into bogus "missing file" failures that blocked every launch.
+      if (declaresArtifact(library) && archive && archiveAbsolute) {
         const present = exists(archiveAbsolute)
         if (!present) missing.push(archiveAbsolute)
         entries.push({ name, path: archiveAbsolute, exists: present, kind: 'library' })
