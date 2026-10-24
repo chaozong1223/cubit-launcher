@@ -2,14 +2,24 @@ import type { ProcessPort } from '../ports'
 import { encodingForCodePage } from '../java/version'
 
 /**
- * Auto memory: clamp(25% of physical memory, 2048, 8192) MiB (docs/01 R4.1).
- * The lower bound protects heavily modded packs; the upper bound avoids
- * starving the rest of the desktop.
+ * Auto memory for instances that never set it by hand.
+ *
+ * A flat "25% of RAM" ignores what actually decides the footprint: the number of
+ * mods. A 1.12.2 kitchen-sink pack with 230 mods needs ~11 GB while 25% of a
+ * 32 GB machine gave 8 GB — the game then stalls during mod loading.
+ *
+ *   budget = 2048 + mods × 40 MiB, clamped to [4096, min(70% RAM, 16384)]
+ *
+ * Without a mod count the old 25% rule still applies.
  */
-export function autoMaxMemoryMb(totalBytes: number): number {
+export function autoMaxMemoryMb(totalBytes: number, modCount?: number | null): number {
   if (!Number.isFinite(totalBytes) || totalBytes <= 0) return 4096
-  const quarter = Math.round((totalBytes / (1024 * 1024)) * 0.25)
-  return Math.min(8192, Math.max(2048, quarter))
+  const totalMb = totalBytes / (1024 * 1024)
+  const ceiling = Math.min(16_384, Math.round(totalMb * 0.7))
+  const quarter = Math.round(totalMb * 0.25)
+  const mods = typeof modCount === 'number' && modCount > 0 ? modCount : 0
+  const budget = mods > 0 ? 2048 + Math.round(mods * 40) : quarter
+  return Math.min(ceiling, Math.max(4096, budget))
 }
 
 export interface CodePageResult {

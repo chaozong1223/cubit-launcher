@@ -354,6 +354,17 @@ export class LaunchOrchestrator extends EventEmitter {
     return { java: choice.candidate, requiredMajor, warnings: choice.warnings }
   }
 
+  /** Enabled `.jar` mods in this instance; drives the automatic heap size. */
+  private countEnabledMods(versionDir: string): number {
+    try {
+      return this.fs
+        .readDir(path.join(versionDir, 'mods'))
+        .filter((name) => name.toLowerCase().endsWith('.jar')).length
+    } catch {
+      return 0
+    }
+  }
+
   private buildPaths(resolved: ResolvedVersion, settings: InstanceSettings) {
     const versionDir = resolved.dir
     const gameDir = settings.isolation === 'isolated' ? versionDir : this.options.mcRoot
@@ -400,6 +411,7 @@ export class LaunchOrchestrator extends EventEmitter {
     const codePage = await this.currentCodePage()
     const autoMemory = autoMaxMemoryMb(
       this.options.totalMemoryBytes ?? os.totalmem(),
+      this.countEnabledMods(resolved.dir),
     )
     const memory =
       settings.memoryMode === 'custom' ? settings.memory : { minMb: 1024, maxMb: autoMemory }
