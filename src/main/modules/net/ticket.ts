@@ -1,4 +1,4 @@
-import crypto from 'node:crypto'
+﻿import crypto from 'node:crypto'
 import type { LinkErrorCode } from '@shared/net'
 import { LINK_ERROR_MESSAGES } from '@shared/net'
 
@@ -19,7 +19,7 @@ export const MAX_CLOCK_SKEW_SECONDS = 300
 export const DEFAULT_TICKET_TTL_SECONDS = 600
 
 export interface TicketEndpoint {
-  kind: 'lan' | 'relay'
+  kind: 'lan' | 'wan' | 'relay'
   host: string
   port: number
 }
@@ -342,7 +342,7 @@ function validatePayloadShape(payload: TicketPayload, code: string): void {
     throw new LinkError('TICKET_MALFORMED', 'endpoints')
   }
   for (const endpoint of payload.endpoints) {
-    if (!endpoint || (endpoint.kind !== 'lan' && endpoint.kind !== 'relay')) {
+    if (!endpoint || (endpoint.kind !== 'lan' && endpoint.kind !== 'wan' && endpoint.kind !== 'relay')) {
       throw new LinkError('TICKET_MALFORMED', 'endpoint kind')
     }
     if (typeof endpoint.host !== 'string' || endpoint.host.length === 0 || endpoint.host.length > 255) {

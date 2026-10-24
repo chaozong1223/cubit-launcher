@@ -33,6 +33,7 @@ import {
   type TicketPayload,
 } from './ticket'
 import { LinkError } from './ticket'
+import { isPublicIpv4 } from './netutil'
 import { HostControl, MemberControl, type MemberWelcome } from './control'
 import { LanWorldDiscovery } from './discovery'
 import type { TunnelHandle, TunnelPort } from './easytier'
@@ -106,6 +107,8 @@ export class RoomService {
   private lanControlPort: number | null = null
   private aliasControlPort: number | null = null
   private peerPort: number | null = null
+  /** Public IPv4 as the EasyTier peer sees it; null when the probe failed. */
+  private publicIp: string | null = null
   private localWorldPort: number | null = null
   private localControlPort: number | null = null
   private joinTarget: JoinTarget | null = null
@@ -592,6 +595,32 @@ export class RoomService {
   }
 
   // ---------- host tunnel ----------
+
+  /**
+   * Ask EasyTier for the address a remote peer should dial (`easytier-cli node`
+   * reports it after STUN). Returns null when the probe fails, in which case the
+   * invite stays LAN-only.
+   */
+  private async probePublicIp(handle: { rpcPort: number }, cliPath?: string): Promise<string | null> {
+    try {
+      const cli = cliPath ?? this.tunnelHandle?.cliPath
+      if (!cli) return null
+      const result = spawnSync(
+        cli,
+        ['--rpc-portal', `127.0.0.1:${handle.rpcPort}`, 'node'],
+        { timeout: 8000, windowsHide: true, encoding: 'utf8' },
+      )
+      const text = `${result.stdout ?? ''}`
+      const matches = [...text.matchAll(/Public IPv4\s*\|\s*([\d.]+)/g)].map((match) => match[1])
+      for (const ip of matches) {
+        if (isPublicIpv4(ip)) return ip
+      }
+      return matches[0] ?? null
+    } catch {
+      return null
+    }
+  }
+
   private async startHostTunnel(): Promise<void> {
     if (!this.identity) return
     const tunnel = this.options.tunnel
@@ -617,9 +646,13 @@ export class RoomService {
       this.peerPort = handle.peerPort
       this.aliasControlPort = await this.hostControl!.listen(this.aliasIp, 0)
       this.tunnelState = 'up'
+      // EasyTier already performed STUN; ask it for the address a remote peer
+      // would dial. Without this the invite carried only the LAN address.
+      this.publicIp = await this.probePublicIp(handle, handle.cliPath)
       this.options.log.info('host tunnel ready', {
         peerPort: handle.peerPort,
         alias: this.aliasIp,
+        publicIp: this.publicIp,
         relayPeers: this.relayPeers.length,
       })
     } catch (error) {
@@ -636,6 +669,11 @@ export class RoomService {
   private issueCurrentTicket(): IssuedTicket {
     if (!this.identity) throw new LinkError('INTERNAL', 'no room identity')
     const endpoints: TicketEndpoint[] = []
+    // Public endpoint FIRST: a peer on another network can only reach us through
+    // it. The LAN entry alone made every cross-network invite unusable.
+    if (this.publicIp && this.peerPort) {
+      endpoints.push({ kind: 'wan', host: this.publicIp, port: this.peerPort })
+    }
     if (this.lanControlPort) {
       endpoints.push({ kind: 'lan', host: this.lanIp, port: this.lanControlPort })
     }

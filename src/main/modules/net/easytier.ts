@@ -1,4 +1,4 @@
-﻿import crypto from 'node:crypto'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
@@ -66,6 +66,8 @@ export interface SidecarHandle {
   peerPort: number | null
   localWorldPort: number | null
   localControlPort: number | null
+  /** Absolute path of the pinned easytier-cli.exe (diagnostics / public IP). */
+  cliPath: string
   args: string[]
   stop(): Promise<void>
 }
@@ -445,6 +447,7 @@ export class EasyTierManager {
       role,
       pid: child.pid ?? null,
       ...ports,
+      cliPath: this.paths().cli,
       args,
       stop: async () => {
         await killChild(child, this.platform)
@@ -502,6 +505,8 @@ export interface TunnelHandle {
   peerPort: number | null
   localWorldPort: number | null
   localControlPort: number | null
+  /** Absolute path of the pinned easytier-cli.exe (diagnostics / public IP). */
+  cliPath?: string
 }
 
 export interface TunnelPort {
