@@ -615,7 +615,18 @@ export class ModsModuleService {
       case 'quilt':
         return ['org.quiltmc.loader.impl.launch.knot.KnotClient']
       case 'forge':
-        return ['cpw.mods.bootstraplauncher.BootstrapLauncher', 'net.minecraftforge']
+        // Forge has had four launcher generations:
+        //  ≤1.12.2  net.minecraft.launchwrapper.Launch
+        //  1.13-1.16 cpw.mods.modlauncher.Launcher
+        //  1.16-1.16 net.minecraftforge… (FML launch handler)
+        //  1.17+    cpw.mods.bootstraplauncher.BootstrapLauncher
+        // Missing any of them makes an installed loader look "not installed".
+        return [
+          'net.minecraft.launchwrapper',
+          'cpw.mods.modlauncher',
+          'cpw.mods.bootstraplauncher.BootstrapLauncher',
+          'net.minecraftforge',
+        ]
       case 'neoforge':
         return ['cpw.mods.bootstraplauncher.BootstrapLauncher', 'net.neoforged']
       default:
