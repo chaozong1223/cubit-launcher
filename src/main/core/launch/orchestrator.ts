@@ -761,9 +761,15 @@ export class LaunchOrchestrator extends EventEmitter {
       exists: (target) => this.fs.exists(target),
     })
     if (libraries.missing.length > 0) {
+      // Log the actual names: "file missing" without saying which one is useless
+      // when a 200-mod pack is involved.
+      this.options.logger?.warn?.('launch pre-check found missing libraries', {
+        count: libraries.missing.length,
+        missing: libraries.missing.slice(0, 40),
+      })
       throw new CoreError('LAUNCH.PLAN_INVALID', {
         message: `missing files before launch: ${libraries.missing.length}`,
-        userMessage: '启动前检查发现文件缺失，请先修复实例',
+        userMessage: `启动前检查发现 ${libraries.missing.length} 个文件缺失，请先修复实例`,
         details: { missing: libraries.missing.slice(0, 50) },
       })
     }
