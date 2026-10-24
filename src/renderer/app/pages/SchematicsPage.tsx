@@ -5,6 +5,7 @@ import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
 import { navigate } from '../router'
+import { SchematicImportDialog } from './SchematicImportDialog'
 import {
   copySchematic,
   deleteSchematics,
@@ -125,6 +126,7 @@ export function SchematicsPage({ initialInstanceId }: { initialInstanceId?: stri
   const [targetId, setTargetId] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [error, setError] = useState<UiErrorInfo | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [conflict, setConflict] = useState<ConflictState | null>(null)
@@ -446,33 +448,6 @@ export function SchematicsPage({ initialInstanceId }: { initialInstanceId?: stri
 
   return (
     <>
-      <div
-        className={dragging ? 'page-dropzone is-dragging' : 'page-dropzone'}
-        onDragOver={(event) => {
-          if (!sourceInstance) return
-          event.preventDefault()
-          setDragging(true)
-        }}
-        onDragLeave={(event) => {
-          if (event.currentTarget === event.target) setDragging(false)
-        }}
-        onDrop={(event) => {
-          if (!sourceInstance) return
-          event.preventDefault()
-          setDragging(false)
-          const files = Array.from(event.dataTransfer?.files ?? [])
-          const paths = files
-            .map((file) => {
-              try {
-                return backend.system.getPathForFile(file)
-              } catch {
-                return ''
-              }
-            })
-            .filter((entry) => entry.length > 0)
-          void importPaths(paths)
-        }}
-      >
       <div className="back-row">
         <Button variant="link" icon="arrow-left" onClick={() => navigate('/home')}>主页</Button>
         <span>/</span>
@@ -484,7 +459,7 @@ export function SchematicsPage({ initialInstanceId }: { initialInstanceId?: stri
         actions={(
           <>
             <Button variant="secondary" icon="folder" disabled={!sourceInstance} onClick={openFolder}>打开文件夹</Button>
-            <Button variant="primary" icon="plus" loading={busy === 'import'} disabled={!sourceInstance} onClick={() => void pickAndImport()}>打开文件…</Button>
+            <Button variant="primary" icon="plus" loading={busy === 'import'} disabled={!sourceInstance} onClick={() => setImportOpen(true)}>导入投影…</Button>
           </>
         )}
       />
@@ -666,7 +641,7 @@ export function SchematicsPage({ initialInstanceId }: { initialInstanceId?: stri
                                   icon="schematic"
                                   title={list.status === 'not-wired' ? '列表暂不可用' : '还没有投影文件'}
                                   description="把 .litematic / .nbt / .schem 放进该来源的 schematics 目录，或用「打开文件…」直接选"
-                                  actions={<Button size="sm" variant="primary" icon="plus" loading={busy === 'import'} onClick={() => void pickAndImport()}>打开文件…</Button>}
+                                  actions={<Button size="sm" variant="primary" icon="plus" loading={busy === 'import'} onClick={() => setImportOpen(true)}>导入投影…</Button>}
                                   hint={list.status === 'not-wired'
                                     ? '投影通道尚未由主进程注册；这里不会显示示例数据。'
                                     : list.data?.gameDir
@@ -749,7 +724,13 @@ export function SchematicsPage({ initialInstanceId }: { initialInstanceId?: stri
           </div>
         </>
       )}
-      </div>
+
+      <SchematicImportDialog
+        open={importOpen}
+        instanceName={sourceInstance?.name ?? '当前实例'}
+        onClose={() => setImportOpen(false)}
+        onImport={importPaths}
+      />
     </>
   )
 }
