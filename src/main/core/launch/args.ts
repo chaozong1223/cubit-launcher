@@ -542,6 +542,22 @@ export function buildLaunchPlan(input: BuildLaunchPlanInput): LaunchPlanCore {
     jvmArgs.push('-cp', classpath)
   }
 
+  // Forge on LaunchWrapper (≤1.12.2) verifies the vanilla client jar signature
+  // and refuses to load its classes when it does not match what the old FML
+  // expects — Mojang re-signed those jars years later, so every real 1.12.2
+  // install mismatches. Every launcher in the wild passes these two flags;
+  // without them the game dies with:
+  //   ClassNotFoundException: net.minecraft.client.Minecraft
+  if (version.mainClass === 'net.minecraft.launchwrapper.Launch') {
+    for (const flag of [
+      '-Dfml.ignoreInvalidMinecraftCertificates=True',
+      '-Dfml.ignorePatchDiscrepancies=True',
+    ]) {
+      const key = flag.slice(0, flag.indexOf('='))
+      if (!hasAny(jvmArgs, (arg) => arg.startsWith(`${key}=`))) jvmArgs.push(flag)
+    }
+  }
+
   jvmArgs = stripArgs(jvmArgs, (arg) => arg.startsWith('-Xmx') || arg.startsWith('-Xms'))
   ensureNativesArgs(jvmArgs, paths.nativesDir)
 
