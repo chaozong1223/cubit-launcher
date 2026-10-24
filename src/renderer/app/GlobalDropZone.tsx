@@ -5,6 +5,7 @@ import type { LoaderFinished, LoaderProgress, LoaderType } from '@shared/loader'
 import type { ModKind, ModpackImportFinished, ModpackImportProgress } from '@shared/mods'
 import { useBackend } from './data/BackendContext'
 import { BackendError, describeError } from './data/backend'
+import { importSchematic } from './data/schematics'
 import { assertJobSucceeded, waitForJob } from './data/waitJob'
 import { detectArchive, type ArchiveDetection, type DetectedLoader } from './data/archiveDetect'
 import { useAsync } from './data/useAsync'
@@ -429,11 +430,31 @@ export function GlobalDropZone() {
         await installLocal(target, entry.path, 'mods', '扩展名 .jar')
         continue
       }
+      if (ext === '.litematic' || ext === '.nbt' || ext === '.schem') {
+        // Schematics belong to an instance's schematics/ folder.
+        if (!target) {
+          showTargetRequired()
+          return
+        }
+        try {
+          const imported = await importSchematic(target.id, entry.path)
+          setFeedback({
+            tone: 'success',
+            title: `已导入 ${imported.fileName}`,
+            detail: `→ ${target.name} 的 gameDir/schematics/`,
+            action: { label: '打开投影管理', to: '/schematics' },
+          })
+        } catch (cause) {
+          const info = describeError(cause)
+          setFeedback({ tone: 'error', title: '投影导入失败', detail: `${info.title}：${info.detail}` })
+        }
+        continue
+      }
       if (ext !== '.zip' && ext !== '.mrpack') {
         setFeedback({
           tone: 'error',
           title: '不支持的文件类型',
-          detail: `支持 .jar（模组）、.zip（整合包/资源包/光影）、.mrpack（整合包）和文件夹；收到：${baseName(entry.path)}`,
+          detail: `支持 .jar（模组）、.zip（整合包/资源包/光影）、.mrpack（整合包）、.litematic/.nbt/.schem（投影）和文件夹；收到：${baseName(entry.path)}`,
         })
         continue
       }
@@ -647,7 +668,7 @@ export function GlobalDropZone() {
       ) : null}
 
       {!target && !dragging && !feedback && !unknown && !progress && instances.status === 'ready' ? (
-        <div className="global-drop-hint" aria-hidden="true">拖入 .jar / .zip / .mrpack 或 .minecraft 文件夹：整合包会自动创建实例</div>
+        <div className="global-drop-hint" aria-hidden="true">拖入 .jar / .zip / .mrpack / .litematic 或 .minecraft 文件夹：整合包会自动创建实例</div>
       ) : null}
     </>
   )
