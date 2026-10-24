@@ -72,10 +72,33 @@ LinkError: connect ECONNREFUSED 127.0.0.1:63604
 
 ——隧道其实是好的，却被判成 `NETWORK_UNREACHABLE`，然后整个候选被放弃。现在 `connectMemberControl()` 会对 `NETWORK_UNREACHABLE` / `HEARTBEAT_TIMEOUT` 重试 4 次（400/800/1200ms 退避），版本/加载器/认证类错误立即失败。单测覆盖：`retries the control handshake while the sidecar is still opening its port-forward`。
 
-## 4. 没验证到的
+## 4. 中继真机实验：没通（2026-10-24 19:06）
+
+想验证"双方都连不上对方、只能靠中继"的场景，起了**第三个** EasyTier 进程当中继：
+
+- 拓扑：房主 `-p tcp://<lan>:<relayPort>`，成员 `-p tcp://<lan>:<relayPort>`（成员完全不知道房主地址），中继节点在同一网络名/密钥下 `-l tcp://<lan>:<relayPort>`、无 port-forward、无 TUN。
+- 观察：
+  - 中继节点 202–216ms 就绪（RPC 可连）；
+  - 成员的 sidecar 确实连上了中继：`CORE::INSTANCE::CONNECTION … new peer connection added … remote_addr: tcp://10.33.135.230:<relay>`；
+  - 成员的本地 port-forward 端口能 accept TCP；
+  - 但控制面握手**每次都是 `read ECONNRESET`**：5 次重试、跨 ~40 秒，全部一样。
+- 结论：**"仅靠中继"这条路径没有被证明可用**。要么三个节点没真正合并进一个虚拟网络（网络名/密钥不一致、或 `--private-mode true` 拒绝转发），要么房主的 `192.168.77.1` 代理映射在中继链路上不可路由。
+- 下一步诊断（下次开工先做这个）：房主和成员都起来后，用
+  `easytier-cli --rpc-portal 127.0.0.1:<relayRpc> peer`
+  读中继自己的 peer 表，看房主和成员是否互相可见；再对比 `--private-mode true` 与不加它的差别。
+- 复现脚本保留在 `src/main/modules/net/__tests__/real-relay.test.ts`（**`describe.skip`**，文件头写了现象），等有真公网中继时改回 `describe` 直接跑。
+
+## 4.5 出口地址是会变的（2026-10-24 两次实测）
+
+同一台机器一个小时内：出口公网 IP `219.143.23.90` → `219.143.23.125`；局域网地址 `10.91.60.10` → `10.33.135.230`。所以：
+
+- 手填的公网地址**会过期**（运营商 NAT 池、DHCP 换网），「设置 → 联机」里手填只适合做兜底，长期还是靠探测；
+- 文档、邀请码、截图里的地址都不能当常量引用。
+
+## 5. 没验证到的
 
 - **真正的跨网络**：两个不同出口的设备之间（需要对方机器，或一次真实的端口映射）。
-- **中继路径**：`relayPeers` 的配置读写、UI、TCP 可达性测试都有单测，但没在真实中继上跑过（本机两台 sidecar 直连成功，中继永不被选中）。
+- **中继转发**：见 §4——配置/UI/TCP 可达性测试都有，真机"仅中继"拓扑未通。
 - **CGNAT 场景**：运营商级 NAT 下没有端口映射，必须中继；这一点只能靠用户侧的机器验证。
 - **打包后 UI**：agent 会话起不了 Electron GUI（见 `docs/12` §9），`设置 → 联机` 面板要本人双击启动后点一次。
 
