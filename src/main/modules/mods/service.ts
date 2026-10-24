@@ -650,12 +650,20 @@ export class ModsModuleService {
       const jsonPath = path.join(versionsDir, dirName, `${dirName}.json`)
       if (!this.fs.exists(jsonPath)) continue
       try {
-        const json = JSON.parse(this.fs.readText(jsonPath)) as Record<string, unknown>
+        const rawText = this.fs.readText(jsonPath)
+        const json = JSON.parse(rawText) as Record<string, unknown>
         const inherits = typeof json.inheritsFrom === 'string' ? json.inheritsFrom : null
         if (inherits !== mcVersion) continue
         const mainClass = typeof json.mainClass === 'string' ? json.mainClass : ''
-        const matchesMarker =
-          markers.length === 0 || markers.some((marker) => mainClass.includes(marker))
+        // NeoForge profiles also embed `net.minecraftforge` libraries, so the
+        // discriminators must be "contains neoforged" vs "forge but not neoforge".
+        const isNeoForgeProfile = rawText.includes('net.neoforged')
+        const isForgeProfile = rawText.includes('net.minecraftforge') && !isNeoForgeProfile
+        const matchesMarker = ((): boolean => {
+          if (loader.type === 'neoforge') return isNeoForgeProfile
+          if (loader.type === 'forge') return isForgeProfile
+          return markers.length === 0 || markers.some((marker) => mainClass.includes(marker))
+        })()
         if (!matchesMarker) continue
         const nameMatchesVersion =
           wanted.length > 0 &&
