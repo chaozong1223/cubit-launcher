@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { InstanceSummary } from '@shared/instance'
 import type { LaunchExitReport, LaunchPlan, LaunchState } from '@shared/launch'
 import { useBackend } from '../data/BackendContext'
@@ -23,6 +23,7 @@ import {
   Input,
   LaunchButton,
   PageHeader,
+  Progress,
   SectionHead,
   Skeleton,
   Tag,
@@ -58,6 +59,19 @@ const PAGE_LINKS: ReadonlyArray<{ path: string; label: string; icon: Parameters<
   { path: '#/saves', label: '存档', icon: 'cube' },
   { path: '#/schematics', label: '投影管理', icon: 'schematic' },
   { path: '#/screenshots', label: '截图', icon: 'package' },
+]
+
+/**
+ * Launch phases with relative weights, so the progress bar reflects what actually
+ * takes time (waiting for the game window) instead of a fake spinner.
+ */
+const LAUNCH_STEPS: ReadonlyArray<{ key: string; label: string; weight: number }> = [
+  { key: 'account', label: '账户', weight: 4 },
+  { key: 'java', label: 'Java', weight: 16 },
+  { key: 'prepare', label: '校验文件', weight: 20 },
+  { key: 'args', label: '参数', weight: 5 },
+  { key: 'spawn', label: '启动进程', weight: 10 },
+  { key: 'window', label: '等待窗口', weight: 45 },
 ]
 
 function launchUiState(instance: InstanceSummary, status: LaunchState | null): LaunchUiState {
@@ -164,6 +178,7 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
   const [busy, setBusy] = useState(false)
   const [flow, setFlow] = useState<'idle' | 'checking' | 'starting' | 'running' | 'stopping' | 'failed'>('idle')
   const [stage, setStage] = useState<string | null>(null)
+  const [stageKey, setStageKey] = useState('account')
   const [live, setLive] = useState<LaunchState | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [stopping, setStopping] = useState(false)
@@ -288,6 +303,16 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
     }
   }, [status.status, status.data, refreshExit])
 
+  const launchPercent = useMemo(() => {
+    const total = LAUNCH_STEPS.reduce((sum, step) => sum + step.weight, 0)
+    let done = 0
+    for (const step of LAUNCH_STEPS) {
+      if (step.key === stageKey) break
+      done += step.weight
+    }
+    return Math.min(100, Math.round((done / total) * 100))
+  }, [stageKey])
+
   const start = useCallback(async () => {
     setBusy(true)
     setActionError(null)
@@ -296,6 +321,7 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
     setExitInfo(null)
     setFlow('checking')
     setStage('检查账户…')
+      setStageKey('account')
     try {
       const accountState = await backend.auth.list()
       if (accountState.accounts.length === 0) {
@@ -304,6 +330,7 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
       const accountId = accountState.selectedId ?? accountState.accounts[0].id
       if (!accountState.selectedId) await backend.auth.select(accountId)
       setStage('检查 Java…')
+      setStageKey('java')
       // Make sure the JVM matches what this version wants. Legacy versions need
       // Java 8 exactly; downloading it beats launching on 17 and crashing.
       const requirement = await backend.java.requirement(instance.id).catch(() => null)
@@ -351,16 +378,19 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
         throw new BackendError('JAVA.NOT_FOUND', '没有找到可用的 Java；请安装 Java 或在设置中指定路径', true)
       }
       setStage('生成启动参数…')
+      setStageKey('args')
       // Optional pre-launch cleanup (settings → 启动 → 内存分配). Only touches
       // the whitelisted cache categories; failures never block the launch.
       try {
         if (window.localStorage.getItem('mcl.pref.optimizeBeforeLaunch') === '1') {
           setStage('启动前清理缓存…')
+          setStageKey('prepare')
           await backend.perf.cleanCache({}).catch(() => undefined)
         }
       } catch {
         /* storage unavailable: skip the optimisation */
       }
+      setStageKey('spawn')
       const result = await backend.launch.start(instance.id, accountId)
       setSessionId(result.sessionId)
       // Do not overwrite a `running` event that may arrive before start()
@@ -377,10 +407,12 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
         } else {
           setFlow('starting')
           setStage('等待游戏进程…')
+        setStageKey('window')
         }
       } else {
         setFlow('starting')
         setStage('等待游戏进程…')
+        setStageKey('window')
       }
       status.reload()
     } catch (cause) {
@@ -612,7 +644,31 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
         {stopping ? (
           <div className="nw-launch-progress" aria-live="polite"><span className="spinner" />正在结束游戏…等待进程退出事件</div>
         ) : flow === 'checking' || flow === 'starting' ? (
-          <div className="nw-launch-progress" aria-live="polite"><span className="spinner" />{stage ?? '准备启动…'}</div>
+          <div className="launch-progress" aria-live="polite">
+            <div className="launch-progress__head">
+              <span className="spinner" />
+              <span className="launch-progress__label">{stage ?? '准备启动…'}</span>
+              <span className="launch-progress__pct">{Math.round(launchPercent)}%</span>
+            </div>
+            <Progress value={launchPercent} tone="accent" label="启动进度" />
+            <div className="launch-progress__steps">
+              {LAUNCH_STEPS.map((step) => (
+                <span
+                  key={step.key}
+                  className={
+                    step.key === stageKey
+                      ? 'launch-progress__step is-current'
+                      : LAUNCH_STEPS.findIndex((entry) => entry.key === step.key) <
+                          LAUNCH_STEPS.findIndex((entry) => entry.key === stageKey)
+                        ? 'launch-progress__step is-done'
+                        : 'launch-progress__step'
+                  }
+                >
+                  {step.label}
+                </span>
+              ))}
+            </div>
+          </div>
         ) : null}
         {flow === 'running' && !stopping ? (
           <div className="nw-launch-progress nw-launch-progress--running"><span className="pulse-dot" />游戏运行中{sessionId ? <code className="mono">{sessionId.slice(0, 8)}</code> : null}</div>

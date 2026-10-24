@@ -21,8 +21,34 @@ export interface JavaChoiceResult {
 /** Minecraft versions up to 1.16 target Java 8 and break on newer runtimes. */
 const LEGACY_JAVA_MAX = 8
 
+/**
+ * Which runtime to prefer at the SAME major version.
+ *
+ * The runtime the machine already trusts (Mojang's own, JAVA_HOME, a registry
+ * entry) wins over one this launcher downloaded: Windows binds per-exe GPU
+ * preferences and per-path driver rules, so a freshly extracted `java.exe` can
+ * fail to get a hardware OpenGL context ("Pixel format not accelerated") even
+ * though the identical build elsewhere works.
+ */
+const SOURCE_PREFERENCE: Record<JavaCandidate['source'], number> = {
+  manual: 60,
+  instance: 55,
+  'mojang-runtime': 50,
+  'java-home': 45,
+  registry: 40,
+  'common-path': 30,
+  path: 25,
+  'launcher-runtime': 10,
+}
+
 function rank(candidate: JavaCandidate): number {
-  return candidate.version.major * 10_000 + candidate.version.patch + (candidate.bits === 64 ? 0.5 : 0)
+  const source = SOURCE_PREFERENCE[candidate.source] ?? 20
+  return (
+    candidate.version.major * 1_000_000 +
+    source * 1_000 +
+    candidate.version.patch * 10 +
+    (candidate.bits === 64 ? 5 : 0)
+  )
 }
 
 function best(candidates: JavaCandidate[]): JavaCandidate {
