@@ -217,6 +217,11 @@ export class EasyTierManager {
       ['easytier-core.exe', from.core],
       ['easytier-cli.exe', from.cli],
       ['wintun.dll', from.wintun],
+      // easytier-core statically imports Packet.dll (WinPcap/Npcap shim). Without
+      // it Windows fails the process with 0xC0000135 (STATUS_DLL_NOT_FOUND) and
+      // the capability probe reports TUNNEL_START_FAILED.
+      ['Packet.dll', path.join(bundled, 'Packet.dll')],
+      ['WinDivert64.sys', path.join(bundled, 'WinDivert64.sys')],
       ['LICENSE-LGPL-3.0.txt', from.license],
     ] as const) {
       if (!fs.existsSync(source)) continue

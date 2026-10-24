@@ -73,5 +73,21 @@ for (const [file, want] of Object.entries(expected)) {
   fs.copyFileSync(source, path.join(dest, file))
   console.log(`ok ${file}`)
 }
+
+// easytier-core statically imports Packet.dll; WinDivert64.sys is loaded by the
+// packet-capture path. Both ship inside the archive without pinned hashes of
+// their own, so they are validated by the archive hash above.
+for (const extra of ['Packet.dll', 'WinDivert64.sys']) {
+  const found = fs
+    .readdirSync(path.join(tmp, 'x'), { recursive: true })
+    .map(String)
+    .find((entry) => entry.toLowerCase().endsWith(extra.toLowerCase()))
+  if (!found) {
+    console.warn(`warn: ${extra} not found in the archive`)
+    continue
+  }
+  fs.copyFileSync(path.join(tmp, 'x', found), path.join(dest, extra))
+  console.log(`ok ${extra}`)
+}
 console.log(`\nwritten to ${dest}`)
 console.log('reminder: LICENSE-LGPL-3.0.txt must stay next to these binaries (already committed).')
