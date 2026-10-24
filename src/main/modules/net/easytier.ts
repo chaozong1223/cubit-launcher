@@ -439,7 +439,18 @@ export class EasyTierManager {
     })
     const prefix = role === 'host' ? 'host' : 'member'
     child.stdout?.on('data', (chunk: Buffer | string) => {
-      this.options.log.debug(`sidecar ${prefix}`, { line: redact(chunk.toString()) })
+      const text = redact(chunk.toString())
+      this.options.log.debug(`sidecar ${prefix}`, { line: text })
+      // EasyTier writes its failures to stdout, not stderr. Surface the important
+      // ones at warning level, otherwise a failed TUN is invisible in the log.
+      const important = text
+        .split('\n')
+        .filter((line) => /ERROR|WARN|tun|adapter|wintun/i.test(line))
+        .join('\n')
+        .trim()
+      if (important.length > 0) {
+        this.options.log.warn(`sidecar ${prefix} diagnostic`, { line: important.slice(0, 800) })
+      }
     })
     child.stderr?.on('data', (chunk: Buffer | string) => {
       this.options.log.warn(`sidecar ${prefix}`, { line: redact(chunk.toString()) })
