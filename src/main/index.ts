@@ -33,19 +33,6 @@ interface LaunchShutdown {
 
 registerAppScheme()
 
-// One launcher at a time. Two instances would share the same data root (config,
-// logs, launch state) and fight over it, so a second launch just surfaces the
-// running window instead of starting another copy.
-const hasSingleInstanceLock = app.requestSingleInstanceLock()
-if (!hasSingleInstanceLock) {
-  app.quit()
-} else {
-  app.on('second-instance', () => {
-    // restoreLauncher is a hoisted function declaration further down.
-    restoreLauncher()
-  })
-}
-
 const smokeMode = process.env.MCL_SMOKE === '1'
 const cwd = process.cwd()
 const exeDir = (() => {
