@@ -196,6 +196,22 @@ const IDLE_STATE: LaunchState = 'idle'
  * and launcher-requested kills all end in `exited`; the exit report keeps the
  * richer classification (normal/suspect/killed).
  */
+/**
+ * Version name substituted for `${version_name}`.
+ *
+ * Forge builds its `-DignoreList` entry for the client jar from this value, so
+ * it must name the jar that is actually on the classpath. For an isolated
+ * profile that jar belongs to the BASE version (modpack-3 -> 1.20.1.jar);
+ * passing the instance id left the real jar un-ignored, and ModLauncher then
+ * loaded it as a second module exporting net.minecraft.* — the
+ * "Modules <a> and minecraft export package ..." crash on 1.20.1 Forge packs.
+ */
+function clientJarVersionName(resolved: ResolvedVersion): string {
+  const jar = resolved.clientJar
+  if (!jar) return resolved.id
+  return path.basename(jar, '.jar') || resolved.id
+}
+
 export function launchStateForClassification(
   classification: LaunchExit['classification'],
 ): LaunchState {
@@ -484,7 +500,14 @@ export class LaunchOrchestrator extends EventEmitter {
     this.emitStage(instance.id, 'args', null)
     const plan = buildLaunchPlan({
       version: resolved.json,
-      versionName: resolved.id,
+      // Forge's -DignoreList names the client jar through ${version_name}. With
+      // version isolation the game jar belongs to the BASE version
+      // (versions/1.20.1/1.20.1.jar), so passing the instance id (modpack-3)
+      // left the real jar un-ignored: ModLauncher then loaded it as a second
+      // module exporting net.minecraft.*, which is the
+      // "Modules <a> and minecraft export package ..." crash on 1.20.1 Forge
+      // packs that bundle Sinytra Connector.
+      versionName: clientJarVersionName(resolved),
       mcVersion: resolved.mcVersion,
       account,
       paths,
