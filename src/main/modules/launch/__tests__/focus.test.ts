@@ -9,6 +9,12 @@ describe('game window focus helper', () => {
     expect(script).toContain('SetForegroundWindow')
     expect(script).toContain('BringWindowToTop')
     expect(script).toContain('ShowWindow')
+    // Picks the largest window regardless of visibility (a hidden or
+    // off-screen window is exactly the case worth repairing) and forces it
+    // back onto the screen instead of only raising it.
+    expect(script).toContain('FindLargest')
+    expect(script).toContain('SetWindowPos')
+    expect(script).not.toContain('IsWindowVisible')
     // 10s / 500ms = 20 poll iterations
     expect(script).toContain('$i -lt 20')
   })
