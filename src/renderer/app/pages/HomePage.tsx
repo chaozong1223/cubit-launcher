@@ -318,6 +318,22 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
     return Math.min(100, ((done + partial) / total) * 100)
   }, [stageKey])
 
+  // Once the process is up, the remaining time is the client's own mod/resource
+  // loading and we have no progress event for it. Creep from 92% to 99% so the
+  // bar never looks frozen, and never claim 100% before the window is usable.
+  const [tick, setTick] = useState(() => Date.now())
+  useEffect(() => {
+    if (flow !== 'running') return
+    const timer = window.setInterval(() => setTick(Date.now()), 1_000)
+    return () => window.clearInterval(timer)
+  }, [flow])
+  const runningPercent = useMemo(() => {
+    const startedAt = status.data?.startedAt ?? null
+    const elapsedSec = startedAt ? Math.max(0, (tick - startedAt) / 1000) : 0
+    return Math.min(99, 92 + elapsedSec / 3)
+  }, [tick, status.data])
+  const displayPercent = flow === 'running' ? Math.max(launchPercent, runningPercent) : launchPercent
+
   const currentStepLabel =
     LAUNCH_STEPS.find((step) => step.key === stageKey)?.label ?? '准备启动'
   const loginLabel = useMemo(() => {
@@ -663,23 +679,23 @@ function Hero({ instance, onChanged }: { instance: InstanceSummary; onChanged?: 
         ) : flow === 'checking' || flow === 'starting' || (flow === 'running' && !stopping) ? (
           <div className="launch-progress" aria-live="polite">
             <Progress
-              value={flow === 'running' ? Math.max(launchPercent, 92) : launchPercent}
+              value={displayPercent}
               tone="accent"
               label="启动进度"
             />
             <div className="launch-progress__grid">
               <span className="launch-progress__k">当前步骤</span>
-              <span className="launch-progress__v">{currentStepLabel}</span>
+              <span className="launch-progress__v">{flow === 'running' ? '加载游戏' : currentStepLabel}</span>
               <span className="launch-progress__k">登录方式</span>
               <span className="launch-progress__v">{loginLabel}</span>
               <span className="launch-progress__k">启动进度</span>
               <span className="launch-progress__v mono">
-                {(flow === 'running' ? Math.max(launchPercent, 92) : launchPercent).toFixed(2)} %
+                {displayPercent.toFixed(2)} %
               </span>
             </div>
             {flow === 'running' ? (
               <div className="launch-progress__detail">
-                游戏进程已启动，正在加载模组与资源；主窗口出现前请稍候（模组多的整合包首次加载可能需要几分钟）。
+                游戏进程已启动，正在加载模组与资源；主窗口出现前请稍候（模组多的整合包首次加载可能需要几分钟）。进度为估算值，会继续缓慢上涨，不会停在 92%。
               </div>
             ) : stage ? (
               <div className="launch-progress__detail">{stage}</div>
