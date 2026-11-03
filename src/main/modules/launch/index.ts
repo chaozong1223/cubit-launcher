@@ -24,6 +24,20 @@ export function register(ctx: ModuleContext): void {
     }
     if (pid) focusGameWindow(pid, { log: ctx.log })
   })
+  // Bring the launcher back when the session ends, so "minimized for the game"
+  // never turns into "where did the launcher go".
+  service.onEvent('exited', () => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      try {
+        if (window.isDestroyed()) continue
+        if (window.isMinimized()) window.restore()
+        window.show()
+        window.focus()
+      } catch {
+        // Same: never let window bookkeeping fail a launch lifecycle.
+      }
+    }
+  })
   publishService(moduleId, service)
   makeHandlers(service)
   ctx.log.info('module registered', { deps: dependsOn })
