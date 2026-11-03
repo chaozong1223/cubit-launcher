@@ -71,3 +71,57 @@ export function applyGameLanguage(
 }
 
 export { LANGUAGE_PATTERN }
+
+export interface GameFullscreenResult {
+  path: string
+  changed: boolean
+  /** What the file said before (null when the file or the key is absent). */
+  previous: boolean | null
+  fullscreen: boolean
+}
+
+/**
+ * Align `fullscreen:` in options.txt with the launcher's window setting.
+ *
+ * Minecraft 1.12.2 uses LWJGL2, whose `ChangeDisplaySettings` fullscreen call
+ * fails on this class of machine (`LWJGLException: Failed to set display mode
+ * (-1)`) and takes the OpenGL context down with it — the game then dies with
+ * "Pixel format not accelerated". `options.txt` wins over `--width/--height`,
+ * so a player who pressed F11 once would keep crashing on every launch until
+ * they found that setting again. The launcher setting is the source of truth.
+ */
+export function applyGameFullscreen(
+  fs: FsPort,
+  gameDir: string,
+  fullscreen: boolean,
+): GameFullscreenResult {
+  const optionsPath = path.join(gameDir, 'options.txt')
+  if (!fs.exists(optionsPath)) {
+    return { path: optionsPath, changed: false, previous: null, fullscreen }
+  }
+  const original = fs.readText(optionsPath)
+  const eol = original.includes('\r\n') ? '\r\n' : '\n'
+  const lines = original.split(/\r?\n/)
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop()
+  const desired = `fullscreen:${fullscreen ? 'true' : 'false'}`
+  const next: string[] = []
+  let previous: boolean | null = null
+  let replaced = false
+  for (const line of lines) {
+    const match = /^fullscreen\s*:\s*(\w+)/.exec(line)
+    if (match) {
+      if (!replaced) {
+        previous = match[1]?.toLowerCase() === 'true'
+        next.push(desired)
+        replaced = true
+      }
+      continue
+    }
+    next.push(line)
+  }
+  if (!replaced) next.push(desired)
+  const contents = `${next.join(eol)}${eol}`
+  const changed = original !== contents
+  if (changed) fs.writeTextAtomic(optionsPath, contents)
+  return { path: optionsPath, changed, previous, fullscreen }
+}

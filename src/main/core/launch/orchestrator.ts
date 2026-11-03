@@ -31,7 +31,7 @@ import {
   writeLaunchArtifacts,
 } from './artifacts'
 import { extractNatives, planNatives } from './natives'
-import { applyGameLanguage } from './options'
+import { applyGameFullscreen, applyGameLanguage } from './options'
 import { assertPathBudget } from '../../kernel/paths'
 import {
   startLaunchProcess,
@@ -779,6 +779,27 @@ export class LaunchOrchestrator extends EventEmitter {
       }
     } catch (error) {
       this.logger.warn('game language write failed; launching unchanged', {
+        instanceId: prepared.instance.id,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+
+    // options.txt beats --width/--height, so an in-game F11 would keep a
+    // LWJGL2 instance stuck on the fullscreen path that crashes here. Make the
+    // launcher's window setting authoritative before every launch.
+    try {
+      const fullscreen = Boolean(prepared.settings.window?.fullscreen)
+      const result = applyGameFullscreen(this.fs, prepared.plan.cwd, fullscreen)
+      if (result.changed) {
+        this.logger.info('game fullscreen aligned', {
+          instanceId: prepared.instance.id,
+          previous: result.previous,
+          fullscreen: result.fullscreen,
+          path: result.path,
+        })
+      }
+    } catch (error) {
+      this.logger.warn('game fullscreen write failed; launching unchanged', {
         instanceId: prepared.instance.id,
         message: error instanceof Error ? error.message : String(error),
       })
