@@ -26,6 +26,8 @@ export class LaunchModuleService {
   private authlibResolver:
     | ((instance: unknown, account: LaunchAccount) => Promise<AuthlibInjection | null>)
     | null = null
+  private gameStartedHook: ((event: { instanceId: string; pid: number | null }) => void) | null =
+    null
 
   constructor(
     private readonly roots: ModuleRoots,
@@ -53,6 +55,7 @@ export class LaunchModuleService {
         },
         resolveAccount: this.accountResolver ?? undefined,
         ...(this.authlibResolver ? { resolveAuthlib: this.authlibResolver } : {}),
+        onGameStarted: (event) => this.gameStartedHook?.(event),
       })
     }
     return this.orchestrator
@@ -64,6 +67,17 @@ export class LaunchModuleService {
   ): void {
     this.accountResolver = resolver
     this.orchestrator?.setAccountResolver(resolver)
+  }
+
+  /**
+   * Called once the game process exists (shell side): minimize the launcher and
+   * bring the game window forward, otherwise the freshly created window stays
+   * behind the launcher and the game looks like it never started.
+   */
+  onGameStarted(
+    hook: ((event: { instanceId: string; pid: number | null }) => void) | null,
+  ): void {
+    this.gameStartedHook = hook
   }
 
   async plan(input: LaunchRequestInput & { dryRun?: boolean }): Promise<LaunchPlan> {

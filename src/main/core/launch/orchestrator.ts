@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import os from 'node:os'
@@ -161,6 +161,13 @@ export interface LaunchOrchestratorOptions {
   arch?: string
   /** Executable dir used for bundled runtime discovery. */
   exeDir?: string
+  /**
+   * Fired once the game process exists. The shell uses it to get out of the
+   * way (minimize the launcher) and to pull the game window to the front — a
+   * freshly spawned window otherwise stays behind the launcher and the game
+   * looks like it never started.
+   */
+  onGameStarted?: (event: { instanceId: string; pid: number | null }) => void
 }
 
 export interface PreparedLaunch {
@@ -425,30 +432,46 @@ export class LaunchOrchestrator extends EventEmitter {
     assertPathBudget(paths.nativesDir, 'natives 目录')
     const quickPlayWorld = resolveQuickPlayWorld(this.fs, paths.gameDir, input.world)
 
-    // The game runs with the launcher's integrity level. Under a low-integrity
-    // fallback (Chromium sandbox unavailable) mods cannot write to the system
-    // %TEMP%, so hand the JVM a directory the launcher created itself.
+    // Where mods may unpack their native libraries. Two constraints:
     //
-    // IMPORTANT: keep it ASCII. The launcher data root can live under a path with
-    // non-ASCII characters (e.g. `D:\DSH-工作文件\...`), and GPU drivers /
-    // LWJGL's temporary extraction chain choke on such paths — the game then
-    // fails with "Pixel format not accelerated / No OpenGL context". Prefer the
-    // user's LOCALAPPDATA; fall back to the data root only if that is unavailable.
+    // 1. ASCII only — the data root can sit under `D:\DSH-工作文件\...` and GPU
+    //    drivers / LWJGL's extraction chain choke on such paths.
+    // 2. NOT %TEMP% when possible — some security products watch it and deny a
+    //    JVM writing DLLs there even though the launcher can create the same
+    //    file (measured 2026-10-25: `AccessDeniedException` on
+    //    `%LOCALAPPDATA%\Temp\mc-launcher-game\...\PhysX_64.dll`, while
+    //    PowerShell copied a DLL into that very directory fine).
+    //
+    // Candidates are tried in order; the first one this process can write wins.
     const asciiTempBase =
       process.env.LOCALAPPDATA && /^[\x20-\x7e]+$/.test(process.env.LOCALAPPDATA)
         ? path.join(process.env.LOCALAPPDATA, 'Temp')
         : null
-    const gameTempDir = asciiTempBase
-      ? path.join(asciiTempBase, 'mc-launcher-game')
-      : path.join(this.options.dataRoot, 'tmp', 'game')
-    try {
-      this.fs.mkdirp(gameTempDir)
-    } catch (error) {
-      this.options.logger?.warn?.('game temp dir unavailable; keeping system temp', {
-        dir: gameTempDir,
-        message: error instanceof Error ? error.message : String(error),
-      })
+    const mcParent = path.resolve(path.dirname(resolved.dir), '..', '..')
+    const tempCandidates = [
+      process.env.MCL_GAME_TMPDIR,
+      path.join(mcParent, '.mc-launcher-tmp'),
+      asciiTempBase ? path.join(asciiTempBase, 'mc-launcher-game') : null,
+      path.join(this.options.dataRoot, 'tmp', 'game'),
+    ].filter((entry): entry is string => Boolean(entry))
+
+    let gameTempDir = tempCandidates[tempCandidates.length - 1] as string
+    for (const candidate of tempCandidates) {
+      try {
+        this.fs.mkdirp(candidate)
+        const probe = path.join(candidate, `.probe-${process.pid}`)
+        this.fs.writeBytes(probe, Buffer.from('ok'))
+        this.fs.remove(probe)
+        gameTempDir = candidate
+        break
+      } catch (error) {
+        this.options.logger?.warn?.('game temp dir candidate unusable', {
+          dir: candidate,
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
     }
+    this.options.logger?.info?.('game temp dir selected', { dir: gameTempDir })
     const sessionId = randomUUID()
     const logFile = allocateGameLogFile(
       this.fs,
@@ -958,6 +981,15 @@ export class LaunchOrchestrator extends EventEmitter {
       java: prepared.plan.javaPath,
       logFile: prepared.logFile,
     })
+
+    try {
+      this.options.onGameStarted?.({ instanceId: prepared.instance.id, pid: handle.pid ?? null })
+    } catch (error) {
+      // Bringing the window forward is cosmetic; never fail a launch over it.
+      this.logger.warn('game started hook failed', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
 
     return { sessionId: handle.sessionId }
   }
