@@ -13,8 +13,12 @@ describe('game window focus helper', () => {
     // off-screen window is exactly the case worth repairing) and forces it
     // back onto the screen instead of only raising it.
     expect(script).toContain('FindLargest')
+    expect(script).toContain('Activate')
     expect(script).toContain('SetWindowPos')
-    expect(script).not.toContain('IsWindowVisible')
+    // Handles must cross into PowerShell as numbers: `[IntPtr]::Zero`
+    // comparisons silently failed and activated handle 0.
+    expect(script).not.toContain('[IntPtr]::Zero')
+    expect(script).toContain('$h -ne 0')
     // 10s / 500ms = 20 poll iterations
     expect(script).toContain('$i -lt 20')
   })

@@ -4,18 +4,21 @@ import type { ScopedLogger } from '../../kernel/logger'
 /**
  * Bring the freshly spawned game window to the front.
  *
- * A window created by a child process starts *behind* the launcher, and Windows'
- * foreground lock keeps it there until the user clicks its taskbar button — the
- * game then looks like it never started even though it is loading fine
- * (measured 2026-11-03: window visible at (528,295) 870×519, completely hidden
- * behind the launcher and a chat window).
+ * A window created by a child process is often not just *behind* the launcher
+ * but flagged invisible: measured 2026-11-03, the 1.12.2 client had
+ * `vis=0 rect=-5,-5 1936x1100 class=LWJGL title='Minecraft 拔刀之旅'` while the
+ * title-screen music played. `ShowWindow(SW_RESTORE)` made it appear instantly.
  *
- * The search deliberately ignores `IsWindowVisible`/title: a window that is
- * hidden, has a zero title, or was pushed off-screen still holds the game, and
- * those are exactly the cases worth repairing. It picks the largest window of
- * the child pid, forces it back to a sane rectangle on screen, and repeats the
- * activation a few times because the first attempt often loses the race with
- * the launcher's own minimise/restore.
+ * The search ignores visibility and title (a hidden or off-screen window is the
+ * case worth repairing), picks the largest window of the child pid, and forces
+ * it back to a sane rectangle on screen.
+ *
+ * Two PowerShell pitfalls this file deliberately avoids:
+ * - `IntPtr` compares unreliably in PowerShell (a boxed value never equals
+ *   `[IntPtr]::Zero`), which made an earlier version "find" a handle and then
+ *   activate handle 0. Handles cross the boundary as `long`.
+ * - one activation loses the race with the launcher's own minimise/restore, so
+ *   it is repeated three times.
  *
  * Electron has no API for another process's window, so this shells out to
  * PowerShell (user32 only, no file writes). Fire-and-forget: failures are
@@ -43,12 +46,17 @@ public class GameWindowFocus {
   [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr lParam);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
-  public static IntPtr FindLargest(uint target) {
-    IntPtr best = IntPtr.Zero;
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+
+  // Returns 0 when there is nothing worth activating. A plain long keeps the
+  // PowerShell comparison honest.
+  public static long FindLargest(uint target) {
+    long best = 0;
     int bestArea = 0;
     EnumWindows(delegate(IntPtr h, IntPtr l) {
       uint pid; GetWindowThreadProcessId(h, out pid);
@@ -59,32 +67,40 @@ public class GameWindowFocus {
       int hh = r.Bottom - r.Top;
       if (w < 100 || hh < 100) return true;
       int area = w * hh;
-      if (area > bestArea) { bestArea = area; best = h; }
+      if (area > bestArea) { bestArea = area; best = h.ToInt64(); }
       return true;
     }, IntPtr.Zero);
     return best;
   }
-  public static void GetRect(IntPtr hWnd, out int left, out int top, out int width, out int height) {
+
+  public static void Activate(long handle) {
+    IntPtr h = new IntPtr(handle);
+    int w = Math.Min(1920, GetSystemMetrics(0));
+    int hh = Math.Min(1080, GetSystemMetrics(1));
+    ShowWindow(h, 9);                                   // SW_RESTORE
+    SetWindowPos(h, IntPtr.Zero, 0, 0, w, hh, 0x0040);  // SWP_SHOWWINDOW
+    BringWindowToTop(h);
+    SetForegroundWindow(h);
+  }
+
+  public static string Describe(long handle) {
+    IntPtr h = new IntPtr(handle);
     RECT r;
-    GetWindowRect(hWnd, out r);
-    left = r.Left; top = r.Top; width = r.Right - r.Left; height = r.Bottom - r.Top;
+    GetWindowRect(h, out r);
+    return "handle=" + handle + " visible=" + (IsWindowVisible(h) ? 1 : 0)
+      + " rect=" + r.Left + "," + r.Top + " " + (r.Right - r.Left) + "x" + (r.Bottom - r.Top);
   }
 }
 "@
 $target = ${pid}
 for ($i = 0; $i -lt ${iterations}; $i++) {
   $h = [GameWindowFocus]::FindLargest([uint32]$target)
-  if ($h -ne [IntPtr]::Zero) {
-    [int]$l = 0; [int]$t = 0; [int]$w = 0; [int]$ht = 0
-    [void][GameWindowFocus]::GetRect($h, [ref]$l, [ref]$t, [ref]$w, [ref]$ht)
-    Write-Output ("found handle=" + $h + " rect=" + $l + "," + $t + " " + $w + "x" + $ht)
+  if ($h -ne 0) {
     for ($k = 0; $k -lt 3; $k++) {
-      [void][GameWindowFocus]::ShowWindow($h, 9)
-      [void][GameWindowFocus]::SetWindowPos($h, [IntPtr]::Zero, 80, 80, 1600, 900, 0x0040)
-      [void][GameWindowFocus]::BringWindowToTop($h)
-      [void][GameWindowFocus]::SetForegroundWindow($h)
+      [GameWindowFocus]::Activate($h)
       Start-Sleep -Milliseconds 800
     }
+    Write-Output ([GameWindowFocus]::Describe($h))
     exit 0
   }
   Start-Sleep -Milliseconds ${pollMs}
