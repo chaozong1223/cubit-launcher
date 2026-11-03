@@ -4,13 +4,17 @@ import { publishService } from '../_services'
 import { resolveModuleRoots } from '../_context'
 import { createLaunchService } from './service'
 import { makeHandlers } from './handlers'
-import { focusGameWindow } from './focus'
+import { focusGameWindow, startGameWindowWatcher } from './focus'
 
 export const moduleId = 'launch'
 export const dependsOn = ['version', 'instance', 'java'] as const
 
 export function register(ctx: ModuleContext): void {
   const service = createLaunchService(resolveModuleRoots(ctx.dataRoot), ctx.log)
+  // The 1.12.2 client can end up with a live title screen (music playing) and a
+  // hidden LWJGL window. One-shot activation after `game started` proved
+  // unreliable here, so a detached watcher keeps showing hidden game windows.
+  startGameWindowWatcher({ log: ctx.log })
   // A window created by the java child process is born *behind* the launcher;
   // minimize ourselves and pull it forward, otherwise a healthy launch looks
   // like nothing happened.

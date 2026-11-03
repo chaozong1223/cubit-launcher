@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import type { ScopedLogger } from '../../kernel/logger'
 
 /**
@@ -135,6 +135,99 @@ export function focusGameWindow(pid: number, options: FocusOptions = {}): void {
   } catch (error) {
     options.log?.warn('game window focus could not start', {
       pid,
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+/**
+ * Background watcher for hidden Minecraft windows.
+ *
+ * The per-launch helper above depends on the launcher still being alive when
+ * the window appears (and on the `onGameStarted` hook firing). Measured on this
+ * machine, the 1.12.2 client repeatedly ends up with
+ * `class=LWJGL vis=0 rect=-5,-5 1936x1100` — a live title screen with music but
+ * an invisible window — and the one-shot helper was not enough.
+ *
+ * This watcher scans every window of class `LWJGL` every two seconds and shows
+ * any hidden one. It runs detached from the launcher (so closing the launcher
+ * does not undo it) and stops itself after `durationMs`.
+ */
+export function buildWatcherScript(durationMs = 30 * 60_000, pollMs = 2_000): string {
+  const minutes = Math.max(1, Math.ceil(durationMs / 60_000))
+  return `
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public class GameWindowWatcher {
+  public delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, StringBuilder text, int max);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+
+  public static long FindHidden() {
+    long found = 0;
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+      StringBuilder c = new StringBuilder(64);
+      GetClassName(h, c, 64);
+      if (c.ToString() != "LWJGL") return true;
+      if (IsWindowVisible(h)) return true;
+      RECT r;
+      if (!GetWindowRect(h, out r)) return true;
+      if ((r.Right - r.Left) < 200 || (r.Bottom - r.Top) < 150) return true;
+      found = h.ToInt64();
+      return false;
+    }, IntPtr.Zero);
+    return found;
+  }
+
+  public static void Activate(long handle) {
+    IntPtr h = new IntPtr(handle);
+    int w = Math.Min(1920, GetSystemMetrics(0));
+    int hh = Math.Min(1080, GetSystemMetrics(1));
+    ShowWindow(h, 9);
+    SetWindowPos(h, IntPtr.Zero, 0, 0, w, hh, 0x0040);
+    BringWindowToTop(h);
+    SetForegroundWindow(h);
+  }
+}
+"@
+$deadline = (Get-Date).AddMinutes(${minutes})
+while ((Get-Date) -lt $deadline) {
+  $h = [GameWindowWatcher]::FindHidden()
+  if ($h -ne 0) { [GameWindowWatcher]::Activate($h) }
+  Start-Sleep -Milliseconds ${pollMs}
+}
+`.trim()
+}
+
+/** Start the watcher once, detached, so it outlives the launcher window. */
+export function startGameWindowWatcher(options: { log?: ScopedLogger; durationMs?: number } = {}): void {
+  try {
+    const child = spawn(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-WindowStyle',
+        'Hidden',
+        '-Command',
+        buildWatcherScript(options.durationMs),
+      ],
+      { windowsHide: true, stdio: 'ignore', detached: true },
+    )
+    child.unref()
+    options.log?.info('game window watcher started')
+  } catch (error) {
+    options.log?.warn('game window watcher could not start', {
       message: error instanceof Error ? error.message : String(error),
     })
   }
