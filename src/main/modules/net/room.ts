@@ -46,6 +46,7 @@ import {
   saveNetConfig,
 } from './config'
 import { probePublicIpv4, testRelayTcp, type PublicIpResult } from './publicip'
+import { discoverRelayPeers } from './relay-discovery'
 import { HostControl, MemberControl, type MemberWelcome } from './control'
 import { LanWorldDiscovery } from './discovery'
 import type { TunnelHandle, TunnelPort } from './easytier'
@@ -689,6 +690,10 @@ export class RoomService {
       await tunnel.ensureInstalled()
       this.tunnelState = 'starting'
       this.emit()
+      // Discover the shared relay nodes (陶瓦联机's public EasyTier peers).
+      // The static hostnames do not resolve on every network; the HTTP
+      // endpoints answer with a dialable tcp://host:port, measured 2026-11-05.
+      this.relayPeers = await discoverRelayPeers(this.relayPeers, { log: this.options.log })
       const handle = await tunnel.startHost({
         networkName: `mcl-${this.identity.code.toLowerCase()}`,
         networkSecret: this.identity.netSecret.toString('hex'),
@@ -949,6 +954,9 @@ export class RoomService {
     this.emit()
     try {
       await tunnel.ensureInstalled()
+      // Same discovery as the host: a member with no relay of its own still
+      // needs one to reach a room behind a symmetric NAT.
+      this.relayPeers = await discoverRelayPeers(this.relayPeers, { log: this.options.log })
       const handle = await tunnel.startMember({
         networkName: payload.net.name,
         networkSecret: Buffer.from(payload.net.secret, 'base64url').toString('hex'),

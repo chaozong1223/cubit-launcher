@@ -613,7 +613,10 @@ describe('RoomService WAN endpoint and settings', () => {
     })
     await host.create({ instanceId: 'a', transport: 'auto', consentTunnel: true })
     const payload = parseTicket((await host.copyInvite()).ticket).payload
-    expect(payload.endpoints.map((endpoint) => endpoint.kind)).toEqual(['lan'])
+    // No WAN endpoint (the probe failed), but the relay path stays: shared
+    // EasyTier relays are discovered on every host start, so the invite still
+    // carries a route a member can dial without a public address.
+    expect(payload.endpoints.map((endpoint) => endpoint.kind)).toEqual(['lan', 'relay'])
     expect(host.settings().probeDetail).toContain('4.ipw.cn')
     expect(host.settings().effectivePublicIp).toBeNull()
     await host.dispose()
