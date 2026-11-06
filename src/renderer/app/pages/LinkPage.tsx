@@ -93,13 +93,13 @@ function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel, pu
 
         <div className="invite-box">
           <div>
-            <div className="invite-box__label">房间邀请码</div>
+            <div className="invite-box__label">房间码</div>
             <div className="invite-code">{room.code}</div>
             <div className="invite-box__hint">
               {room.invite} · 有效期至 {room.expiresAt ? new Date(room.expiresAt).toLocaleString('zh-CN') : '长期'}
             </div>
           </div>
-          <Button variant="primary" icon="copy" onClick={onCopy}>复制完整邀请</Button>
+          <Button variant="primary" icon="copy" onClick={onCopy}>复制房间码</Button>
         </div>
 
         <div className="nw-room-meta">
@@ -114,7 +114,7 @@ function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel, pu
             <Badge tone="outline">{TRANSPORT_LABEL[room.transport]}</Badge>
           </div>
           {room.members.length === 0 ? (
-            <EmptyState icon="user" title="还没有成员" description="把完整邀请码发给朋友；加入后会显示真实成员与网络信息。" />
+            <EmptyState icon="user" title="还没有成员" description="把房间码发给朋友；加入后会显示真实成员与网络信息。" />
           ) : (
             <div className="nw-member-list">
               {room.members.map((member) => (
@@ -148,7 +148,7 @@ function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel, pu
 
         <div className="room-actions">
           <Button variant="primary" size="lg" icon="play" onClick={onEnter} loading={busy}>{enterLabel}</Button>
-          <Button variant="secondary" size="lg" icon="copy" onClick={onCopy}>复制邀请</Button>
+          <Button variant="secondary" size="lg" icon="copy" onClick={onCopy}>复制房间码</Button>
           <Button variant="danger-ghost" size="lg" icon="close" onClick={onLeave} disabled={busy}>关闭房间</Button>
         </div>
       </Card>
@@ -165,7 +165,7 @@ function RoomView({ room, isHost, onCopy, onLeave, onEnter, busy, enterLabel, pu
         </div>
         {!publicEndpoint && isHost ? (
           <div className="link-settings-note">
-            邀请码目前只含局域网地址：坐同一路由器下能直接加入，跨网需要公网地址（端口映射）或中继。
+            房间码目前只含局域网地址：坐同一路由器下能直接加入，跨网需要公网地址（端口映射）或中继。
             到「设置 → 联机」填写或让自动探测跑一次。
           </div>
         ) : null}
@@ -422,7 +422,7 @@ export function LinkPage() {
 
   const join = () => {
     if (!invite.trim()) {
-      setActionError({ kind: 'error', title: '邀请码为空', detail: '请输入完整的 MCL1 邀请串，而不是 6 位房间号。', retryable: false })
+      setActionError({ kind: 'error', title: '房间码为空', detail: '请粘贴房主发来的完整房间码（以 MCL1. 开头的一整段）。', retryable: false })
       return
     }
     void run(() => backend.link.join({ ticket: invite.trim(), instanceId: selectedInstance?.id ?? null }))
@@ -618,7 +618,7 @@ export function LinkPage() {
                 <LanWorldPanel instanceId={selectedInstance?.id ?? null} instanceName={selectedInstance?.name} premium={premium} onStartGuided={() => void startGuided()} />
               </div>
             ) : null}
-            {copied ? <div className="nw-copy-note"><Icon name="check" />完整邀请已复制到剪贴板（不会写入日志）。</div> : null}
+            {copied ? <div className="nw-copy-note"><Icon name="check" />房间码已复制到剪贴板（不会写入日志）。</div> : null}
             {actionError ? <div className="nw-inline-error">{actionError.title}：{actionError.detail}</div> : null}
           </div>
           <aside className="link-aside" id="link-info">
@@ -644,7 +644,7 @@ export function LinkPage() {
               <h3>怎么玩</h3>
               <div className="steps">
                 <div className="step"><span><strong>双方使用同一实例</strong>（版本/加载器一致）</span></div>
-                <div className="step"><span><strong>房主创建房间</strong>，把完整邀请码发给朋友</span></div>
+                <div className="step"><span><strong>房主创建房间</strong>，把房间码发给朋友</span></div>
                 <div className="step"><span><strong>成员加入后启动游戏</strong></span></div>
                 <div className="step"><span><strong>房主对局域网开放</strong>，成员在多人游戏加入</span></div>
               </div>
@@ -663,7 +663,7 @@ export function LinkPage() {
                   <div className="room-head__sub">
                     {role === 'host'
                       ? '选择真实实例后创建房间；隧道与成员状态来自 net 模块。'
-                      : '输入完整邀请码；加入前会校验版本与加载器。'}
+                      : '粘贴房间码；加入前会校验版本与加载器。'}
                   </div>
                 </div>
                 <Badge tone="outline">{role === 'host' ? '未开房' : '未加入'}</Badge>
@@ -698,14 +698,14 @@ export function LinkPage() {
                   ) : null}
                   <div className="room-actions">
                     <Button variant="primary" size="lg" icon="link" onClick={create} loading={busy} disabled={!selectedInstance || instances.status !== 'ready'}>创建房间</Button>
-                    <Button variant="secondary" size="lg" onClick={() => setRole('member')}>改用邀请码加入</Button>
+                    <Button variant="secondary" size="lg" onClick={() => setRole('member')}>改用房间码加入</Button>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="join-form" style={{ marginTop: 16 }}>
-                    <Field label="完整邀请码" hint="形如 MCL1.XXXXXX.…；6 位房间号不足以跨网加入">
-                      <Input value={invite} onChange={(event) => setInvite(event.target.value)} placeholder="粘贴完整邀请码" aria-label="完整邀请码" />
+                    <Field label="房间码" hint="形如 MCL1.XXXXXX.…；这是一整段，复制完整后粘贴">
+                      <Input value={invite} onChange={(event) => setInvite(event.target.value)} placeholder="粘贴房主发来的房间码" aria-label="房间码" />
                     </Field>
                     <Button variant="primary" size="lg" icon="link" onClick={join} loading={busy} disabled={!invite.trim()}>加入房间</Button>
                   </div>
@@ -750,7 +750,7 @@ export function LinkPage() {
               <h3>怎么玩</h3>
               <div className="steps">
                 <div className="step"><span><strong>双方使用同一实例</strong>（模组清单一致）</span></div>
-                <div className="step"><span><strong>房主创建房间</strong>，把完整邀请码发给朋友</span></div>
+                <div className="step"><span><strong>房主创建房间</strong>，把房间码发给朋友</span></div>
                 <div className="step"><span><strong>成员加入后启动游戏</strong></span></div>
                 <div className="step"><span><strong>房主对局域网开放</strong>，成员在多人游戏加入</span></div>
               </div>
