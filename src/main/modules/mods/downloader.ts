@@ -278,7 +278,12 @@ function hashMatches(data: Buffer, hashes: FileHashes): boolean {
  * Try every mirror until one payload matches the declared hash. A hash mismatch
  * is a hard failure (not a reason to silently write an unverified jar).
  *
- * Cancellation short-circuits the mirror list: once the import job is aborted
+ * Each URL is attempted up to three times with a short backoff: the pack CDN
+ * fails intermittently on this network (a file that downloads fine one minute
+ * reports an empty error the next), and one flaky connection must not abort a
+ * 4000-file import.
+ *
+ * Cancellation short-circuits the retry list: once the import job is aborted
  * there is no point trying another URL.
  */
 export async function downloadVerified(
@@ -293,20 +298,30 @@ export async function downloadVerified(
     throw new AppError('MODS.PACK_DOWNLOAD_FAILED', '整合包文件没有可用的下载地址')
   }
   const errors: string[] = []
+  const attemptsPerUrl = 3
   for (const url of usable) {
-    if (options.signal?.aborted) throw abortError()
-    try {
-      const data = await downloader.download(url, maxBytes, options)
-      if (!hashMatches(data, hashes)) {
-        errors.push(`${url}: 哈希不匹配`)
-        continue
+    for (let attempt = 1; attempt <= attemptsPerUrl; attempt += 1) {
+      if (options.signal?.aborted) throw abortError()
+      try {
+        const data = await downloader.download(url, maxBytes, options)
+        if (!hashMatches(data, hashes)) {
+          errors.push(`${url}: 哈希不匹配`)
+          break
+        }
+        return { data, url }
+      } catch (error) {
+        if (options.signal?.aborted || error instanceof JobCancelledError) {
+          throw abortError()
+        }
+        const code = (error as { code?: unknown } | null)?.code
+        const name = error instanceof Error ? error.name : typeof error
+        const message = error instanceof Error ? error.message : String(error)
+        const suffix = `${code ? ` (${String(code)})` : ''} [${name}]`
+        errors.push(`${url}: ${message}${suffix}${attempt < attemptsPerUrl ? ` · 第 ${attempt} 次重试` : ''}`)
+        if (attempt < attemptsPerUrl) {
+          await new Promise((resolve) => setTimeout(resolve, 800 * attempt))
+        }
       }
-      return { data, url }
-    } catch (error) {
-      if (options.signal?.aborted || error instanceof JobCancelledError) {
-        throw abortError()
-      }
-      errors.push(`${url}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   throw new AppError('MODS.PACK_DOWNLOAD_FAILED', '所有下载地址均失败或哈希不匹配', {
