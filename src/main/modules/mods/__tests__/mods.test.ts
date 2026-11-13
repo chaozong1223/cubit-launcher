@@ -165,6 +165,7 @@ function createFixture(): Fixture {
     }),
   )
   const service = new ModsModuleService({
+      packConcurrency: 1,
     roots: { dataRoot, mcRoot },
     log: logger,
     fs: nodeFsPort(),
@@ -487,6 +488,7 @@ describe('modpack import/export', () => {
       { name: 'overrides/config/auto.json', data: '{"auto":true}' },
     ])
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -566,6 +568,7 @@ describe('modpack import/export', () => {
       { name: 'overrides/config/cf.json', data: '{"cf":true}' },
     ])
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -624,6 +627,7 @@ describe('modpack import/export', () => {
     // The exported pack carries its jars in overrides, so an empty downloads
     // list is still reproducible for our own importer.
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -658,6 +662,7 @@ describe('modpack import/export', () => {
       { name: 'overrides/config/kept.json', data: '{"kept":true}' },
     ])
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -696,6 +701,7 @@ describe('modpack import/export', () => {
       { name: 'overrides/config/kept.json', data: '{"kept":true}' },
     ])
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -811,6 +817,7 @@ describe('modpack import job (cancel / pause / progress)', () => {
       },
     }
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -865,6 +872,7 @@ describe('modpack import job (cancel / pause / progress)', () => {
       },
     }
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -911,6 +919,7 @@ describe('modpack import job (cancel / pause / progress)', () => {
       },
     }
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),
@@ -942,6 +951,7 @@ describe('modpack import job (cancel / pause / progress)', () => {
   it('emits staged progress and a finished event with the composed result', async () => {
     const { fixture, pack, jarA, jarB } = packFixture()
     const service = new ModsModuleService({
+      packConcurrency: 1,
       roots: { dataRoot: fixture.dataRoot, mcRoot: fixture.mcRoot },
       log: logger,
       fs: nodeFsPort(),

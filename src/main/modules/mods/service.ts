@@ -87,6 +87,8 @@ export interface ModsServiceOptions {
   log: ScopedLogger
   fs?: FsPort
   downloader?: FileDownloader
+  /** Parallel pack-file fetches; tests pin it to 1 to assert pause/cancel points. */
+  packConcurrency?: number
   curseResolver?: CurseForgeResolver
   openPath?: (target: string) => Promise<string>
   now?: () => number
@@ -907,7 +909,12 @@ export class ModsModuleService {
         gameDir,
         manifest.index as MrpackIndex,
         this.downloader,
-        options,
+        {
+          ...options,
+          ...(this.options.packConcurrency !== undefined
+            ? { concurrency: this.options.packConcurrency }
+            : {}),
+        },
       )
       downloaded += result.downloaded
       skipped += result.skipped

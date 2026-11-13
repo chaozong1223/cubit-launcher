@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DownloadProgress, DownloadStage, InstallPlanSummary, ManifestVersion } from '@shared/download'
+import type { ModpackImportProgress } from '@shared/mods'
 import type { LoaderProgress, LoaderType } from '@shared/loader'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
@@ -157,6 +158,31 @@ function TaskCard({ progress, onPause, onResume, onCancel, onDismiss }: {
   )
 }
 
+/** A modpack import is a background job too: show it here, not only in its page. */
+function ImportTaskCard({ progress }: { progress: ModpackImportProgress }) {
+  const pct = progress.total > 0 ? (progress.done / progress.total) * 100 : null
+  return (
+    <div className="nw-task-card">
+      <div className="nw-task-card__head">
+        <div className="nw-task-card__title">
+          <strong>导入整合包 {progress.instanceId}</strong>
+          <Tag>{progress.format}</Tag>
+        </div>
+        <Badge tone={progress.state === 'done' ? 'success' : progress.state === 'failed' ? 'danger' : 'accent'}>
+          {progress.state}
+        </Badge>
+      </div>
+      <Progress value={pct} tone={progress.state === 'failed' ? 'danger' : 'accent'} label="导入进度" />
+      <div className="nw-task-card__stats">
+        <span>{progress.done}/{progress.total} 文件</span>
+        <span>{formatBytes(progress.bytesDone)}{progress.bytesTotal > 0 ? ` / ${formatBytes(progress.bytesTotal)}` : ''}</span>
+        <span>{progress.currentFile ?? '等待当前文件'}</span>
+      </div>
+      {progress.message ? <div className="nw-task-card__message">{progress.message}</div> : null}
+    </div>
+  )
+}
+
 export function DownloadPage() {
   const backend = useBackend()
   const system = useSystem()
@@ -187,6 +213,8 @@ export function DownloadPage() {
   )
   const [isolate, setIsolate] = useState(true)
   const [liveProgress, setLiveProgress] = useState<Record<string, DownloadProgress>>({})
+  // Modpack imports are jobs of the mods module; surface them in this panel too.
+  const [importProgress, setImportProgress] = useState<Record<string, ModpackImportProgress>>({})
   const [plan, setPlan] = useState<InstallPlanSummary | null>(null)
   const [planError, setPlanError] = useState<UiErrorInfo | null>(null)
   const [planBusy, setPlanBusy] = useState(false)
@@ -219,12 +247,24 @@ export function DownloadPage() {
         setLoaderLines([])
       }
     })
+    const offImportProgress = backend.mods.subscribeImportProgress((progress) => {
+      setImportProgress((prev) => ({ ...prev, [progress.jobId]: progress }))
+    })
+    const offImportFinished = backend.mods.subscribeImportFinished((event) => {
+      setImportProgress((prev) => {
+        const next = { ...prev }
+        delete next[event.jobId]
+        return next
+      })
+    })
     return () => {
       offProgress()
       offFinished()
       offLoaderProgress()
       offLoaderLog()
       offLoaderFinished()
+      offImportProgress()
+      offImportFinished()
     }
   }, [backend, tasks.reload])
 
@@ -742,7 +782,7 @@ export function DownloadPage() {
             <div className="nw-stack"><Skeleton className="skeleton--text" /><Skeleton className="skeleton--text" style={{ width: '70%' }} /></div>
           ) : tasksInfo ? (
             <DataStateNotice info={tasksInfo} onRetry={tasks.reload} />
-          ) : visibleTasks.length === 0 ? (
+          ) : visibleTasks.length === 0 && Object.keys(importProgress).length === 0 ? (
             <div className="nw-task-placeholder">
               <Icon name="download" />
               <strong>当前没有下载任务</strong>
@@ -751,6 +791,9 @@ export function DownloadPage() {
             </div>
           ) : (
             <div className="nw-task-list">
+              {Object.values(importProgress).map((progress) => (
+                <ImportTaskCard key={progress.jobId} progress={progress} />
+              ))}
               {visibleTasks.map((task) => (
                 <TaskCard
                   key={task.jobId}

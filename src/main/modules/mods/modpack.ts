@@ -353,6 +353,8 @@ export interface PackDownloadOptions {
   onFileStart?: (relative: string) => void
   onFileDone?: (relative: string, outcome: 'downloaded' | 'skipped') => void
   parts?: Set<string>
+  /** Parallel file fetches; defaults to 4, clamped to 1..8. */
+  concurrency?: number
 }
 
 function throwIfCancelled(signal?: AbortSignal): void {
@@ -419,13 +421,19 @@ export async function downloadMrpackFiles(
 ): Promise<PackDownloadResult> {
   let downloaded = 0
   let skipped = 0
-  for (const file of index.files) {
-    if (options.checkpoint) await options.checkpoint()
-    throwIfCancelled(options.signal)
+  const files = index.files
+  // A pack CDN that takes 51 s to deliver 3 MB (measured) makes a serial loop
+  // look hung; a small pool hides the per-connection latency without turning
+  // the import into a DoS.
+  const concurrency = Math.max(1, Math.min(8, options.concurrency ?? 4))
+  let next = 0
+  let failure: unknown = null
+
+  const processFile = async (file: MrpackFile): Promise<void> => {
     if (file.env?.client === 'unsupported') {
       skipped += 1
       options.onFileDone?.(file.path, 'skipped')
-      continue
+      return
     }
     const target = packTarget(gameDir, file.path)
     // Overrides are extracted first; an exported pack can therefore reproduce
@@ -433,7 +441,7 @@ export async function downloadMrpackFiles(
     if (existingMatches(fs, target, file.hashes)) {
       skipped += 1
       options.onFileDone?.(file.path, 'skipped')
-      continue
+      return
     }
     options.onFileStart?.(file.path)
     let result: { data: Buffer; url: string }
@@ -472,6 +480,26 @@ export async function downloadMrpackFiles(
     else skipped += 1
     options.onFileDone?.(file.path, wrote ? 'downloaded' : 'skipped')
   }
+
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      if (failure || options.signal?.aborted) return
+      const index = next++
+      if (index >= files.length) return
+      if (options.checkpoint) await options.checkpoint()
+      throwIfCancelled(options.signal)
+      try {
+        await processFile(files[index])
+      } catch (error) {
+        // Stop the pool on the first real failure; its error wins.
+        failure ??= error
+        return
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()))
+  if (failure) throw failure
   return { downloaded, skipped }
 }
 
