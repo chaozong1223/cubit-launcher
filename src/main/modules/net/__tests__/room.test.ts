@@ -408,13 +408,17 @@ describe('RoomService LAN flow', () => {
     expect(rejoin.error?.code).toBe('NETWORK_UNREACHABLE')
   })
 
-  it('rejects a short 6-char code as the only credential', async () => {
+  it('treats a bare 6-char code as a short-code join that needs a tunnel', async () => {
     const host = makeRoom()
     const created = await host.create({ instanceId: 'a', transport: 'lan', consentTunnel: false })
+    expect(created.code).toHaveLength(6)
     const member = makeRoom()
-    const joined = await member.join({ ticket: created.invite, instanceId: 'a' })
-    expect(joined.state).toBe('error')
-    expect(joined.error?.code).toBe('INVITE_INCOMPLETE')
+    // This fixture has no tunnel installed, so the short-code path reports the
+    // missing tunnel instead of pretending the code was a malformed ticket.
+    await expect(member.join({ ticket: 'A3K9QZ', instanceId: 'a' })).rejects.toMatchObject({
+      code: 'TUNNEL_FAILED',
+    })
+    await host.dispose()
   })
 
   it('notifies the member when the host closes and ends in a readable error', async () => {

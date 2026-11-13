@@ -1,6 +1,7 @@
-﻿import crypto from 'node:crypto'
+import crypto from 'node:crypto'
 import type { LinkErrorCode } from '@shared/net'
 import { LINK_ERROR_MESSAGES } from '@shared/net'
+import { deriveRoomSecret } from './shortcode'
 
 /**
  * Self-verifying invite tickets (docs/04 §6.2).
@@ -181,7 +182,9 @@ export function createRoomIdentity(input: CreateIdentityInput): RoomIdentity {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519')
   const jwk = publicKey.export({ format: 'jwk' }) as crypto.JsonWebKey
   if (!jwk.x) throw new LinkError('INTERNAL', 'failed to export host public key')
-  const netSecret = crypto.randomBytes(32)
+  // Derived from the room code, not random: a member who only has the six
+  // characters must be able to compute the same tunnel key.
+  const netSecret = deriveRoomSecret(code)
   return {
     roomId,
     code,

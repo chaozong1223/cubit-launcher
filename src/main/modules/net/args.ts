@@ -167,14 +167,20 @@ export function buildMemberArgs(input: MemberArgsInput): string[] {
     '--no-listener',
     '-p',
     input.peer,
-    '--port-forward',
-    `tcp://127.0.0.1:${input.localControlPort}/${MAPPED_CIDR.split('/')[0]}:${input.controlPort}`,
     '-r',
     `127.0.0.1:${input.rpcPort}`,
     '--rpc-portal-whitelist',
     '127.0.0.1/32',
     ...punchThroughArgs(input.networkName),
   ]
+  // A short-code member has no control channel: controlPort 0 means "skip it"
+  // instead of forwarding to a port nobody listens on.
+  if (input.controlPort > 0) {
+    args.push(
+      '--port-forward',
+      `tcp://127.0.0.1:${input.localControlPort}/${MAPPED_CIDR.split('/')[0]}:${input.controlPort}`,
+    )
+  }
   if (input.localWorldPort && input.worldPort) {
     args.push(
       '--port-forward',

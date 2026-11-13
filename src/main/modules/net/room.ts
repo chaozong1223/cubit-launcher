@@ -47,6 +47,12 @@ import {
 } from './config'
 import { probePublicIpv4, testRelayTcp, type PublicIpResult } from './publicip'
 import { discoverRelayPeers } from './relay-discovery'
+import {
+  deriveRoomSecret,
+  normalizeShortCode,
+  shortCodeNetworkName,
+  SHORT_CODE_WORLD_PORT,
+} from './shortcode'
 import { HostControl, MemberControl, type MemberWelcome } from './control'
 import { LanWorldDiscovery } from './discovery'
 import type { TunnelHandle, TunnelPort } from './easytier'
@@ -109,6 +115,8 @@ interface JoinTarget {
 
 export class RoomService {
   private role: 'host' | 'member' | null = null
+  /** Set when the member joined with a six-character code instead of a ticket. */
+  private shortCode: string | null = null
   private state: RoomState = 'idle'
   private transport: Transport = 'none'
   private identity: RoomIdentity | null = null
@@ -291,6 +299,10 @@ export class RoomService {
   }
 
   async join(input: { ticket: string; instanceId: string | null }): Promise<RoomInfo> {
+    // A six-character room code needs no ticket: the tunnel identity is derived
+    // from the code itself (see shortcode.ts).
+    const shortCode = normalizeShortCode(input.ticket)
+    if (shortCode) return this.joinByCode({ code: shortCode, instanceId: input.instanceId })
     if (this.role) {
       if (this.role === 'member' && this.state === 'error') {
         await this.leave()
@@ -317,12 +329,6 @@ export class RoomService {
     this.tunnelFailure = null
 
     try {
-      if (/^MCL-[0-9A-HJKMNP-TV-Z]{6}$/i.test(input.ticket.trim())) {
-        throw new LinkError(
-          'INVITE_INCOMPLETE',
-          '6 位房间号只用于同一局域网发现；请复制完整邀请码',
-        )
-      }
       const parsed = parseTicket(input.ticket)
       this.parsed = parsed.payload
       this.ticket = { ticket: parsed.ticket, payload: parsed.payload }
@@ -391,6 +397,86 @@ export class RoomService {
     }
   }
 
+  /**
+   * Join a room from its six-character code alone.
+   *
+   * No ticket: the EasyTier network name and key are derived from the code,
+   * both sides meet through the public relays, and the host is reachable at the
+   * fixed mapped address on the agreed LAN port. This is the fallback that makes
+   * "copy a code, paste a code" work without any room registry server.
+   */
+  async joinByCode(input: { code: string; instanceId: string | null }): Promise<RoomInfo> {
+    const code = normalizeShortCode(input.code)
+    if (!code) {
+      throw new LinkError('INVITE_INVALID', '房间码应为 6 位（0-9 A-Z，不含 I/L/O/U）')
+    }
+    const tunnel = this.options.tunnel
+    if (!tunnel) throw new LinkError('TUNNEL_FAILED', '当前版本不支持自动隧道')
+
+    this.role = 'member'
+    this.state = 'connecting'
+    this.closing = false
+    this.error = null
+    this.transport = 'none'
+    this.reconnectAttempts = 0
+    this.members = []
+    this.world = { port: SHORT_CODE_WORLD_PORT, state: 'open', address: null }
+    this.tunnelState = 'idle'
+    this.tunnelHandle = null
+    this.localWorldPort = null
+    this.localControlPort = null
+    this.joinTarget = null
+    this.memberEndpoint = null
+    this.worldForwardReady = false
+    this.manual = null
+    this.tunnelFailure = null
+    this.identity = null
+    this.parsed = null
+    this.ticket = null
+    this.shortCode = code
+    this.instanceId = input.instanceId
+    this.emit()
+
+    try {
+      await tunnel.ensureInstalled()
+      this.relayPeers = await discoverRelayPeers(this.relayPeers, { log: this.options.log })
+      const peer = this.relayPeers[0]
+      if (!peer) throw new LinkError('TUNNEL_FAILED', '没有可用的中继节点')
+      this.tunnelState = 'starting'
+      this.emit()
+      const handle = await tunnel.startMember({
+        networkName: shortCodeNetworkName(code),
+        networkSecret: deriveRoomSecret(code).toString('hex'),
+        peer,
+        controlPort: 0,
+        worldPort: SHORT_CODE_WORLD_PORT,
+        relayPeers: this.relayPeers,
+      })
+      this.tunnelHandle = handle
+      this.localWorldPort = handle.localWorldPort
+      this.localControlPort = handle.localControlPort
+      this.tunnelState = 'up'
+      this.transport = 'relay'
+      this.state = 'connected'
+      this.joinTarget = {
+        host: '127.0.0.1',
+        port: handle.localWorldPort ?? SHORT_CODE_WORLD_PORT,
+      }
+      this.emit()
+      this.options.log.info('short code join ready', {
+        code,
+        localWorldPort: this.localWorldPort,
+      })
+      return this.snapshot()
+    } catch (error) {
+      this.state = 'error'
+      this.tunnelState = 'failed'
+      this.error = toLinkError(error, 'TUNNEL_FAILED')
+      this.emit()
+      throw this.error
+    }
+  }
+
   async leave(): Promise<{ ok: boolean }> {
     if (!this.role) return { ok: false }
     this.closing = true
@@ -406,6 +492,7 @@ export class RoomService {
       this.members = []
       this.emit()
       this.role = null
+      this.shortCode = null
       this.ticket = null
       this.parsed = null
       this.identity = null
@@ -1412,7 +1499,7 @@ export class RoomService {
 
   private snapshot(): RoomInfo {
     const payload = this.ticket?.payload ?? this.parsed
-    const code = payload ? normalizeCode(payload.code) : '000000'
+    const code = this.shortCode ?? (payload ? normalizeCode(payload.code) : '000000')
     const host = payload
       ? { name: payload.host.name, mcVersion: payload.mc.version, loader: payload.mc.loader }
       : { name: '房主', mcVersion: 'unknown', loader: 'unknown' }
