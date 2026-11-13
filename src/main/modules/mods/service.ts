@@ -1085,9 +1085,12 @@ export class ModsModuleService {
           this.cleanupNestedPack(nestedTempFile)
         },
         onError: (error) => {
+          const details =
+            error instanceof AppError ? (error as AppError).details : undefined
           this.options.log.error('modpack import failed', {
             instanceId: dirName,
             message: error instanceof Error ? error.message : String(error),
+            ...(details !== undefined ? { details } : {}),
           })
         },
       },

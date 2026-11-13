@@ -436,16 +436,36 @@ export async function downloadMrpackFiles(
       continue
     }
     options.onFileStart?.(file.path)
-    const result = await downloadVerified(
-      downloader,
-      file.downloads,
-      file.hashes,
-      Math.min(file.fileSize ?? MAX_PACK_FILE_BYTES, MAX_PACK_FILE_BYTES),
-      {
-        ...(options.signal ? { signal: options.signal } : {}),
-        ...(options.onBytes ? { onBytes: options.onBytes } : {}),
-      },
-    )
+    let result: { data: Buffer; url: string }
+    try {
+      result = await downloadVerified(
+        downloader,
+        file.downloads,
+        file.hashes,
+        Math.min(file.fileSize ?? MAX_PACK_FILE_BYTES, MAX_PACK_FILE_BYTES),
+        {
+          ...(options.signal ? { signal: options.signal } : {}),
+          ...(options.onBytes ? { onBytes: options.onBytes } : {}),
+        },
+      )
+    } catch (error) {
+      // The aggregate message hides *which* file broke and why; surface both so
+      // a failed import is diagnosable from the launcher log alone.
+      const cause =
+        error instanceof AppError ? (error as AppError).details : undefined
+      throw new AppError(
+        'MODS.PACK_DOWNLOAD_FAILED',
+        `整合包文件下载失败：${file.path}`,
+        {
+          retryable: true,
+          details: {
+            path: file.path,
+            downloads: file.downloads.slice(0, 3),
+            ...(cause !== undefined ? { cause } : {}),
+          },
+        },
+      )
+    }
     throwIfCancelled(options.signal)
     const wrote = await writeIfNeeded(fs, target, result.data, file.hashes, options)
     if (wrote) downloaded += 1
