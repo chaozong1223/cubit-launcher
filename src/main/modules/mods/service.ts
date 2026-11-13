@@ -30,7 +30,7 @@ import { requireMcRoot } from '../_context'
 import { createStoredZip, extractOverrides, readJsonEntry, type ZipWriteEntry } from './archive'
 import { readModMetadata, satisfiesRange } from './metadata'
 import {
-  createFetchDownloader,
+  createHttpsDownloader,
   type FileDownloader,
   sha1 as sha1Of,
   sha512 as sha512Of,
@@ -145,7 +145,7 @@ export class ModsModuleService {
 
   constructor(private readonly options: ModsServiceOptions) {
     this.fs = options.fs ?? nodeFsPort()
-    this.downloader = options.downloader ?? createFetchDownloader()
+    this.downloader = options.downloader ?? createHttpsDownloader()
     this.curseResolver =
       options.curseResolver ??
       createCurseForgeResolver({

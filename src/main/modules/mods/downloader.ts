@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import https from 'node:https'
 import { JobCancelledError } from '../../core/job/kernel'
 import { AppError } from '@shared/errors'
 
@@ -22,6 +23,160 @@ export interface FileHashes {
 
 function abortError(): JobCancelledError {
   return new JobCancelledError('下载已取消')
+}
+
+/**
+ * HTTPS downloader with explicit timeouts.
+ *
+ * `fetch` was the wrong tool here: undici's connect timeout is ~10 s, and
+ * cdn.modrinth.com measured 51 s for a 3 MB jar on this network (and often
+ * refuses the connection outright). Every modpack import therefore died with
+ * "fetch failed / UND_ERR_CONNECT_TIMEOUT" on the first file. `https.get` with
+ * a 30 s socket timeout and a 5 min overall budget actually completes.
+ */
+const DOWNLOAD_CONNECT_TIMEOUT_MS = 30_000
+const DOWNLOAD_TOTAL_TIMEOUT_MS = 5 * 60_000
+
+function httpsDownload(
+  url: string,
+  maxBytes: number,
+  options: FileDownloadOptions,
+  redirects = 0,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    let parsed: URL
+    try {
+      parsed = new URL(url)
+    } catch {
+      reject(new AppError('MODS.PACK_DOWNLOAD_FAILED', `下载地址无效: ${url}`))
+      return
+    }
+    if (parsed.protocol !== 'https:') {
+      reject(
+        new AppError('MODS.PACK_DOWNLOAD_FAILED', `拒绝非 HTTPS 下载地址: ${url}`, {
+          details: { url },
+        }),
+      )
+      return
+    }
+    if (options.signal?.aborted) {
+      reject(abortError())
+      return
+    }
+
+    let settled = false
+    const finish = (fn: () => void): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(totalTimer)
+      options.signal?.removeEventListener('abort', onAbort)
+      fn()
+    }
+
+    const request = https.get(parsed, {
+      timeout: DOWNLOAD_CONNECT_TIMEOUT_MS,
+      headers: { 'User-Agent': 'mc-launcher' },
+    })
+    const totalTimer = setTimeout(() => {
+      request.destroy(
+        new AppError('MODS.PACK_DOWNLOAD_FAILED', `下载超时（5 分钟）: ${url}`, {
+          details: { url },
+        }),
+      )
+    }, DOWNLOAD_TOTAL_TIMEOUT_MS)
+    totalTimer.unref?.()
+
+    function onAbort(): void {
+      request.destroy(abortError())
+    }
+    options.signal?.addEventListener('abort', onAbort, { once: true })
+
+    request.on('timeout', () => {
+      request.destroy(
+        new AppError('MODS.PACK_DOWNLOAD_FAILED', `连接超时: ${url}`, {
+          details: { url },
+        }),
+      )
+    })
+
+    request.on('response', (response) => {
+      const status = response.statusCode ?? 0
+      if (status >= 300 && status < 400 && response.headers.location) {
+        response.resume()
+        if (redirects >= 5) {
+          finish(() =>
+            reject(
+              new AppError('MODS.PACK_DOWNLOAD_FAILED', `重定向过多: ${url}`, {
+                details: { url },
+              }),
+            ),
+          )
+          return
+        }
+        const next = new URL(response.headers.location, parsed).toString()
+        finish(() => resolve(httpsDownload(next, maxBytes, options, redirects + 1)))
+        return
+      }
+      if (status < 200 || status >= 300) {
+        response.resume()
+        finish(() =>
+          reject(
+            new AppError('MODS.PACK_DOWNLOAD_FAILED', `下载失败 HTTP ${status}`, {
+              retryable: status >= 500,
+              details: { url, status },
+            }),
+          ),
+        )
+        return
+      }
+      const length = Number(response.headers['content-length'] ?? '0')
+      if (Number.isFinite(length) && length > maxBytes) {
+        response.destroy()
+        finish(() =>
+          reject(
+            new AppError('MODS.PACK_TOO_LARGE', `文件超过大小上限: ${url}`, {
+              details: { url, bytes: length, maxBytes },
+            }),
+          ),
+        )
+        return
+      }
+
+      const chunks: Buffer[] = []
+      let total = 0
+      let tooLarge = false
+      response.on('data', (chunk: Buffer) => {
+        if (tooLarge) return
+        total += chunk.length
+        if (total > maxBytes) {
+          tooLarge = true
+          request.destroy()
+          finish(() =>
+            reject(
+              new AppError('MODS.PACK_TOO_LARGE', `文件超过大小上限: ${url}`, {
+                details: { url, bytes: total, maxBytes },
+              }),
+            ),
+          )
+          return
+        }
+        chunks.push(chunk)
+        options.onBytes?.(chunk.length)
+      })
+      response.on('end', () => finish(() => resolve(Buffer.concat(chunks, total))))
+      response.on('error', (error) => finish(() => reject(error)))
+    })
+
+    request.on('error', (error) => finish(() => reject(error)))
+  })
+}
+
+export function createHttpsDownloader(): FileDownloader {
+  return {
+    download(url, maxBytes = MAX_PACK_FILE_BYTES, options: FileDownloadOptions = {}) {
+      return httpsDownload(url, maxBytes, options)
+    },
+  }
 }
 
 export function createFetchDownloader(fetchImpl: typeof fetch = fetch): FileDownloader {
