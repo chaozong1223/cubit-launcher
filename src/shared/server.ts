@@ -56,11 +56,16 @@ export const ServerCommandInputSchema = z.object({
 })
 export type ServerCommandInput = z.infer<typeof ServerCommandInputSchema>
 
-/** A version that can be turned into a server without an installer. */
+/** A version that can be turned into a server (vanilla jar or loader installer). */
+export const ServerLoader = z.enum(['vanilla', 'forge', 'neoforge', 'fabric', 'quilt'])
+export type ServerLoader = z.infer<typeof ServerLoader>
+
 export const ServerVersionSchema = z.object({
   id: z.string(),
   mcVersion: z.string().nullable(),
-  loader: z.string(),
+  loader: ServerLoader,
+  /** Loader version (e.g. 14.23.5.2864); null for vanilla. */
+  loaderVersion: z.string().nullable(),
 })
 export type ServerVersion = z.infer<typeof ServerVersionSchema>
 

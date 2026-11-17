@@ -178,7 +178,9 @@ export function ServerPage() {
                   <option value="">选择版本…</option>
                   {(versions.data ?? []).map((version: ServerVersion) => (
                     <option key={version.id} value={version.id}>
-                      {version.id}
+                      {version.loader === 'vanilla'
+                        ? version.id
+                        : `${version.id}（${version.loader}${version.loaderVersion ? ` ${version.loaderVersion}` : ''}）`}
                     </option>
                   ))}
                 </select>
