@@ -33,6 +33,7 @@ import type {
   JavaDetectResult,
   JavaInstallJob,
   JavaInstallProgress,
+  JavaProviderInfo,
   JavaRequirement,
   JavaSettings,
   JavaSettingsPatch,
@@ -419,6 +420,7 @@ const CH = {
   javaSettings: channelOf('java', 'settings'),
   javaUpdateSettings: channelOf('java', 'updateSettings'),
   javaChoose: channelOf('java', 'choose'),
+  javaProviders: channelOf('java', 'providers'),
   javaRequirement: channelOf('java', 'requirement'),
   javaDownload: channelOf('java', 'download'),
   javaDownloadStatus: channelOf('java', 'downloadStatus'),
@@ -721,6 +723,7 @@ export interface Backend {
     settings(): Promise<JavaSettings>
     updateSettings(patch: JavaSettingsPatch): Promise<JavaSettings>
     choose(requiredMajor?: number | null): Promise<unknown>
+    providers(): Promise<JavaProviderInfo[]>
     requirement(versionId: string): Promise<JavaRequirement>
     download(input: { major: number; source: 'auto' | string; force: boolean }): Promise<JavaInstallJob>
     downloadStatus(jobId: string): Promise<JavaInstallProgress | null>
@@ -1042,6 +1045,7 @@ export const ipcBackend: Backend = {
     updateSettings: (patch: JavaSettingsPatch) =>
       invoke<JavaSettings>('更新 Java 设置', CH.javaUpdateSettings, patch),
     choose: (requiredMajor) => invoke('Java 选择', CH.javaChoose, { requiredMajor: requiredMajor ?? null }),
+    providers: () => invoke<JavaProviderInfo[]>('Java 下载源', CH.javaProviders),
     requirement: (versionId) => invoke<JavaRequirement>('Java 版本要求', CH.javaRequirement, { versionId }),
     download: (input) => invoke<JavaInstallJob>('下载 Java 运行时', CH.javaDownload, input),
     downloadStatus: (jobId) => invoke<JavaInstallProgress | null>('Java 下载状态', CH.javaDownloadStatus, { jobId }),

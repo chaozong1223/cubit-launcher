@@ -1,10 +1,11 @@
 import { Card } from '../ui'
 import { JavaListPanel } from './JavaListPanel'
+import { JavaDownloadPanel } from './JavaDownloadPanel'
 
 /**
- * The Java page: every runtime the launcher can see, with the global default.
- * The per-instance override still lives in Settings > Java next to the instance
- * picker, so this page stays read-mostly.
+ * The Java page: every runtime the launcher can see, plus a one-click install
+ * card. The per-instance override still lives in Settings > Java next to the
+ * instance picker, so this page stays read-mostly.
  */
 export function JavaPage() {
   return (
@@ -19,6 +20,13 @@ export function JavaPage() {
         <div className="settings-section">
           <div className="settings-section__body">
             <JavaListPanel />
+          </div>
+        </div>
+      </Card>
+      <Card className="settings-content">
+        <div className="settings-section">
+          <div className="settings-section__body">
+            <JavaDownloadPanel />
           </div>
         </div>
       </Card>
