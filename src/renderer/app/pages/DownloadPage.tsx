@@ -74,13 +74,37 @@ function versionLabel(version: ManifestVersion): string {
   return version.type === 'release' ? version.id : `${version.id} · ${version.type}`
 }
 
-type McTab = 'release' | 'snapshot' | 'legacy'
+type McTab = 'release' | 'snapshot' | 'april' | 'legacy'
 
 const MC_TABS: ReadonlyArray<{ value: McTab; label: string }> = [
   { value: 'release', label: '正式版' },
-  { value: 'snapshot', label: '快照版' },
-  { value: 'legacy', label: '远古版本' },
+  { value: 'snapshot', label: '快照' },
+  { value: 'april', label: '愚人节版' },
+  { value: 'legacy', label: '远古版' },
 ]
+
+/**
+ * Mojang ships April Fools snapshots as plain `snapshot` entries; the id is the
+ * only signal. HMCL/PCL keep the same hardcoded list plus a pattern fallback,
+ * because new ones keep appearing.
+ */
+const APRIL_FOOLS_IDS = new Set([
+  '15w14a',
+  '1.RV-Pre1',
+  '3D Shareware v1.34',
+  '20w14infinite',
+  '20w14infinity',
+  '22w13oneblockatatime',
+  '23w13a_or_b',
+  '24w14potato',
+  '25w14craftmine',
+])
+
+function isAprilFools(version: { id: string; type: string }): boolean {
+  if (version.type !== 'snapshot') return false
+  if (APRIL_FOOLS_IDS.has(version.id)) return true
+  return /_or_|oneblockatatime|potato|craftmine|infinity|shareware|RV-Pre/i.test(version.id)
+}
 
 function formatReleaseDate(value: string | null | undefined): string {
   if (!value) return '日期未知'
@@ -284,7 +308,10 @@ export function DownloadPage() {
   const selected = versions.find((version) => version.id === versionId) ?? null
 
   const releaseVersions = versions.filter((version) => version.type === 'release')
-  const snapshotVersions = versions.filter((version) => version.type === 'snapshot')
+  const aprilVersions = versions.filter(isAprilFools)
+  const snapshotVersions = versions.filter(
+    (version) => version.type === 'snapshot' && !isAprilFools(version),
+  )
   const legacyVersions = versions.filter(
     (version) => version.type === 'old_beta' || version.type === 'old_alpha',
   )
@@ -292,7 +319,13 @@ export function DownloadPage() {
   const latestSnapshot = snapshotVersions[0] ?? null
   const query = mcQuery.trim().toLowerCase()
   const tabVersions = (
-    mcTab === 'release' ? releaseVersions : mcTab === 'snapshot' ? snapshotVersions : legacyVersions
+    mcTab === 'release'
+      ? releaseVersions
+      : mcTab === 'snapshot'
+        ? snapshotVersions
+        : mcTab === 'april'
+          ? aprilVersions
+          : legacyVersions
   )
     .filter((version) => (query ? version.id.toLowerCase().includes(query) : true))
     .slice(0, 60)
