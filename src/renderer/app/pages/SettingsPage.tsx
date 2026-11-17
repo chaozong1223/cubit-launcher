@@ -25,6 +25,7 @@ import type { IconName } from '../icons'
 import { InstancePicker } from './InstancePicker'
 import { InstanceSettingsFields } from './InstanceSettingsFields'
 import { AccountSettingsPanel } from './AccountSettingsPanel'
+import { JavaListPanel } from './JavaListPanel'
 import { LinkSettingsPanel } from './LinkSettingsPanel'
 
 type Section = 'account' | 'launch' | 'java' | 'download' | 'link' | 'appearance' | 'diagnostics'
@@ -222,6 +223,7 @@ export function SettingsPage() {
                   <div><h2>Java</h2><p>候选来自 java.detect；实例级覆盖优先于全局/自动选择，保存后用 dry-run 验证。</p></div>
                 </div>
                 <div className="settings-section__body">
+                  <JavaListPanel />
                   {draft ? <InstanceSettingsFields draft={draft} mode="java" /> : (
                     <EmptyState icon="coffee" title="先选择实例" description="Java 选择需要实例目标；没有实例时不伪造路径。" />
                   )}

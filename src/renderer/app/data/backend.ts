@@ -28,7 +28,15 @@ import type {
   ShareImportStart,
 } from '@shared/instance'
 import type { VersionSummary } from '@shared/version'
-import type { JavaDetectResult, JavaInstallJob, JavaInstallProgress, JavaRequirement } from '@shared/java'
+import type {
+  JavaCandidate,
+  JavaDetectResult,
+  JavaInstallJob,
+  JavaInstallProgress,
+  JavaRequirement,
+  JavaSettings,
+  JavaSettingsPatch,
+} from '@shared/java'
 import type { LaunchExitReport, LaunchPlan, LaunchState, LaunchStatus } from '@shared/launch'
 import type {
   Account,
@@ -406,6 +414,9 @@ const CH = {
   versionList: channelOf('version', 'listVersions'),
   versionInspect: channelOf('version', 'inspect'),
   javaDetect: channelOf('java', 'detect'),
+  javaCandidates: channelOf('java', 'candidates'),
+  javaSettings: channelOf('java', 'settings'),
+  javaUpdateSettings: channelOf('java', 'updateSettings'),
   javaChoose: channelOf('java', 'choose'),
   javaRequirement: channelOf('java', 'requirement'),
   javaDownload: channelOf('java', 'download'),
@@ -696,6 +707,9 @@ export interface Backend {
   }
   java: {
     detect(force?: boolean): Promise<JavaDetectResult>
+    candidates(): Promise<JavaCandidate[]>
+    settings(): Promise<JavaSettings>
+    updateSettings(patch: JavaSettingsPatch): Promise<JavaSettings>
     choose(requiredMajor?: number | null): Promise<unknown>
     requirement(versionId: string): Promise<JavaRequirement>
     download(input: { major: number; source: 'auto' | string; force: boolean }): Promise<JavaInstallJob>
@@ -1001,6 +1015,10 @@ export const ipcBackend: Backend = {
   },
   java: {
     detect: (force = false) => invoke<JavaDetectResult>('Java 检测', CH.javaDetect, { force }),
+    candidates: () => invoke<JavaCandidate[]>('Java 候选列表', CH.javaCandidates),
+    settings: () => invoke<JavaSettings>('Java 设置', CH.javaSettings),
+    updateSettings: (patch: JavaSettingsPatch) =>
+      invoke<JavaSettings>('更新 Java 设置', CH.javaUpdateSettings, patch),
     choose: (requiredMajor) => invoke('Java 选择', CH.javaChoose, { requiredMajor: requiredMajor ?? null }),
     requirement: (versionId) => invoke<JavaRequirement>('Java 版本要求', CH.javaRequirement, { versionId }),
     download: (input) => invoke<JavaInstallJob>('下载 Java 运行时', CH.javaDownload, input),
