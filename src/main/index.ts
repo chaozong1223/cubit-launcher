@@ -376,7 +376,25 @@ async function bootstrap(): Promise<void> {
   logger.info('app', 'ready', { modules: ['system', ...moduleIds], failedModules })
 }
 
-app.whenReady().then(bootstrap).catch((error: unknown) => {
+app.whenReady().then(async () => {
+  // One launcher per user: two instances share the same data root and every
+  // window you close leaves the other one running, which reads as "double
+  // click opens two windows". Taken AFTER ready on purpose — earlier attempts
+  // took it before the logger existed, so a denial looked like "the launcher
+  // does not start at all" and left no trace.
+  if (!app.requestSingleInstanceLock()) {
+    logger.warn('app', 'another launcher instance is already running; exiting', {
+      pid: process.pid,
+    })
+    app.quit()
+    return
+  }
+  app.on('second-instance', () => {
+    logger.info('app', 'second launch requested; focusing the running window')
+    restoreLauncher()
+  })
+  await bootstrap()
+}).catch((error: unknown) => {
   logger.fatal('app', 'bootstrap failed', {
     message: error instanceof Error ? error.stack ?? error.message : String(error),
   })
