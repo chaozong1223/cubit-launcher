@@ -657,7 +657,28 @@ export function DownloadPage() {
                 disabled={manifest.status !== 'ready'}
               >
                 <option value="">{manifest.status === 'loading' ? '正在读取版本清单…' : manifestInfo ? '版本清单不可用' : '选择一个版本'}</option>
-                {versions.map((version) => <option key={version.id} value={version.id}>{versionLabel(version)}</option>)}
+                {/* Grouped like the tabs above: a flat 900-entry list buries the
+                    release builds under snapshots. */}
+                {releaseVersions.length > 0 ? (
+                  <optgroup label="正式版">
+                    {releaseVersions.map((version) => <option key={version.id} value={version.id}>{versionLabel(version)}</option>)}
+                  </optgroup>
+                ) : null}
+                {snapshotVersions.length > 0 ? (
+                  <optgroup label="快照">
+                    {snapshotVersions.map((version) => <option key={version.id} value={version.id}>{versionLabel(version)}</option>)}
+                  </optgroup>
+                ) : null}
+                {aprilVersions.length > 0 ? (
+                  <optgroup label="愚人节版">
+                    {aprilVersions.map((version) => <option key={version.id} value={version.id}>{versionLabel(version)}</option>)}
+                  </optgroup>
+                ) : null}
+                {legacyVersions.length > 0 ? (
+                  <optgroup label="远古版">
+                    {legacyVersions.map((version) => <option key={version.id} value={version.id}>{versionLabel(version)}</option>)}
+                  </optgroup>
+                ) : null}
               </Select>
             </Field>
             <Field label="实例名称" hint="原版 install 只写入 versions；实例创建需要 instance 模块，当前不伪造名称。">
