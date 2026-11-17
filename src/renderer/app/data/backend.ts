@@ -37,6 +37,7 @@ import type {
   JavaSettings,
   JavaSettingsPatch,
 } from '@shared/java'
+import type { ServerCreateInput, ServerInfo, ServerVersion } from '@shared/server'
 import type { LaunchExitReport, LaunchPlan, LaunchState, LaunchStatus } from '@shared/launch'
 import type {
   Account,
@@ -422,6 +423,15 @@ const CH = {
   javaDownload: channelOf('java', 'download'),
   javaDownloadStatus: channelOf('java', 'downloadStatus'),
   javaCancelDownload: channelOf('java', 'cancelDownload'),
+  serverList: channelOf('server', 'list'),
+  serverVersions: channelOf('server', 'versions'),
+  serverCreate: channelOf('server', 'create'),
+  serverStart: channelOf('server', 'start'),
+  serverStop: channelOf('server', 'stop'),
+  serverRemove: channelOf('server', 'remove'),
+  serverStatus: channelOf('server', 'status'),
+  serverLogs: channelOf('server', 'logs'),
+  serverCommand: channelOf('server', 'command'),
   launchStatus: channelOf('launch', 'status'),
   launchPlan: channelOf('launch', 'plan'),
   launchStart: channelOf('launch', 'start'),
@@ -715,6 +725,18 @@ export interface Backend {
     download(input: { major: number; source: 'auto' | string; force: boolean }): Promise<JavaInstallJob>
     downloadStatus(jobId: string): Promise<JavaInstallProgress | null>
     cancelDownload(jobId: string): Promise<{ cancelled: boolean }>
+  }
+  server: {
+    list(): Promise<ServerInfo[]>
+    versions(): Promise<ServerVersion[]>
+    create(input: ServerCreateInput): Promise<ServerInfo>
+    start(id: string): Promise<ServerInfo>
+    stop(id: string): Promise<ServerInfo>
+    remove(id: string): Promise<{ ok: boolean }>
+    status(id: string): Promise<ServerInfo | null>
+    logs(id: string, lines?: number): Promise<{ lines: string[] }>
+    command(id: string, command: string): Promise<{ ok: boolean }>
+    subscribeChanged(callback: (event: { id: string; state: string; pid: number | null }) => void): () => void
   }
   auth: {
     list(): Promise<{ accounts: Account[]; selectedId: string | null }>
@@ -1024,6 +1046,18 @@ export const ipcBackend: Backend = {
     download: (input) => invoke<JavaInstallJob>('下载 Java 运行时', CH.javaDownload, input),
     downloadStatus: (jobId) => invoke<JavaInstallProgress | null>('Java 下载状态', CH.javaDownloadStatus, { jobId }),
     cancelDownload: (jobId) => invoke<{ cancelled: boolean }>('取消 Java 下载', CH.javaCancelDownload, { jobId }),
+  },
+  server: {
+    list: () => invoke<ServerInfo[]>('服务器列表', CH.serverList),
+    versions: () => invoke<ServerVersion[]>('可开服版本', CH.serverVersions),
+    create: (input) => invoke<ServerInfo>('创建服务器', CH.serverCreate, input),
+    start: (id) => invoke<ServerInfo>('启动服务器', CH.serverStart, { id }),
+    stop: (id) => invoke<ServerInfo>('停止服务器', CH.serverStop, { id }),
+    remove: (id) => invoke<{ ok: boolean }>('删除服务器', CH.serverRemove, { id }),
+    status: (id) => invoke<ServerInfo | null>('服务器状态', CH.serverStatus, { id }),
+    logs: (id, lines = 200) => invoke<{ lines: string[] }>('服务器日志', CH.serverLogs, { id, lines }),
+    command: (id, command) => invoke<{ ok: boolean }>('发送服务器命令', CH.serverCommand, { id, command }),
+    subscribeChanged: (callback) => on('mc:server:evt:changed', callback),
   },
   auth: {
     list: () => invoke('账户列表', CH.authList),

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 export interface Route {
   path: string
-  name: 'home' | 'instances' | 'instance' | 'download' | 'catalog' | 'project' | 'updates' | 'saves' | 'schematics' | 'screenshots' | 'trash' | 'link' | 'sdk' | 'logs' | 'settings' | 'about' | 'spec' | 'perf'
+  name: 'home' | 'instances' | 'instance' | 'download' | 'catalog' | 'project' | 'updates' | 'saves' | 'schematics' | 'screenshots' | 'trash' | 'link' | 'java' | 'serve' | 'sdk' | 'logs' | 'settings' | 'about' | 'spec' | 'perf'
   id?: string
   section?: string
 }
@@ -53,6 +53,10 @@ export function parseHash(hash: string): Route {
       return { path: '#/trash', name: 'trash' }
     case 'link':
       return { path: '#/link', name: 'link' }
+    case 'java':
+      return { path: '#/java', name: 'java' }
+    case 'serve':
+      return { path: '#/serve', name: 'serve' }
     case 'sdk':
       return { path: '#/sdk', name: 'sdk' }
     case 'logs':
@@ -98,6 +102,8 @@ export function routeTitle(route: Route): string {
     case 'instances': return '实例'
     case 'instance': return '实例详情'
     case 'download': return '安装与下载'
+    case 'java': return 'Java'
+    case 'serve': return '开服'
     case 'catalog': return '资源库'
     case 'project': return '项目详情'
     case 'updates': return '模组更新'

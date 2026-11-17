@@ -19,6 +19,8 @@ import { SchematicsPage } from './pages/SchematicsPage'
 import { ScreenshotsPage } from './pages/ScreenshotsPage'
 import { TrashPage } from './pages/TrashPage'
 import { LinkPage } from './pages/LinkPage'
+import { JavaPage } from './pages/JavaPage'
+import { ServerPage } from './pages/ServerPage'
 import { SdkPage } from './pages/SdkPage'
 import { LogsPage } from './pages/LogsPage'
 import { PerfPage } from './pages/PerfPage'
@@ -37,10 +39,12 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<{ path: st
   ] },
   { label: '一起玩', items: [
     { path: '#/link', name: 'link', label: '联机', icon: 'link' },
+    { path: '#/serve', name: 'serve', label: '开服', icon: 'network' },
   ] },
   { label: '系统', items: [
     { path: '#/logs', name: 'logs', label: '日志', icon: 'terminal' },
     { path: '#/perf', name: 'perf', label: '内存与性能', icon: 'activity' },
+    { path: '#/java', name: 'java', label: 'Java', icon: 'coffee' },
     { path: '#/trash', name: 'trash', label: '回收站', icon: 'trash' },
     { path: '#/settings', name: 'settings', label: '设置', icon: 'settings' },
     { path: '#/about', name: 'about', label: '关于', icon: 'info' },
@@ -159,6 +163,8 @@ function Page({ route }: { route: Route }) {
     case 'screenshots': return <ScreenshotsPage initialInstanceId={route.section} />
     case 'trash': return <TrashPage />
     case 'link': return <LinkPage />
+    case 'java': return <JavaPage />
+    case 'serve': return <ServerPage />
     case 'sdk': return <SdkPage />
     case 'logs': return <LogsPage />
     case 'perf': return <PerfPage />
