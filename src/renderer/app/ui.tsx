@@ -498,7 +498,16 @@ export function Dropdown({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([])
   const rootRef = useRef<HTMLDivElement>(null)
+
+  const toggleGroup = (label: string): void => {
+    setCollapsedGroups((previous) =>
+      previous.includes(label)
+        ? previous.filter((entry) => entry !== label)
+        : [...previous, label],
+    )
+  }
 
   useEffect(() => {
     if (!open) return
@@ -527,7 +536,13 @@ export function Dropdown({
         }))
         .filter((group) => group.options.length > 0)
     : groups
-  const flatVisible = visibleGroups.flatMap((group) => group.options)
+  // While searching, every group is expanded: a collapsed group must not hide
+  // matches the user is actively filtering for.
+  const isCollapsed = (group: DropdownGroup): boolean =>
+    query.length === 0 && group.label !== undefined && collapsedGroups.includes(group.label)
+  const flatVisible = visibleGroups
+    .filter((group) => !isCollapsed(group))
+    .flatMap((group) => group.options)
   const current = groups.flatMap((group) => group.options).find((option) => option.value === value)
 
   const choose = (next: string) => {
@@ -574,19 +589,43 @@ export function Dropdown({
           ) : (
             visibleGroups.map((group, index) => (
               <div key={group.label ?? `group-${index}`}>
-                {group.label ? <div className="dropdown__group">{group.label}</div> : null}
-                {group.options.map((option) => (
+                {group.label ? (
                   <button
-                    key={option.value || '__all__'}
                     type="button"
-                    role="option"
-                    aria-selected={value === option.value}
-                    className="dropdown__item"
-                    onClick={() => choose(option.value)}
+                    className="dropdown__group"
+                    aria-expanded={!isCollapsed(group)}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'none',
+                      border: 0,
+                      font: 'inherit',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onClick={() => toggleGroup(group.label as string)}
                   >
-                    {option.label}
+                    <span>{group.label}</span>
+                    <span aria-hidden="true">{isCollapsed(group) ? '▸' : '▾'}</span>
                   </button>
-                ))}
+                ) : null}
+                {isCollapsed(group)
+                  ? null
+                  : group.options.map((option) => (
+                      <button
+                        key={option.value || '__all__'}
+                        type="button"
+                        role="option"
+                        aria-selected={value === option.value}
+                        className="dropdown__item"
+                        onClick={() => choose(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
               </div>
             ))
           )}
