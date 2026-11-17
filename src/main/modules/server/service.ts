@@ -181,19 +181,20 @@ export class ServerService {
       return []
     }
     const out: ServerVersion[] = []
+    // A server jar is tied to a Minecraft version, so only plain version ids
+    // (1.20.1, 26.3-snapshot-7…) belong here. A modpack directory is a full
+    // copy of such a JSON with a renaming id; it would download the *base*
+    // server and silently run the wrong version.
+    const VERSION_ID = /^\d+\.\d+(?:\.\d+)?(?:[-_].+)?$/
     for (const dirName of entries) {
       const json = readJson<Record<string, unknown>>(path.join(versionsDir, dirName, `${dirName}.json`))
       if (!json) continue
+      if (typeof json.inheritsFrom === 'string') continue
+      const versionId = typeof json.id === 'string' ? json.id : dirName
+      if (!VERSION_ID.test(versionId)) continue
       const downloads = json.downloads as { server?: { url?: string } } | undefined
       if (!downloads?.server?.url) continue
-      const id = typeof json.id === 'string' ? json.id : dirName
-      const loader =
-        (json.inheritsFrom && typeof json.inheritsFrom === 'string') ? 'loader' : 'vanilla'
-      out.push({
-        id: dirName,
-        mcVersion: id,
-        loader,
-      })
+      out.push({ id: dirName, mcVersion: versionId, loader: 'vanilla' })
     }
     return out
   }
