@@ -70,6 +70,7 @@ export function ServerPage() {
   const [memoryMb, setMemoryMb] = useState('2048')
   const [onlineMode, setOnlineMode] = useState(true)
   const [eula, setEula] = useState(false)
+  const [copyMods, setCopyMods] = useState(true)
 
   const list = servers.data ?? []
   const current = useMemo(() => list.find((server) => server.id === selected) ?? null, [list, selected])
@@ -131,6 +132,7 @@ export function ServerPage() {
         memoryMb: Number(memoryMb) || 2048,
         onlineMode,
         acceptEula: true,
+        copyModsFrom: copyMods ? versionId : null,
       }),
       '服务器已创建',
     )
@@ -201,6 +203,12 @@ export function ServerPage() {
               </Field>
             </div>
             <label className="row gap-8" style={{ alignItems: 'center' }}>
+              <input type="checkbox" checked={copyMods} onChange={(event) => setCopyMods(event.target.checked)} />
+              <span className="muted">
+                把所选版本的 mods 复制到服务端（整合包开服必开；原版版本没有 mods，无影响）
+              </span>
+            </label>
+            <label className="row gap-8" style={{ alignItems: 'center' }}>
               <input type="checkbox" checked={eula} onChange={(event) => setEula(event.target.checked)} />
               <span className="muted">
                 我同意 <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noreferrer">Minecraft EULA</a>（服务端要求）
@@ -253,6 +261,24 @@ export function ServerPage() {
                   {server.state === 'running' && server.port === 25565 ? (
                     <Button size="sm" variant="secondary" icon="link" onClick={() => void share(server)} disabled={busy}>分享到联机</Button>
                   ) : null}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon="package"
+                    disabled={busy}
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          const result = await backend.server.exportClientPack(server.id)
+                          setNotice(`客户端包已导出（${result.files} 个文件）：${result.path}`)
+                        } catch (cause) {
+                          setError(describeError(cause))
+                        }
+                      })()
+                    }}
+                  >
+                    导出客户端包
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => void run(() => backend.server.remove(server.id), '服务器已删除')} disabled={busy}>删除</Button>
                 </div>
               </div>

@@ -38,6 +38,11 @@ export const ServerCreateInputSchema = z.object({
   memoryMb: z.number().int().min(512).max(65536).default(2048),
   onlineMode: z.boolean().default(true),
   acceptEula: z.literal(true),
+  /**
+   * Version directory whose `mods/` is copied into the new server, so a loader
+   * server starts with the same mod set as the client instance. null = none.
+   */
+  copyModsFrom: z.string().max(128).nullable().default(null),
 })
 export type ServerCreateInput = z.infer<typeof ServerCreateInputSchema>
 
@@ -82,6 +87,11 @@ export const serverContract = defineContract({
     status: { input: ServerIdInputSchema, output: ServerInfoSchema.nullable() },
     logs: { input: ServerLogInputSchema, output: z.object({ lines: z.array(z.string()) }) },
     command: { input: ServerCommandInputSchema, output: z.object({ ok: z.boolean() }) },
+    /** Zips mods/config into dataRoot/exports for friends to import. */
+    exportClientPack: {
+      input: ServerIdInputSchema,
+      output: z.object({ path: z.string(), files: z.number().int().nonnegative() }),
+    },
   },
   events: {
     /** Emitted whenever a server's state or log tail changes. */

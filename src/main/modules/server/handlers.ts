@@ -22,5 +22,7 @@ export function makeHandlers(service: ServerService) {
     }),
     command: (input: ServerCommandInput): { ok: boolean } =>
       service.command(input.id, input.command),
+    exportClientPack: (input: ServerIdInput): Promise<{ path: string; files: number }> =>
+      service.exportClientPack(input.id),
   }
 }

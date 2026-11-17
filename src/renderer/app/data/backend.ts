@@ -435,6 +435,7 @@ const CH = {
   serverStatus: channelOf('server', 'status'),
   serverLogs: channelOf('server', 'logs'),
   serverCommand: channelOf('server', 'command'),
+  serverExportClientPack: channelOf('server', 'exportClientPack'),
   launchStatus: channelOf('launch', 'status'),
   launchPlan: channelOf('launch', 'plan'),
   launchStart: channelOf('launch', 'start'),
@@ -741,6 +742,7 @@ export interface Backend {
     status(id: string): Promise<ServerInfo | null>
     logs(id: string, lines?: number): Promise<{ lines: string[] }>
     command(id: string, command: string): Promise<{ ok: boolean }>
+    exportClientPack(id: string): Promise<{ path: string; files: number }>
     subscribeChanged(callback: (event: { id: string; state: string; pid: number | null }) => void): () => void
   }
   auth: {
@@ -1064,6 +1066,7 @@ export const ipcBackend: Backend = {
     status: (id) => invoke<ServerInfo | null>('服务器状态', CH.serverStatus, { id }),
     logs: (id, lines = 200) => invoke<{ lines: string[] }>('服务器日志', CH.serverLogs, { id, lines }),
     command: (id, command) => invoke<{ ok: boolean }>('发送服务器命令', CH.serverCommand, { id, command }),
+    exportClientPack: (id) => invoke<{ path: string; files: number }>('导出服务器客户端包', CH.serverExportClientPack, { id }),
     subscribeChanged: (callback) => on('mc:server:evt:changed', callback),
   },
   auth: {

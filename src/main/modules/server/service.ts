@@ -50,6 +50,19 @@ const INSTALLER_TIMEOUT_MS = 10 * 60_000
 const FABRIC_INSTALLER = { version: '1.0.1', url: 'https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar' }
 const QUILT_INSTALLER = { version: '0.11.2', url: 'https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-installer/0.11.2/quilt-installer-0.11.2.jar' }
 
+function countFiles(dir: string): number {
+  let count = 0
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) count += countFiles(path.join(dir, entry.name))
+      else count += 1
+    }
+  } catch {
+    return count
+  }
+  return count
+}
+
 /** Anything that could escape the servers directory is rejected up front. */
 function safeName(name: string): string {
   const trimmed = name.trim()
@@ -364,6 +377,23 @@ export class ServerService {
       createdAt: (this.options.now ?? Date.now)(),
     }
     fs.writeFileSync(path.join(dir, 'server.json'), JSON.stringify(meta, null, 2), 'utf8')
+
+    // Copy the client's mods first: a loader server without them would start
+    // vanilla and reject every modded player.
+    if (input.copyModsFrom) {
+      const sourceMods = path.join(mcRoot, 'versions', input.copyModsFrom, 'mods')
+      if (fs.existsSync(sourceMods)) {
+        fs.cpSync(sourceMods, path.join(dir, 'mods'), { recursive: true })
+        this.options.log.info('server mods copied', {
+          id,
+          from: input.copyModsFrom,
+          files: countFiles(path.join(dir, 'mods')),
+        })
+      } else {
+        this.options.log.warn('server mods source missing', { id, from: input.copyModsFrom })
+      }
+    }
+
     this.options.log.info('server created', {
       id,
       versionId: input.versionId,
@@ -601,6 +631,48 @@ export class ServerService {
     const runtime = this.runtimes.get(id)
     if (!runtime) return []
     return runtime.logs.slice(-lines)
+  }
+
+  /**
+   * Zips the server's mods/config into dataRoot/exports so a friend can drag the
+   * archive into the launcher and end up with exactly the same mod set.
+   * Uses the Windows built-in bsdtar (`tar -a` picks zip by extension).
+   */
+  async exportClientPack(id: string): Promise<{ path: string; files: number }> {
+    const found = this.readonlyById(id)
+    if (!found) throw new AppError('SERVER.NOT_FOUND', '服务器不存在')
+    const entries = ['mods', 'config', 'defaultconfigs', 'kubejs'].filter((name) =>
+      fs.existsSync(path.join(found.dir, name)),
+    )
+    if (entries.length === 0) {
+      throw new AppError('SERVER.NO_MODS', '服务器目录里没有 mods/config，无法导出客户端包')
+    }
+    const exportsDir = path.join(this.options.dataRoot, 'exports')
+    fs.mkdirSync(exportsDir, { recursive: true })
+    const safe = found.meta.name.replace(/[\\/:*?"<>|]/g, '_')
+    const out = path.join(exportsDir, `${safe}-${found.meta.id}.zip`)
+    fs.rmSync(out, { force: true })
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(
+        process.platform === 'win32' ? 'tar.exe' : 'tar',
+        ['-a', '-c', '-f', out, '-C', found.dir, ...entries],
+        { windowsHide: true },
+      )
+      let stderr = ''
+      proc.stderr?.on('data', (chunk: Buffer) => {
+        stderr += String(chunk)
+      })
+      proc.once('error', (error) =>
+        reject(new AppError('SERVER.EXPORT_FAILED', `打包失败：${error.message}`)),
+      )
+      proc.once('exit', (code) => {
+        if (code === 0) resolve()
+        else reject(new AppError('SERVER.EXPORT_FAILED', `打包失败：${stderr.slice(-400)}`))
+      })
+    })
+    const files = countFiles(path.join(found.dir, 'mods'))
+    this.options.log.info('server client pack exported', { id, path: out, files })
+    return { path: out, files }
   }
 
   async remove(id: string): Promise<{ ok: boolean }> {
