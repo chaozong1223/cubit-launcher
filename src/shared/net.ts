@@ -292,10 +292,18 @@ export const TestRelayOutputSchema = z.object({
 })
 export type TestRelayOutput = z.infer<typeof TestRelayOutputSchema>
 
+export const ShareServerInputSchema = z.object({
+  /** Must be 25565: short-code rooms agree on that port (shortcode.ts). */
+  port: z.number().int().min(1).max(65535),
+  mcVersion: z.string().max(64).nullable().default(null),
+})
+export type ShareServerInput = z.infer<typeof ShareServerInputSchema>
+
 export const contract = defineContract({
   id: 'net',
   methods: {
     create: { input: CreateRoomInputSchema, output: RoomInfoSchema },
+    shareServer: { input: ShareServerInputSchema, output: RoomInfoSchema },
     join: { input: JoinRoomInputSchema, output: RoomInfoSchema },
     leave: { input: z.void(), output: z.object({ ok: z.boolean() }) },
     status: { input: z.void(), output: RoomInfoSchema.nullable() },

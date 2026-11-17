@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ServerInfo, ServerVersion } from '@shared/server'
+import type { RoomInfo } from '@shared/net'
 import { useBackend } from '../data/BackendContext'
 import { describeError, type UiErrorInfo } from '../data/backend'
 import { useAsync } from '../data/useAsync'
-import { Badge, Banner, Button, Card, EmptyState, Field, Input } from '../ui'
+import { Badge, Banner, Button, Card, EmptyState, Field, Input, copyToClipboard } from '../ui'
 import { Icon } from '../icons'
 
 const STATE_LABEL: Record<ServerInfo['state'], string> = {
@@ -36,6 +37,31 @@ export function ServerPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<UiErrorInfo | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // Room created by "share this server"; the code is what friends type in 联机.
+  const [sharedRoom, setSharedRoom] = useState<RoomInfo | null>(null)
+
+  const share = async (server: ServerInfo): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    try {
+      const room = await backend.link.shareServer({
+        port: server.port,
+        mcVersion: server.mcVersion,
+      })
+      setSharedRoom(room)
+      setNotice(`已分享：房间码 ${room.code}`)
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copyShared = async (): Promise<void> => {
+    if (!sharedRoom) return
+    const ok = await copyToClipboard(sharedRoom.code)
+    setNotice(ok ? '房间码已复制' : '复制失败，请手动选中复制')
+  }
 
   // create form
   const [name, setName] = useState('')
@@ -222,6 +248,9 @@ export function ServerPage() {
                   ) : (
                     <Button size="sm" variant="primary" onClick={() => void run(() => backend.server.start(server.id), '服务端启动中')} disabled={busy}>启动</Button>
                   )}
+                  {server.state === 'running' && server.port === 25565 ? (
+                    <Button size="sm" variant="secondary" icon="link" onClick={() => void share(server)} disabled={busy}>分享到联机</Button>
+                  ) : null}
                   <Button size="sm" variant="ghost" onClick={() => void run(() => backend.server.remove(server.id), '服务器已删除')} disabled={busy}>删除</Button>
                 </div>
               </div>
@@ -229,6 +258,27 @@ export function ServerPage() {
           </div>
         )}
       </Card>
+
+      {sharedRoom ? (
+        <Card>
+          <div className="card__head">
+            <div>
+              <h2 className="card__title">已分享到联机</h2>
+              <div className="card__sub">把这个房间码发给朋友，对方在「联机」页粘贴后加入。</div>
+            </div>
+          </div>
+          <div className="invite-box">
+            <div>
+              <div className="invite-box__label">房间码</div>
+              <div className="invite-code">{sharedRoom.code}</div>
+              <div className="invite-box__hint">
+                朋友：联机页 → 加入 → 粘贴房间码 → 进游戏（会自动连到你的服务器）
+              </div>
+            </div>
+            <Button variant="primary" icon="copy" onClick={() => void copyShared()}>复制房间码</Button>
+          </div>
+        </Card>
+      ) : null}
 
       {current ? (
         <Card>

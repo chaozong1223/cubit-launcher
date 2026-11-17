@@ -83,6 +83,7 @@ import type {
   RoomInfo,
   RoomMember,
   RoomState,
+  ShareServerInput,
   TestRelayInput,
   TestRelayOutput,
   WorldInfo,
@@ -557,6 +558,7 @@ const CH = {
   downloadCancel: channelOf('download', 'cancel'),
   netStatus: channelOf('net', 'status'),
   netCreate: channelOf('net', 'create'),
+  netShareServer: channelOf('net', 'shareServer'),
   netJoin: channelOf('net', 'join'),
   netLeave: channelOf('net', 'leave'),
   netCopyInvite: channelOf('net', 'copyInvite'),
@@ -928,6 +930,7 @@ export interface Backend {
     channel: string
     status(): Promise<RoomInfo | null>
     create(input: CreateRoomInput): Promise<RoomInfo>
+    shareServer(input: ShareServerInput): Promise<RoomInfo>
     join(input: JoinRoomInput): Promise<RoomInfo>
     leave(): Promise<{ ok: boolean }>
     copyInvite(): Promise<CopyInviteOutput>
@@ -1308,6 +1311,7 @@ export const ipcBackend: Backend = {
     channel: 'mc:net:status / mc:net:evt:state',
     status: () => invoke<RoomInfo | null>('联机状态', CH.netStatus),
     create: (input) => invoke<RoomInfo>('创建房间', CH.netCreate, input),
+    shareServer: (input) => invoke<RoomInfo>('分享服务器到联机', CH.netShareServer, input),
     join: (input) => invoke<RoomInfo>('加入房间', CH.netJoin, input),
     leave: () => invoke<{ ok: boolean }>('离开房间', CH.netLeave),
     copyInvite: () => invoke<CopyInviteOutput>('复制邀请码', CH.netCopyInvite),

@@ -298,6 +298,92 @@ export class RoomService {
     }
   }
 
+  /**
+   * Share an already-running dedicated server over the short-code tunnel.
+   *
+   * The game-side `create` waits for a LAN world and polls for its port; a
+   * server is already listening, so the port is known up front and no world
+   * polling or launch watching is needed.
+   */
+  async shareServer(input: { port: number; mcVersion: string | null }): Promise<RoomInfo> {
+    if (this.role) return this.busySnapshot()
+    if (input.port !== SHORT_CODE_WORLD_PORT) {
+      throw new LinkError(
+        'WORLD_NOT_FOUND',
+        `短码联机约定 ${SHORT_CODE_WORLD_PORT} 端口；当前服务器在 ${input.port}，请把 server.properties 的 server-port 改成 ${SHORT_CODE_WORLD_PORT} 再分享`,
+      )
+    }
+    this.role = 'host'
+    this.state = 'creating'
+    this.closing = false
+    this.error = null
+    this.instanceId = null
+    this.world = { port: input.port, state: 'open', address: `${this.lanIp}:${input.port}` }
+    this.members = []
+    this.tunnelState = 'idle'
+    this.transport = 'none'
+    this.ticket = null
+    this.parsed = null
+    this.tunnelHandle = null
+    this.lanControlPort = null
+    this.aliasControlPort = null
+    this.peerPort = null
+    this.worldForwardReady = false
+    this.manual = null
+    this.tunnelFailure = null
+
+    this.identity = createRoomIdentity({
+      hostName: '房主',
+      mcVersion: input.mcVersion ?? 'unknown',
+      loader: 'vanilla',
+      maxMembers: this.maxMembers,
+    })
+    this.members = [this.hostMember()]
+
+    try {
+      if (
+        isWildcardHost(this.lanIp) ||
+        (!isPrivateIpv4(this.lanIp) && !isLoopbackHost(this.lanIp) && !isAllowedLanTargetSync(this.lanIp))
+      ) {
+        throw new LinkError('INTERNAL', `refusing to bind room control on ${this.lanIp}`)
+      }
+      this.hostControl = new HostControl({
+        code: this.identity.code,
+        token: this.identity.netSecret,
+        hostName: this.identity.hostName,
+        mcVersion: this.identity.mc.version,
+        loader: this.identity.mc.loader,
+        maxMembers: this.maxMembers,
+        log: this.options.log,
+        heartbeatTimeoutMs: this.heartbeatTimeoutMs,
+        onMembers: (members) => {
+          this.members = members
+          this.state = members.some((member) => member.role === 'member') ? 'connected' : 'waiting'
+          this.emit()
+        },
+        onError: (code, message) => {
+          this.options.log.warn('room control error', { code, message })
+        },
+      })
+      this.lanControlPort = await this.hostControl.listen(this.lanIp, 0)
+      await this.startHostTunnel()
+      this.ticket = this.issueCurrentTicket()
+      this.state = 'waiting'
+      // startHostTunnel mutates tunnelState; re-read it through the union.
+      this.transport = (this.tunnelState as TunnelState) === 'up' ? 'p2p' : 'lan'
+      this.roomTimer = setTimeout(() => { void this.leave() }, 12 * 60 * 60 * 1000)
+      this.roomTimer.unref?.()
+      this.emit()
+      return this.snapshot()
+    } catch (error) {
+      await this.cleanupHost()
+      this.state = 'error'
+      this.error = this.localize(toLinkError(error, 'ROOM_NOT_FOUND'))
+      this.emit()
+      return this.snapshot()
+    }
+  }
+
   async join(input: { ticket: string; instanceId: string | null }): Promise<RoomInfo> {
     // A six-character room code needs no ticket: the tunnel identity is derived
     // from the code itself (see shortcode.ts).

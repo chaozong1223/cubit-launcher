@@ -12,6 +12,7 @@ import type {
   PublicIpProbe,
   RoomInfo,
   SetWorldPortInput,
+  ShareServerInput,
   TestRelayInput,
   TestRelayOutput,
 } from '@shared/net'
@@ -25,6 +26,7 @@ import type { RoomService } from './room'
 export function makeHandlers(service: RoomService) {
   return {
     create: (input: CreateRoomInput): Promise<RoomInfo> => service.create(input),
+    shareServer: (input: ShareServerInput): Promise<RoomInfo> => service.shareServer(input),
     join: (input: JoinRoomInput): Promise<RoomInfo> => service.join(input),
     leave: (): Promise<{ ok: boolean }> => service.leave(),
     status: (): RoomInfo | null => service.status(),
